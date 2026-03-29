@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_settings ADD COLUMN allow_customer_cancel boolean NOT NULL DEFAULT false;

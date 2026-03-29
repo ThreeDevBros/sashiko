@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_settings ADD COLUMN login_bg_color text DEFAULT '#f97316';

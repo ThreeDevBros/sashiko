@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_settings ADD COLUMN service_fee_rate numeric NOT NULL DEFAULT 5;

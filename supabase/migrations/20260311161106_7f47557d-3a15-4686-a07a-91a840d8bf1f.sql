@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_settings ADD COLUMN login_logo_size integer DEFAULT 100;

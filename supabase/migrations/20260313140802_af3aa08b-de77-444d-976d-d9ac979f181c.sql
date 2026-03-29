@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_settings ADD COLUMN quick_actions_config jsonb NOT NULL DEFAULT '{"book_table": true, "my_profile": true, "my_orders": true}'::jsonb;

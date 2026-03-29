@@ -1,0 +1,1 @@
+ALTER TABLE public.branches REPLICA IDENTITY FULL;

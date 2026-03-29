@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_settings ADD COLUMN reservation_duration_minutes integer NOT NULL DEFAULT 120;

@@ -1,0 +1,290 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  /* ─── LIGHT THEME ─────────────────────────────────────── */
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 0 0% 17%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 17%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 17%;
+
+    --primary: 43 48% 58%;
+    --primary-foreground: 0 0% 17%;
+
+    --secondary: 43 30% 95%;
+    --secondary-foreground: 0 0% 17%;
+
+    --muted: 43 20% 94%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 0 0% 17%;
+    --accent-foreground: 43 48% 58%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 43 20% 88%;
+    --input: 43 20% 88%;
+    --ring: 43 48% 58%;
+
+    --radius: 0.5rem;
+    
+    --gradient-hero: linear-gradient(135deg, hsl(43 48% 58%) 0%, hsl(43 48% 48%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(43 30% 98%) 100%);
+    --shadow-card: 0 4px 20px -4px hsl(43 48% 58% / 0.15);
+    --shadow-lg: 0 10px 40px -10px hsl(43 48% 58% / 0.25);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 17%;
+    --sidebar-primary: 43 48% 58%;
+    --sidebar-primary-foreground: 0 0% 17%;
+    --sidebar-accent: 43 30% 95%;
+    --sidebar-accent-foreground: 0 0% 17%;
+    --sidebar-border: 43 20% 88%;
+    --sidebar-ring: 43 48% 58%;
+  }
+
+  /* ─── DARK GREY THEME (Comfort Dark) ─────────────────── */
+  .dark-grey {
+    --background: 240 4% 11%;       /* #1C1C1E — soft dark grey */
+    --foreground: 0 0% 93%;         /* soft white, not pure */
+
+    --card: 240 4% 17%;             /* #2A2A2E — slightly lighter */
+    --card-foreground: 0 0% 93%;
+
+    --popover: 240 4% 14%;
+    --popover-foreground: 0 0% 93%;
+
+    --primary: 43 96% 56%;          /* gold accent — same as dark */
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 240 4% 20%;
+    --secondary-foreground: 0 0% 87%;
+
+    --muted: 240 4% 18%;
+    --muted-foreground: 0 0% 62%;
+
+    --accent: 43 96% 56%;
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 4% 24%;           /* #3A3A3F — subtle grey borders */
+    --input: 240 4% 24%;
+    --ring: 43 96% 56%;
+
+    --radius: 0.5rem;
+
+    --gradient-hero: linear-gradient(135deg, hsl(43 96% 56%) 0%, hsl(43 96% 48%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(240 4% 17%) 0%, hsl(240 4% 14%) 100%);
+    --shadow-card: 0 4px 20px -4px hsl(0 0% 0% / 0.4);
+    --shadow-lg: 0 10px 40px -10px hsl(0 0% 0% / 0.5);
+
+    --sidebar-background: 240 4% 9%;
+    --sidebar-foreground: 0 0% 93%;
+    --sidebar-primary: 43 96% 56%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 240 4% 20%;
+    --sidebar-accent-foreground: 0 0% 87%;
+    --sidebar-border: 240 4% 24%;
+    --sidebar-ring: 43 96% 56%;
+  }
+
+  /* ─── TRUE BLACK THEME (Deep Dark) ───────────────────── */
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 5%;
+    --card-foreground: 0 0% 91%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 91%;
+
+    --primary: 43 96% 56%;
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 91%;
+
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 43 96% 56%;
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 43 96% 56%;
+    
+    --gradient-hero: linear-gradient(135deg, hsl(43 96% 56%) 0%, hsl(43 96% 48%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 7%) 0%, hsl(0 0% 10%) 100%);
+    --shadow-card: 0 4px 20px -4px hsl(43 96% 56% / 0.15);
+    --shadow-lg: 0 10px 40px -10px hsl(43 96% 56% / 0.25);
+
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 0 0% 91%;
+    --sidebar-primary: 43 96% 56%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 91%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 43 96% 56%;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 4px hsl(var(--primary) / 0.2);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 24px hsl(var(--primary) / 0.8);
+    transform: scale(1.08);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  /* Smooth theme transition for all color-related properties */
+  html {
+    transition: background-color 0.3s ease, color 0.3s ease;
+    /* Prevent layout shift when overlays lock body scroll */
+    scrollbar-gutter: stable;
+    overflow-y: scroll;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    /* Safe area for iOS devices with notches/Dynamic Island */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  #root {
+    min-height: 100vh;
+  }
+  
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Theme transition for common elements */
+  .theme-transition,
+  [class*="bg-"],
+  [class*="text-"],
+  [class*="border-"] {
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  /* Smooth transition on the root itself when switching themes */
+  :root, .dark, .dark-grey {
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  /* Disable transitions during theme change to prevent flash */
+  html.theme-changing * {
+    transition: none !important;
+  }
+
+  /* Hide Google Maps attribution, terms, and controls */
+  .gm-style-cc,
+  .gm-fullscreen-control,
+  .gm-bundled-control,
+  .gm-style-mtc,
+  .gm-svpc,
+  a[title="Report errors in the road map or imagery to Google"],
+  a[title="Open this area in Google Maps (opens a new window)"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Google Places Autocomplete dropdown — must be above modals/drawers */
+.pac-container {
+  z-index: 999999 !important;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  font-family: inherit;
+  margin-top: 4px;
+}
+
+.pac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-top: 1px solid hsl(var(--border));
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+}
+
+.pac-item:first-child {
+  border-top: none;
+}
+
+.pac-item:hover {
+  background-color: hsl(var(--accent) / 0.1);
+}
+
+.pac-item-query {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+
+.pac-matched {
+  font-weight: 700;
+}
+
+.pac-icon {
+  display: none;
+}
+
+/* Dark mode overrides */
+.dark .pac-container {
+  background-color: hsl(var(--popover));
+  border-color: hsl(var(--border));
+}
+
+.dark .pac-item {
+  color: hsl(var(--popover-foreground));
+  border-color: hsl(var(--border));
+}
+
+.dark .pac-item:hover {
+  background-color: hsl(var(--accent) / 0.15);
+}
+
+.dark .pac-item-query {
+  color: hsl(var(--popover-foreground));
+}
+

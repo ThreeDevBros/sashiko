@@ -1,0 +1,1 @@
+ALTER TABLE public.branches ADD COLUMN is_reservations_paused boolean NOT NULL DEFAULT false;
