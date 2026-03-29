@@ -95,7 +95,7 @@ serve(async (req) => {
       .single();
     const tenantName = settings?.tenant_name || 'Sashiko Asian Fusion';
 
-    // --- EMAIL via Lovable email queue ---
+    // --- EMAIL via transactional email queue ---
     if (channel === 'email' || channel === 'both') {
       const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
       const emailMap = new Map(authUsers?.map((u: any) => [u.id, u.email]) || []);
