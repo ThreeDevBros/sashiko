@@ -1279,7 +1279,7 @@ const Checkout = () => {
           const form = document.querySelector('form');
           if (form) form.requestSubmit();
           // The form's handleSubmit will manage its own guard
-        }} disabled={loading || isPlacingOrderRef.current}
+        }} disabled={loading || isPlacingOrderRef.current || (currentPaymentType === 'wallet' && !stripeReady)}
         className={`w-full mt-4 ${
           (!loading && (
             branchIsPaused ||
@@ -1287,6 +1287,7 @@ const Checkout = () => {
             (orderType === 'delivery' && !selectedAddressId) ||
             (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ||
             (isGuest && currentPaymentType === 'card' && !guestCardValid) ||
+            (currentPaymentType === 'wallet' && !stripeReady) ||
             (isGuest && (!guestInfo.name.trim() || guestInfo.name.trim().length < 2 || !guestInfo.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestInfo.email.trim()) || !guestInfo.phone.trim()))
           )) ? 'opacity-50' : ''
         }`}>
