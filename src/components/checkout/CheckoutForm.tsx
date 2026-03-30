@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, ChevronRight, CreditCard, Banknote, Smartphone, Plus } from 'lucide-react';
+import { Loader2, ChevronRight, CreditCard, Banknote, Plus } from 'lucide-react';
+import { ApplePayIcon, GooglePayIcon } from '@/components/icons/PaymentIcons';
 import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
