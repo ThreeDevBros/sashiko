@@ -18,6 +18,7 @@ import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
 
 import { useBranding } from "@/hooks/useBranding";
 import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
+import { nativeGoogleSignIn } from "@/lib/nativeGoogleSignIn";
 
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters")
@@ -169,13 +170,7 @@ const Auth = () => {
 
   const handleGoogleSignIn = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
-      });
-
+      const { error } = await nativeGoogleSignIn();
       if (error) throw error;
     } catch (error: any) {
       toast.error("Failed to sign in with Google. Please try again.");

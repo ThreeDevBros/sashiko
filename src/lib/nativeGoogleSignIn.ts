@@ -1,0 +1,48 @@
+import { Capacitor } from '@capacitor/core';
+import { supabase } from '@/integrations/supabase/client';
+
+/**
+ * Performs native Google Sign In on iOS/Android via Capacitor,
+ * then exchanges the ID token with Supabase.
+ * Falls back to web OAuth on non-native platforms.
+ */
+export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
+  if (!Capacitor.isNativePlatform()) {
+    // Fallback to web OAuth
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+    return { error: error ? new Error(error.message) : null };
+  }
+
+  try {
+    const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+
+    const result = await GoogleAuth.signIn();
+
+    const idToken = result.authentication?.idToken;
+    if (!idToken) {
+      return { error: new Error('No ID token received from Google') };
+    }
+
+    const { error } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: idToken,
+    });
+
+    if (error) {
+      return { error: new Error(error.message) };
+    }
+
+    return { error: null };
+  } catch (err: any) {
+    // User cancelled
+    if (err?.message?.includes('canceled') || err?.message?.includes('cancelled') || err?.code === '12501') {
+      return { error: null };
+    }
+    return { error: err instanceof Error ? err : new Error(String(err)) };
+  }
+}
