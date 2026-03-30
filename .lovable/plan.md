@@ -1,49 +1,43 @@
 
 
-# Fix Native App Web Redirects
+## Route Protection for Admin, Staff, and Driver Routes
 
-## Problem
-Several functions redirect the native iOS app to external web pages (Supabase OAuth, external URLs), breaking the native experience. The main offenders:
+### Problem
+In `App.tsx` (line 81), the route-protection logic returns early when there is no authenticated user:
+```
+if (!user || isAuthRoute || isQrMenuRoute) return;
+```
+This means **unauthenticated guests can navigate directly to `/admin`, `/staff`, and `/driver` routes**. While the layout components (AdminLayout, StaffLayout, DriverLayout) each show an "Access Denied" screen, the page components still load and the user is never redirected to `/auth`.
 
-1. **Google Sign In** (`Auth.tsx`) — uses `supabase.auth.signInWithOAuth` which opens a web browser for OAuth flow
-2. **Apple Sign In fallback** (`nativeAppleSignIn.ts`) — already fixed for iOS, but the non-iOS fallback still uses web OAuth
-3. **Password Reset** (`Auth.tsx`) — `resetPasswordForEmail` sends an email with a link that opens in a web browser (acceptable behavior)
-4. **`window.open` calls** for Google Maps directions and phone calls — these are intentional and fine on native (they open Maps app / Phone app)
+### Solution
+Modify the `checkRoleAccess` function in `App.tsx` to redirect unauthenticated users to `/auth` when they try to access any protected route prefix (`/admin`, `/staff`, `/driver`).
 
-## What Needs Fixing
+### Changes
 
-### 1. Google Sign In — Native Implementation (Critical)
-**Current**: `supabase.auth.signInWithOAuth({ provider: 'google' })` opens Safari/web browser on iOS.
+**File: `src/App.tsx`** (lines 78-97)
+- In the `checkRoleAccess` effect, after checking for no user, add a guard: if the current path starts with `/admin`, `/staff`, or `/driver`, redirect to `/auth`.
+- This catches guests before any layout or page component renders.
 
-**Fix**: Create `src/lib/nativeGoogleSignIn.ts` similar to `nativeAppleSignIn.ts`:
-- On iOS/Android: Use `@codetrix-studio/capacitor-google-auth` plugin for native Google Sign In
-- Calls `GoogleAuth.signIn()` to get the ID token natively
-- Exchanges the token with Supabase via `supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })`
-- Falls back to web OAuth on non-native platforms
+```typescript
+const checkRoleAccess = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (isAuthRoute || isQrMenuRoute) return;
 
-**Update `Auth.tsx`**: Replace `handleGoogleSignIn` to call the new native function.
+  const isProtectedPanel = location.pathname.startsWith('/admin') ||
+                           location.pathname.startsWith('/staff') ||
+                           location.pathname.startsWith('/driver');
 
-### 2. Install Capacitor Google Auth Plugin
-- Add `@codetrix-studio/capacitor-google-auth` dependency
-- Requires a Google OAuth Client ID (iOS type) configured in the Google Cloud Console
+  if (!user) {
+    if (isProtectedPanel) {
+      navigate('/auth', { replace: true });
+    }
+    return;
+  }
 
-### 3. Manual Steps Required (by you)
-- Create an **iOS OAuth Client ID** in Google Cloud Console (type: iOS, bundle ID: `com.sashiko.app`)
-- The `clientId` from this will be used in the plugin configuration
-- Add the reversed client ID as a URL scheme in Xcode (`Info.plist`)
+  // existing role-check logic continues...
+};
+```
 
-## Files to Create/Edit
-
-| File | Change |
-|------|--------|
-| `src/lib/nativeGoogleSignIn.ts` | New file — native Google Sign In with Capacitor plugin, fallback to web OAuth |
-| `src/pages/Auth.tsx` | Update `handleGoogleSignIn` to use native function |
-| `capacitor.config.ts` | Add Google Auth plugin configuration |
-| `package.json` | Add `@codetrix-studio/capacitor-google-auth` dependency |
-
-## Not Changing (Intentional Behavior)
-- `window.open` for Google Maps links — opens native Maps app
-- `window.open` for `tel:` links — opens native Phone app
-- Password reset email links — expected to open in browser
-- `window.location.assign('/')` in ErrorBoundary — navigates within the app
+This is a single-file, minimal change. The existing layout-level checks remain as a second layer of defense for authenticated users without the correct role.
 
