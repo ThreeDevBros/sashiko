@@ -1051,7 +1051,7 @@ const Checkout = () => {
             })()
           ) : stripePromise && clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm 
+              <StripeCheckoutForm 
                 orderType={orderType} 
                 onOrderTypeChange={setOrderType} 
                 selectedAddressId={selectedAddressId} 
