@@ -653,7 +653,7 @@ export const CheckoutForm = ({
                       className={`w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto ${paymentType === 'wallet' && availableWallets.applePay ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
                     >
                         <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                          <Smartphone className="h-5 w-5 text-primary" />
+                          <ApplePayIcon className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-sm">Apple Pay</p>
