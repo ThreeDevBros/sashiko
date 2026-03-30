@@ -52,7 +52,7 @@ interface CheckoutFormProps {
   guestAddress?: string;
   guestDeliveryLat?: number;
   guestDeliveryLng?: number;
-  onPaymentTypeChange?: (type: 'card' | 'wallet' | 'cash') => void;
+  onPaymentTypeChange?: (type: 'card' | 'wallet' | 'cash', walletType?: 'applePay' | 'googlePay') => void;
   cashbackAmount?: number;
   onGuestCardValidityChange?: (valid: boolean) => void;
   guestCardSubmitRef?: React.MutableRefObject<(() => Promise<void>) | null>;
