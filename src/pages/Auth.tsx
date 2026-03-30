@@ -18,6 +18,7 @@ import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
 
 import { useBranding } from "@/hooks/useBranding";
 import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
+import { nativeGoogleSignIn } from "@/lib/nativeGoogleSignIn";
 
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters")
