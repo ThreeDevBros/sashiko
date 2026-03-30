@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { useElements, useStripe } from '@stripe/react-stripe-js';
+import type { Stripe, StripeElements } from '@stripe/stripe-js';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -54,6 +55,8 @@ interface CheckoutFormProps {
   tax?: number;
   orderTotal?: number;
   walletSystemReady?: boolean;
+  stripe?: Stripe | null;
+  elements?: StripeElements | null;
 }
 export const CheckoutForm = ({
   orderType,
@@ -81,17 +84,9 @@ export const CheckoutForm = ({
   tax = 0,
   orderTotal = 0,
   walletSystemReady = false,
+  stripe = null,
+  elements = null,
 }: CheckoutFormProps) => {
-  // Only use Stripe hooks when not in guest mode (when Elements wrapper is available)
-  let stripe: any = null;
-  let elements: any = null;
-  
-  try {
-    stripe = useStripe();
-    elements = useElements();
-  } catch (e) {
-    // Hooks not available (guest mode without Elements wrapper)
-  }
   
   const {
     toast
@@ -930,4 +925,14 @@ export const CheckoutForm = ({
         </p>}
 
     </form>;
+};
+
+/**
+ * Wrapper that safely calls useStripe/useElements hooks.
+ * Use this ONLY when rendered inside an <Elements> provider.
+ */
+export const StripeCheckoutForm = (props: Omit<CheckoutFormProps, 'stripe' | 'elements'>) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  return <CheckoutForm {...props} stripe={stripe} elements={elements} />;
 };

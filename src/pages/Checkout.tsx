@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
-import { CheckoutForm } from '@/components/checkout/CheckoutForm';
+import { CheckoutForm, StripeCheckoutForm } from '@/components/checkout/CheckoutForm';
 import { DeliveryMap } from '@/components/checkout/DeliveryMap';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -1051,7 +1051,7 @@ const Checkout = () => {
             })()
           ) : stripePromise && clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm 
+              <StripeCheckoutForm 
                 orderType={orderType} 
                 onOrderTypeChange={setOrderType} 
                 selectedAddressId={selectedAddressId} 
@@ -1081,7 +1081,7 @@ const Checkout = () => {
           ) : (
             currentPaymentType === 'wallet' && stripePromise ? (
               <Elements stripe={stripePromise}>
-                <CheckoutForm 
+                <StripeCheckoutForm 
                   orderType={orderType} 
                   onOrderTypeChange={setOrderType} 
                   selectedAddressId={selectedAddressId} 
