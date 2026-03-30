@@ -62,6 +62,7 @@ interface CheckoutFormProps {
   onBeforeNavigate?: () => void;
   cashAllowed?: boolean;
   tax?: number;
+  orderTotal?: number;
 }
 export const CheckoutForm = ({
   orderType,
