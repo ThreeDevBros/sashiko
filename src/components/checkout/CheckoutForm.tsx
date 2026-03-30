@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
+import { useElements, useStripe } from '@stripe/react-stripe-js';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -15,17 +16,6 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, Dr
 import { AddCardForm } from './AddCardForm';
 import { GuestCardPayment } from './GuestCardPayment';
 import { useSavedCards } from '@/hooks/useSavedCards';
-
-// Conditionally import Stripe hooks - they may not be available for guest checkout
-let useStripe: any = () => null;
-let useElements: any = () => null;
-try {
-  const stripeReact = require('@stripe/react-stripe-js');
-  useStripe = stripeReact.useStripe;
-  useElements = stripeReact.useElements;
-} catch (e) {
-  // Stripe not available, will use null
-}
 
 interface Branch {
   id: string;
@@ -63,6 +53,7 @@ interface CheckoutFormProps {
   cashAllowed?: boolean;
   tax?: number;
   orderTotal?: number;
+  walletSystemReady?: boolean;
 }
 export const CheckoutForm = ({
   orderType,
@@ -89,6 +80,7 @@ export const CheckoutForm = ({
   cashAllowed = true,
   tax = 0,
   orderTotal = 0,
+  walletSystemReady = false,
 }: CheckoutFormProps) => {
   // Only use Stripe hooks when not in guest mode (when Elements wrapper is available)
   let stripe: any = null;
@@ -456,9 +448,8 @@ export const CheckoutForm = ({
         });
 
         const canMakePayment = await paymentRequest.canMakePayment();
-        if (!canMakePayment) {
-          // Fallback: confirm directly with wallet via confirmCardPayment
-          // This handles native iOS where canMakePayment may not work in WebView
+        const isNativeWalletPlatform = ['ios', 'android'].includes(Capacitor.getPlatform());
+        if (!canMakePayment && !isNativeWalletPlatform) {
           setError('Wallet payment is not available. Please try card payment instead.');
           return;
         }
@@ -520,7 +511,7 @@ export const CheckoutForm = ({
         });
 
         // Show native payment sheet
-        paymentRequest.show();
+        await paymentRequest.show();
       } else {
         // Online payment via Stripe (card)
         if (!stripe) {
@@ -659,7 +650,7 @@ export const CheckoutForm = ({
             <DrawerTrigger asChild>
               <button 
                 type="button"
-                className="w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 border-border bg-card hover:bg-accent/50 cursor-pointer transition-all duration-300 text-left"
+                className="w-full min-h-16 touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 border-border bg-card hover:bg-accent/50 cursor-pointer transition-all duration-300 text-left"
               >
                 <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
                   {paymentType === 'cash' ? <Banknote className="h-5 w-5 text-primary" /> : paymentType === 'wallet' ? (availableWallets.applePay ? <ApplePayIcon className="h-5 w-5 text-primary" /> : <GooglePayIcon className="h-5 w-5 text-primary" />) : <CreditCard className="h-5 w-5 text-primary" />}
@@ -676,13 +667,13 @@ export const CheckoutForm = ({
               </button>
             </DrawerTrigger>
             
-            <DrawerContent className="z-[100]">
-              <DrawerHeader>
+            <DrawerContent className="z-[100] max-h-[86vh] rounded-t-2xl">
+              <DrawerHeader className="pb-2">
                 <DrawerTitle>Select Payment Method</DrawerTitle>
-                <DrawerDescription>Choose how you'd like to pay</DrawerDescription>
+                <DrawerDescription>Choose the option that works best for this order</DrawerDescription>
               </DrawerHeader>
               
-              <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto overscroll-contain" data-vaul-no-drag>
+              <div className="p-4 space-y-4 max-h-[64vh] overflow-y-auto overscroll-contain" data-vaul-no-drag>
                 {/* Saved Cards Section - Only for logged-in users */}
                 {!isGuest && savedCards.length > 0 && <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Saved Cards</h3>
@@ -755,22 +746,24 @@ export const CheckoutForm = ({
                     {availableWallets.applePay && <button 
                       type="button"
                       data-vaul-no-drag
+                      disabled={!walletSystemReady}
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
+                        if (!walletSystemReady) return;
                         e.preventDefault();
                         e.stopPropagation();
                         setPaymentType('wallet');
                         setSelectedCard(null);
                         setIsPaymentDrawerOpen(false);
                       }} 
-                      className={`w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto ${paymentType === 'wallet' && availableWallets.applePay ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
+                      className={`w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto disabled:opacity-50 disabled:cursor-not-allowed ${paymentType === 'wallet' && availableWallets.applePay ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
                     >
                         <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
                           <ApplePayIcon className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-sm">Apple Pay</p>
-                          <p className="text-xs text-muted-foreground">Pay with Apple Pay</p>
+                          <p className="text-xs text-muted-foreground">{walletSystemReady ? 'Pay with Apple Pay' : 'Preparing wallet payment...'}</p>
                         </div>
                         {paymentType === 'wallet' && availableWallets.applePay && <ChevronRight className="h-5 w-5 text-primary" />}
                       </button>}
@@ -778,22 +771,24 @@ export const CheckoutForm = ({
                     {availableWallets.googlePay && <button 
                       type="button"
                       data-vaul-no-drag
+                      disabled={!walletSystemReady}
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
+                        if (!walletSystemReady) return;
                         e.preventDefault();
                         e.stopPropagation();
                         setPaymentType('wallet');
                         setSelectedCard(null);
                         setIsPaymentDrawerOpen(false);
                       }} 
-                      className={`w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto ${paymentType === 'wallet' && availableWallets.googlePay && !availableWallets.applePay ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
+                      className={`w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto disabled:opacity-50 disabled:cursor-not-allowed ${paymentType === 'wallet' && availableWallets.googlePay && !availableWallets.applePay ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
                     >
                         <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
                           <GooglePayIcon className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-sm">Google Pay</p>
-                          <p className="text-xs text-muted-foreground">Pay with Google Pay</p>
+                          <p className="text-xs text-muted-foreground">{walletSystemReady ? 'Pay with Google Pay' : 'Preparing wallet payment...'}</p>
                         </div>
                         {paymentType === 'wallet' && availableWallets.googlePay && !availableWallets.applePay && <ChevronRight className="h-5 w-5 text-primary" />}
                       </button>}
@@ -832,9 +827,9 @@ export const CheckoutForm = ({
                 )}
               </div>
               
-              <DrawerFooter className="pt-2">
+              <DrawerFooter className="pt-2 pb-4">
                 <DrawerClose asChild>
-                  <Button variant="outline" className="w-full touch-manipulation">Cancel</Button>
+                  <Button variant="outline" className="w-full touch-manipulation">Done</Button>
                 </DrawerClose>
               </DrawerFooter>
             </DrawerContent>
