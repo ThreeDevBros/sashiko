@@ -1065,9 +1065,10 @@ const Checkout = () => {
                 scheduledDateTime={scheduledDateTime}
                 deliveryFee={deliveryFee}
                 onBeforeNavigate={() => { isNavigatingAway.current = true; }}
-                cashAllowed={cashAllowed}
-                tax={tax}
-              />
+                 cashAllowed={cashAllowed}
+                 tax={tax}
+                 orderTotal={grandTotal}
+               />
             </Elements>
           ) : (
             <CheckoutForm 
