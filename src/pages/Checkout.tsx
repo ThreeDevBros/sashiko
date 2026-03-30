@@ -204,9 +204,9 @@ const Checkout = () => {
     return orderType === 'pickup' ? branchCashSettings.allow_cash_pickup : branchCashSettings.allow_cash_delivery;
   }, [branchCashSettings, orderType]);
 
-  // Load Stripe publishable key only when card payment is selected
+  // Load Stripe publishable key when card or wallet payment is selected
   useEffect(() => {
-    if (currentPaymentType !== 'card') return;
+    if (currentPaymentType !== 'card' && currentPaymentType !== 'wallet') return;
     if (stripePromise) return; // Already loaded
     const loadStripeKey = async () => {
       try {
@@ -994,13 +994,17 @@ const Checkout = () => {
               guestAddress={activeLocation?.address || ''}
               guestDeliveryLat={activeLocation?.latitude}
               guestDeliveryLng={activeLocation?.longitude}
-              onPaymentTypeChange={(type) => {
+              onPaymentTypeChange={(type, walletType) => {
                 paymentTypeRef.current = type;
                 setCurrentPaymentType(type);
-                setButtonText(type === 'cash' 
-                  ? { loading: 'Placing Order...', action: 'Place Order' }
-                  : { loading: 'Processing Payment...', action: 'Pay Now' }
-                );
+                if (type === 'cash') {
+                  setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
+                } else if (type === 'wallet') {
+                  const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
+                  setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
+                } else {
+                  setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
+                }
               }}
               cashbackAmount={0}
               onGuestCardValidityChange={setGuestCardValid}
@@ -1026,13 +1030,17 @@ const Checkout = () => {
                 hasClientSecret={!!clientSecret} 
                 canDeliver={canDeliver}
                 clientSecret={clientSecret}
-                onPaymentTypeChange={(type) => {
+                onPaymentTypeChange={(type, walletType) => {
                   paymentTypeRef.current = type;
                   setCurrentPaymentType(type);
-                  setButtonText(type === 'cash' 
-                    ? { loading: 'Placing Order...', action: 'Place Order' }
-                    : { loading: 'Processing Payment...', action: 'Pay Now' }
-                  );
+                  if (type === 'cash') {
+                    setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
+                  } else if (type === 'wallet') {
+                    const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
+                    setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
+                  } else {
+                    setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
+                  }
                 }}
                 cashbackAmount={cashbackDiscount}
                 guestAddress={activeLocation?.address || ''}
@@ -1058,13 +1066,17 @@ const Checkout = () => {
               branch={branch} 
               hasClientSecret={false} 
               canDeliver={canDeliver}
-              onPaymentTypeChange={(type) => {
+              onPaymentTypeChange={(type, walletType) => {
                 paymentTypeRef.current = type;
                 setCurrentPaymentType(type);
-                setButtonText(type === 'cash' 
-                  ? { loading: 'Placing Order...', action: 'Place Order' }
-                  : { loading: 'Processing Payment...', action: 'Pay Now' }
-                );
+                if (type === 'cash') {
+                  setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
+                } else if (type === 'wallet') {
+                  const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
+                  setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
+                } else {
+                  setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
+                }
               }}
               cashbackAmount={cashbackDiscount}
               guestAddress={activeLocation?.address || ''}

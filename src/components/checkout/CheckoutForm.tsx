@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, ChevronRight, CreditCard, Banknote, Smartphone, Plus } from 'lucide-react';
+import { Loader2, ChevronRight, CreditCard, Banknote, Plus } from 'lucide-react';
+import { ApplePayIcon, GooglePayIcon } from '@/components/icons/PaymentIcons';
 import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,7 +52,7 @@ interface CheckoutFormProps {
   guestAddress?: string;
   guestDeliveryLat?: number;
   guestDeliveryLng?: number;
-  onPaymentTypeChange?: (type: 'card' | 'wallet' | 'cash') => void;
+  onPaymentTypeChange?: (type: 'card' | 'wallet' | 'cash', walletType?: 'applePay' | 'googlePay') => void;
   cashbackAmount?: number;
   onGuestCardValidityChange?: (valid: boolean) => void;
   guestCardSubmitRef?: React.MutableRefObject<(() => Promise<void>) | null>;
@@ -117,10 +118,7 @@ export const CheckoutForm = ({
   const [isAddingNewCard, setIsAddingNewCard] = useState(false);
   const [showGuestCardForm, setShowGuestCardForm] = useState(false);
 
-  // Notify parent when payment type changes
-  useEffect(() => {
-    onPaymentTypeChange?.(paymentType);
-  }, [paymentType, onPaymentTypeChange]);
+  // (moved below availableWallets declaration)
   
   // Wrapper function to handle address selection and capture location data
   const handleAddressSelect = (addressId: string, locationData?: { latitude: number; longitude: number; address: string }) => {
@@ -140,6 +138,13 @@ export const CheckoutForm = ({
     applePay: false,
     googlePay: false
   });
+
+  // Notify parent when payment type changes
+  useEffect(() => {
+    const walletType = availableWallets.applePay ? 'applePay' as const : 'googlePay' as const;
+    onPaymentTypeChange?.(paymentType, paymentType === 'wallet' ? walletType : undefined);
+  }, [paymentType, onPaymentTypeChange, availableWallets]);
+
   const { savedCards: prefetchedCards, isLoading: cardsLoading, refreshCards } = useSavedCards();
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
@@ -154,8 +159,6 @@ export const CheckoutForm = ({
   }, [prefetchedCards, cardsLoading]);
   // Check available wallets - native iOS always gets Apple Pay
   useEffect(() => {
-    if (isGuest) return;
-    
     // On native iOS, Apple Pay is available via the device regardless of Stripe's web detection
     const isNativeIos = Capacitor.getPlatform() === 'ios';
     const isNativeAndroid = Capacitor.getPlatform() === 'android';
@@ -203,7 +206,7 @@ export const CheckoutForm = ({
       };
       checkWallets();
     }
-  }, [stripe, isGuest]);
+  }, [stripe]);
 
   // Load user's preferred payment method and saved cards (skip for guests)
   useEffect(() => {
@@ -550,7 +553,7 @@ export const CheckoutForm = ({
                 className="w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 border-border bg-card hover:bg-accent/50 cursor-pointer transition-all duration-300 text-left"
               >
                 <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                  {paymentType === 'cash' ? <Banknote className="h-5 w-5 text-primary" /> : paymentType === 'wallet' ? <Smartphone className="h-5 w-5 text-primary" /> : <CreditCard className="h-5 w-5 text-primary" />}
+                  {paymentType === 'cash' ? <Banknote className="h-5 w-5 text-primary" /> : paymentType === 'wallet' ? (availableWallets.applePay ? <ApplePayIcon className="h-5 w-5 text-primary" /> : <GooglePayIcon className="h-5 w-5 text-primary" />) : <CreditCard className="h-5 w-5 text-primary" />}
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-sm">
@@ -636,8 +639,8 @@ export const CheckoutForm = ({
                   </button>
                 </div>
 
-                {/* Digital Wallets - Only for logged-in users */}
-                {!isGuest && (availableWallets.applePay || availableWallets.googlePay) && <div className="space-y-2">
+                {/* Digital Wallets */}
+                {(availableWallets.applePay || availableWallets.googlePay) && <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Digital Wallets</h3>
                     
                     {availableWallets.applePay && <button 
@@ -654,7 +657,7 @@ export const CheckoutForm = ({
                       className={`w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto ${paymentType === 'wallet' && availableWallets.applePay ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
                     >
                         <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                          <Smartphone className="h-5 w-5 text-primary" />
+                          <ApplePayIcon className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-sm">Apple Pay</p>
@@ -677,7 +680,7 @@ export const CheckoutForm = ({
                       className={`w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto ${paymentType === 'wallet' && availableWallets.googlePay && !availableWallets.applePay ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
                     >
                         <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                          <Smartphone className="h-5 w-5 text-primary" />
+                          <GooglePayIcon className="h-5 w-5 text-primary" />
                         </div>
                         <div className="flex-1">
                           <p className="font-semibold text-sm">Google Pay</p>
