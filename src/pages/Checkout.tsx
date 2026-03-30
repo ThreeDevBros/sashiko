@@ -223,9 +223,8 @@ const Checkout = () => {
     return orderType === 'pickup' ? branchCashSettings.allow_cash_pickup : branchCashSettings.allow_cash_delivery;
   }, [branchCashSettings, orderType]);
 
-  // Load Stripe publishable key when card or wallet payment is selected
+  // Load Stripe publishable key in the background so wallet readiness can be accurately gated
   useEffect(() => {
-    if (currentPaymentType !== 'card' && currentPaymentType !== 'wallet') return;
     if (stripePromise) return; // Already loaded
     const loadStripeKey = async () => {
       try {
@@ -244,7 +243,7 @@ const Checkout = () => {
       }
     };
     loadStripeKey();
-  }, [currentPaymentType]);
+  }, [stripePromise]);
 
   // Calculate totals with per-item tax
   const globalTaxRate = branding?.vat_rate ?? 10;
