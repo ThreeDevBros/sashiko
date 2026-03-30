@@ -6,7 +6,7 @@
       "name": "vite_react_shadcn_ts",
       "dependencies": {
         "@capacitor-community/apple-sign-in": "^7.1.0",
-        "@capacitor-community/stripe": "^8.1.0",
+        "@capacitor-community/stripe": "^7.0.0",
         "@capacitor/android": "^7.4.3",
         "@capacitor/cli": "^7.4.3",
         "@capacitor/core": "^7.4.3",
@@ -289,7 +289,7 @@
 
     "@capacitor-community/apple-sign-in": ["@capacitor-community/apple-sign-in@7.1.0", "", { "dependencies": { "@types/scriptjs": "0.0.2", "scriptjs": "^2.5.9" }, "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-df7cA7vfvvvilTtpJKeVvxO31W+py5t3HK9233GBD5MvgAgtGvCqeQ3pI0noNkVsKPF9B1g/po8Mph6s4bVSmw=="],
 
-    "@capacitor-community/stripe": ["@capacitor-community/stripe@8.1.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor-community/stripe/-/stripe-8.1.0.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0", "@stripe/stripe-js": "^8.4.0", "react": "^17.0.0 || ^18.0.0", "stripe-pwa-elements": "^3.0.0" } }, "sha512-O3DoGhbH53aRPIY9vOhdvy6bVQqMwPuX4lXttzfxzcXUk0PO0kT4xJt5QGyuukEXghOaY5+6+kOWOU+5lejrBw=="],
+    "@capacitor-community/stripe": ["@capacitor-community/stripe@7.2.3", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor-community/stripe/-/stripe-7.2.3.tgz", { "peerDependencies": { "@capacitor/core": ">=7.0.0", "react": "^17.0.0 || ^18.0.0", "stripe-pwa-elements": "^2.1.0" } }, "sha512-rer+ax+9ATaEWIZcyV+omJ8iSOmiXZ/YSU0gbHyJgFIaZI2lz1x2Bxr6B2W2gHmtcQ0dmoAIZp3bcRw0Ld+3uQ=="],
 
     "@capacitor/android": ["@capacitor/android@7.4.3", "", { "peerDependencies": { "@capacitor/core": "^7.4.0" } }, "sha512-VpjvnOcmYGPLgvXRhe3CGLs62Cg7sxOyp77NddCr+Y06qqgnoaj6OGeBVTc2DZlqZ6bSmh15JvFu82pkvmdgfQ=="],
 
