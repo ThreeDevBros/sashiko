@@ -994,13 +994,17 @@ const Checkout = () => {
               guestAddress={activeLocation?.address || ''}
               guestDeliveryLat={activeLocation?.latitude}
               guestDeliveryLng={activeLocation?.longitude}
-              onPaymentTypeChange={(type) => {
+              onPaymentTypeChange={(type, walletType) => {
                 paymentTypeRef.current = type;
                 setCurrentPaymentType(type);
-                setButtonText(type === 'cash' 
-                  ? { loading: 'Placing Order...', action: 'Place Order' }
-                  : { loading: 'Processing Payment...', action: 'Pay Now' }
-                );
+                if (type === 'cash') {
+                  setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
+                } else if (type === 'wallet') {
+                  const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
+                  setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
+                } else {
+                  setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
+                }
               }}
               cashbackAmount={0}
               onGuestCardValidityChange={setGuestCardValid}
