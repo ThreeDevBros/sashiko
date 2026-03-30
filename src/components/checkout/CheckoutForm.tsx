@@ -88,6 +88,7 @@ export const CheckoutForm = ({
   onBeforeNavigate,
   cashAllowed = true,
   tax = 0,
+  orderTotal = 0,
 }: CheckoutFormProps) => {
   // Only use Stripe hooks when not in guest mode (when Elements wrapper is available)
   let stripe: any = null;
