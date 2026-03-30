@@ -93,6 +93,7 @@ const Checkout = () => {
   const [pinMapOpen, setPinMapOpen] = useState(false);
   const [branchInfoOpen, setBranchInfoOpen] = useState(false);
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
+  const [stripeReady, setStripeReady] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
