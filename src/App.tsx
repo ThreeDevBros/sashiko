@@ -78,7 +78,19 @@ const AppRoutes = () => {
   useEffect(() => {
     const checkRoleAccess = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user || isAuthRoute || isQrMenuRoute) return;
+      
+      if (isAuthRoute || isQrMenuRoute) return;
+
+      const isProtectedPanel = location.pathname.startsWith('/admin') ||
+                               location.pathname.startsWith('/staff') ||
+                               location.pathname.startsWith('/driver');
+
+      if (!user) {
+        if (isProtectedPanel) {
+          navigate('/auth', { replace: true });
+        }
+        return;
+      }
 
       const { data: roleData } = await supabase
         .from('user_roles')
