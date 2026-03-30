@@ -1123,7 +1123,7 @@ const Checkout = () => {
                orderTotal={grandTotal}
                walletSystemReady={stripeReady}
              />
-            )}
+            )
           )}
         </Card>
 
