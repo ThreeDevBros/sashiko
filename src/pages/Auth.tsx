@@ -17,6 +17,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
 
 import { useBranding } from "@/hooks/useBranding";
+import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
 
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters")
