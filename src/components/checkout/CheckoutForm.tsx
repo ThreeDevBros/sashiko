@@ -697,7 +697,7 @@ export const CheckoutForm = ({
           
           {/* Payment Method Drawer - Always visible so user can switch */}
           {(
-          <Drawer open={isPaymentDrawerOpen} onOpenChange={setIsPaymentDrawerOpen} shouldScaleBackground={false}>
+          <Drawer open={isPaymentDrawerOpen} onOpenChange={setIsPaymentDrawerOpen} shouldScaleBackground={false} preventScrollRestoration noBodyStyles>
             <DrawerTrigger asChild>
               <button 
                 type="button"
