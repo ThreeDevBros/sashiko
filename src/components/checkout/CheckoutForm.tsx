@@ -202,7 +202,7 @@ export const CheckoutForm = ({
       };
       checkWallets();
     }
-  }, [stripe, isGuest]);
+  }, [stripe]);
 
   // Load user's preferred payment method and saved cards (skip for guests)
   useEffect(() => {
