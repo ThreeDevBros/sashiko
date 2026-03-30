@@ -155,8 +155,6 @@ export const CheckoutForm = ({
   }, [prefetchedCards, cardsLoading]);
   // Check available wallets - native iOS always gets Apple Pay
   useEffect(() => {
-    if (isGuest) return;
-    
     // On native iOS, Apple Pay is available via the device regardless of Stripe's web detection
     const isNativeIos = Capacitor.getPlatform() === 'ios';
     const isNativeAndroid = Capacitor.getPlatform() === 'android';
