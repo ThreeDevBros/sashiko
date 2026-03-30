@@ -1081,7 +1081,7 @@ const Checkout = () => {
           ) : (
             currentPaymentType === 'wallet' && stripePromise ? (
               <Elements stripe={stripePromise}>
-                <CheckoutForm 
+                <StripeCheckoutForm 
                   orderType={orderType} 
                   onOrderTypeChange={setOrderType} 
                   selectedAddressId={selectedAddressId} 
