@@ -1,46 +1,48 @@
 
 
-## Problem Analysis
+## Root Cause
 
-Two issues to address:
+The bug is a **React Rules of Hooks violation** in `CheckoutForm.tsx` (lines 89-94):
 
-1. **Recurring dependency conflicts**: The base `Drawer` component defaults `shouldScaleBackground` to `true`, and `@capacitor-community/stripe` version mismatches keep causing merge conflicts when syncing.
+```typescript
+try {
+  stripe = useStripe();
+  elements = useElements();
+} catch (e) {
+  // Hooks not available (guest mode without Elements wrapper)
+}
+```
 
-2. **Native drawer bugginess**: On iOS WebView, the Vaul drawer library manipulates `document.body` styles (transforms, overflow, pointer-events) to create the "scale background" effect and manage scroll locking. Even with `shouldScaleBackground={false}`, Vaul still applies body style mutations (overflow hidden, pointer-events manipulation) that conflict with iOS WebView scroll behavior, causing:
-   - Page content jumping when drawer opens/closes
-   - Scroll position resets
-   - Touch interaction jank inside the drawer
+React hooks **must** be called unconditionally at the top level — wrapping them in try/catch does not make them safe. When `CheckoutForm` renders without an `<Elements>` wrapper (which happens for guests on cash, and for logged-in users before `clientSecret` loads), these hooks throw internally, corrupting React's hook tracking. This causes unpredictable behavior: the drawer state, card selection, and UI updates all break silently because React's internal fiber state is out of sync.
+
+The `Checkout.tsx` page conditionally wraps `CheckoutForm` in `<Elements>` based on payment type — so the same component mounts/unmounts with and without the provider, making this hook violation trigger frequently on native iOS.
 
 ## Plan
 
-### 1. Fix the Drawer base component to default `shouldScaleBackground={false}`
-
-**File:** `src/components/ui/drawer.tsx`
-
-Change the default from `true` to `false` so no drawer in the app ever applies background transforms. This prevents the issue at the root — no individual drawer can accidentally forget to set it.
-
-Additionally, add `noBodyStyles` prop to prevent Vaul from mutating body styles entirely on native platforms. This eliminates the scroll-lock and overflow manipulation that causes jank in iOS WebViews.
-
-### 2. Harden the payment method drawer for native WebViews
+### 1. Split CheckoutForm to respect Rules of Hooks
 
 **File:** `src/components/checkout/CheckoutForm.tsx`
 
-- Add `preventScrollRestoration` to the Drawer to prevent the browser from fighting over scroll position
-- Add `-webkit-overflow-scrolling: touch` to the scrollable content area for smooth native iOS scrolling
-- Ensure the DrawerContent has `onPointerDownOutside` handled to prevent dismissal conflicts
+- Remove the try/catch around `useStripe()` / `useElements()`
+- Accept `stripe` and `elements` as **optional props** instead of calling the hooks directly
+- Create a thin wrapper component `StripeCheckoutForm` that calls the hooks and passes them down
 
-### 3. Lock `@capacitor-community/stripe` version precisely
+```
+CheckoutForm          — receives stripe/elements as props (no hooks)
+StripeCheckoutForm    — calls useStripe()/useElements(), forwards to CheckoutForm
+```
 
-**File:** `package.json`
+### 2. Update Checkout.tsx to use the correct wrapper
 
-Change `"@capacitor-community/stripe": "^7.0.0"` to `"@capacitor-community/stripe": "~7.0.0"` (tilde) to prevent npm from resolving to a v8 release. This prevents future dependency conflicts when Capacitor community publishes a breaking major version.
+**File:** `src/pages/Checkout.tsx`
+
+- When inside `<Elements>`, render `<StripeCheckoutForm>` (which calls hooks safely)
+- When outside `<Elements>`, render `<CheckoutForm>` directly (stripe/elements will be null)
+- Remove the duplicated conditional wrapping logic — simplify to two clear paths
+
+This eliminates the hooks violation entirely. No hook is ever called outside its provider.
 
 ### Technical Details
 
-The core fix is in the `Drawer` component. Vaul's default behavior adds these styles to `document.body` when a drawer opens:
-- `overflow: hidden` (breaks iOS WebView scroll restoration)
-- `pointer-events: none` on sibling elements
-- CSS transform for background scaling
-
-Setting `noBodyStyles` on native platforms bypasses all of this. The drawer still animates and works correctly, but the body element is left untouched — which is exactly what iOS WebViews need.
+The core issue: React tracks hooks by **call order per component instance**. When `useStripe()` throws inside try/catch, React has already incremented its hook counter. The catch swallows the error but the counter is wrong, so every subsequent hook (`useState`, `useEffect`, etc.) reads from the wrong slot. This causes state to leak between hooks — explaining why the drawer opens/closes erratically, selections don't stick, and the UI feels "buggy" without a visible error.
 
