@@ -54,6 +54,8 @@ interface CheckoutFormProps {
   tax?: number;
   orderTotal?: number;
   walletSystemReady?: boolean;
+  stripe?: Stripe | null;
+  elements?: StripeElements | null;
 }
 export const CheckoutForm = ({
   orderType,
@@ -81,17 +83,9 @@ export const CheckoutForm = ({
   tax = 0,
   orderTotal = 0,
   walletSystemReady = false,
+  stripe = null,
+  elements = null,
 }: CheckoutFormProps) => {
-  // Only use Stripe hooks when not in guest mode (when Elements wrapper is available)
-  let stripe: any = null;
-  let elements: any = null;
-  
-  try {
-    stripe = useStripe();
-    elements = useElements();
-  } catch (e) {
-    // Hooks not available (guest mode without Elements wrapper)
-  }
   
   const {
     toast
