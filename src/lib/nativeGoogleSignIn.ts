@@ -19,7 +19,12 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
   }
 
   try {
-    const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+    // Access the plugin via Capacitor's runtime plugin registry
+    // This avoids npm import resolution issues at build time
+    const GoogleAuth = (Capacitor as any).Plugins?.GoogleAuth;
+    if (!GoogleAuth) {
+      return { error: new Error('GoogleAuth plugin not available') };
+    }
 
     const result = await GoogleAuth.signIn();
 
@@ -39,7 +44,6 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
 
     return { error: null };
   } catch (err: any) {
-    // User cancelled
     if (err?.message?.includes('canceled') || err?.message?.includes('cancelled') || err?.code === '12501') {
       return { error: null };
     }
