@@ -1,21 +1,46 @@
 
 
-## Problem
+## Problem Analysis
 
-The payment method Drawer in `CheckoutForm.tsx` has two issues causing the scroll-to-top and flickering:
+Two issues to address:
 
-1. **`shouldScaleBackground` is `true` (default)**: Vaul applies a CSS transform to scale down the background page when the drawer opens. This transform resets the scroll position and causes visible flickering. Other drawers in the app (e.g., `MenuItemDetailSheet`, `DeliveryLocationSelector`) already set `shouldScaleBackground={false}` to avoid this.
+1. **Recurring dependency conflicts**: The base `Drawer` component defaults `shouldScaleBackground` to `true`, and `@capacitor-community/stripe` version mismatches keep causing merge conflicts when syncing.
 
-2. **No `preventScrollRestoration`**: The drawer doesn't prevent the browser from trying to restore scroll position when the body transform changes.
+2. **Native drawer bugginess**: On iOS WebView, the Vaul drawer library manipulates `document.body` styles (transforms, overflow, pointer-events) to create the "scale background" effect and manage scroll locking. Even with `shouldScaleBackground={false}`, Vaul still applies body style mutations (overflow hidden, pointer-events manipulation) that conflict with iOS WebView scroll behavior, causing:
+   - Page content jumping when drawer opens/closes
+   - Scroll position resets
+   - Touch interaction jank inside the drawer
 
 ## Plan
 
-### 1. Fix the Drawer in `CheckoutForm.tsx` (line 700)
+### 1. Fix the Drawer base component to default `shouldScaleBackground={false}`
 
-Add `shouldScaleBackground={false}` to the `<Drawer>` component. This single change prevents Vaul from transforming the body element, which eliminates both the scroll-to-top jump and the visual flickering.
+**File:** `src/components/ui/drawer.tsx`
+
+Change the default from `true` to `false` so no drawer in the app ever applies background transforms. This prevents the issue at the root — no individual drawer can accidentally forget to set it.
+
+Additionally, add `noBodyStyles` prop to prevent Vaul from mutating body styles entirely on native platforms. This eliminates the scroll-lock and overflow manipulation that causes jank in iOS WebViews.
+
+### 2. Harden the payment method drawer for native WebViews
 
 **File:** `src/components/checkout/CheckoutForm.tsx`
-- Line 700: Change `<Drawer open={isPaymentDrawerOpen} onOpenChange={setIsPaymentDrawerOpen}>` to `<Drawer open={isPaymentDrawerOpen} onOpenChange={setIsPaymentDrawerOpen} shouldScaleBackground={false}>`
 
-This matches the pattern used by every other well-behaved drawer in the app.
+- Add `preventScrollRestoration` to the Drawer to prevent the browser from fighting over scroll position
+- Add `-webkit-overflow-scrolling: touch` to the scrollable content area for smooth native iOS scrolling
+- Ensure the DrawerContent has `onPointerDownOutside` handled to prevent dismissal conflicts
+
+### 3. Lock `@capacitor-community/stripe` version precisely
+
+**File:** `package.json`
+
+Change `"@capacitor-community/stripe": "^7.0.0"` to `"@capacitor-community/stripe": "~7.0.0"` (tilde) to prevent npm from resolving to a v8 release. This prevents future dependency conflicts when Capacitor community publishes a breaking major version.
+
+### Technical Details
+
+The core fix is in the `Drawer` component. Vaul's default behavior adds these styles to `document.body` when a drawer opens:
+- `overflow: hidden` (breaks iOS WebView scroll restoration)
+- `pointer-events: none` on sibling elements
+- CSS transform for background scaling
+
+Setting `noBodyStyles` on native platforms bypasses all of this. The drawer still animates and works correctly, but the body element is left untouched — which is exactly what iOS WebViews need.
 
