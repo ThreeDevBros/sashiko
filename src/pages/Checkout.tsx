@@ -224,6 +224,7 @@ const Checkout = () => {
   }, [branchCashSettings, orderType]);
 
   // Load Stripe publishable key in the background so wallet readiness can be accurately gated
+  // On native platforms, also initialize the Capacitor Stripe plugin
   useEffect(() => {
     if (stripePromise) return; // Already loaded
     const loadStripeKey = async () => {
@@ -236,6 +237,16 @@ const Checkout = () => {
           const promise = loadStripe(data.key);
           setStripePromise(promise);
           promise.then((s) => { if (s) setStripeReady(true); });
+
+          // On native platforms, initialize the Capacitor Stripe plugin independently
+          const { isNativeWalletPlatform, initializeNativeStripe } = await import('@/lib/nativeStripePay');
+          if (isNativeWalletPlatform()) {
+            const nativeOk = await initializeNativeStripe();
+            if (nativeOk) {
+              setStripeReady(true);
+              console.log('Native Stripe plugin ready — wallet payments enabled');
+            }
+          }
         }
       } catch (error) {
         console.error('Error loading Stripe key:', error);
