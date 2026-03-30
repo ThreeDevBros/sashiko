@@ -697,7 +697,7 @@ export const CheckoutForm = ({
           
           {/* Payment Method Drawer - Always visible so user can switch */}
           {(
-          <Drawer open={isPaymentDrawerOpen} onOpenChange={setIsPaymentDrawerOpen} shouldScaleBackground={false}>
+          <Drawer open={isPaymentDrawerOpen} onOpenChange={setIsPaymentDrawerOpen} shouldScaleBackground={false} preventScrollRestoration noBodyStyles>
             <DrawerTrigger asChild>
               <button 
                 type="button"
@@ -724,7 +724,7 @@ export const CheckoutForm = ({
                 <DrawerDescription>Choose the option that works best for this order</DrawerDescription>
               </DrawerHeader>
               
-              <div className="p-4 space-y-4 max-h-[64vh] overflow-y-auto overscroll-contain" data-vaul-no-drag>
+              <div className="p-4 space-y-4 max-h-[64vh] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]" data-vaul-no-drag>
                 {/* Saved Cards Section - Only for logged-in users */}
                 {!isGuest && savedCards.length > 0 && <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Saved Cards</h3>
