@@ -1,38 +1,47 @@
 
 
-## Problem Analysis
+## Problem
 
-Three issues identified:
+When a user selects "Pay with Apple Pay" and taps the submit button, the form handler hits `if (!stripe) { setError('Payment system is not ready...') }` because:
 
-1. **Apple Pay not available for guest users**: Line 157 in `CheckoutForm.tsx` has `if (isGuest) return;` in the wallet detection `useEffect`, which skips wallet detection entirely for guests. Apple Pay/Google Pay options never appear for guests.
+1. **Guest users**: The `CheckoutForm` is rendered *without* the `<Elements>` wrapper, so `useStripe()` returns `null`.
+2. **Logged-in users before clientSecret loads**: Same issue — the non-Elements fallback renders while Stripe initializes.
+3. **Native iOS wallet**: Wallet is force-enabled via Capacitor platform detection, but the actual Stripe `paymentRequest` API still needs a Stripe instance to process payment.
 
-2. **Apple Pay icon shows generic `Smartphone` icon**: The Apple Pay and Google Pay buttons use `<Smartphone>` instead of proper brand icons (Apple logo / Google Pay logo).
-
-3. **"Pay Now" button doesn't change to "Pay with Apple Pay"**: The button text in `Checkout.tsx` only differentiates between `cash` ("Place Order") and non-cash ("Pay Now"). It doesn't show "Pay with Apple Pay" or "Pay with Google Pay" when wallet is selected.
+The core issue is that **wallet payments on native iOS need Stripe initialized**, but the form doesn't have access to it when rendered outside `<Elements>`. Additionally, the button should be disabled when Stripe isn't ready, preventing the "system not ready" error.
 
 ## Plan
 
-### 1. Enable wallet detection for guest users
-In `CheckoutForm.tsx`, remove the `if (isGuest) return;` guard from the wallet detection `useEffect` (line 157). Also show the "Digital Wallets" section in the payment drawer for guests (line 640 has `!isGuest &&` guard).
+### 1. Disable the submit button when wallet is selected but Stripe isn't ready
 
-### 2. Add Apple Pay and Google Pay SVG icons
-Create a small component or inline SVG for the Apple logo and Google Pay logo. Replace all `<Smartphone>` icons in the wallet buttons (drawer trigger, drawer options) with the appropriate brand icon.
+In `Checkout.tsx`, add a condition to the button's `disabled` and opacity logic: when `currentPaymentType === 'wallet'` and `stripePromise` hasn't resolved (or `clientSecret` isn't available for logged-in users), disable the button. This prevents the user from tapping before the system is ready.
 
-### 3. Dynamic button text for wallet payments
-In `Checkout.tsx`, update the `setButtonText` calls (lines 1000, 1032, 1064) and the button rendering (line 1279) to show:
-- `cash` → "Place Order"
-- `wallet` → "Pay with Apple Pay" / "Pay with Google Pay"  
-- `card` → "Pay Now"
+### 2. Ensure Stripe is loaded for wallet payments (guest path)
 
-### 4. Handle wallet payment submission for guests
-When a guest selects Apple Pay/Google Pay and taps the submit button, the flow currently goes to `form.requestSubmit()` which triggers the `CheckoutForm.handleSubmit`. The wallet payment path in `handleSubmit` uses Stripe's `paymentRequest` API which requires `stripe` — for guests, Stripe may not be initialized since they don't have an `Elements` wrapper. Need to ensure Stripe is loaded when wallet is selected (similar to card payment initialization) and that the `paymentRequest` flow works for guests.
+For guest users who select wallet, Stripe needs to be initialized. Currently, `stripePromise` loads when `currentPaymentType` is `card` or `wallet` — this is correct. But the guest `CheckoutForm` is rendered **outside** `<Elements>`, so `useStripe()` returns null.
+
+**Solution**: When a guest selects wallet payment and `stripePromise` is available, wrap the guest `CheckoutForm` in `<Elements>` (using a minimal options config without `clientSecret`, since wallet payments use `paymentRequest` not `PaymentElement`). Alternatively, pass the resolved Stripe instance as a prop.
+
+The simpler approach: In `Checkout.tsx`, when `isGuest && currentPaymentType === 'wallet' && stripePromise`, render the guest form inside `<Elements stripe={stripePromise}>` so `useStripe()` works.
+
+### 3. Handle the wallet payment flow in handleSubmit
+
+The current `handleSubmit` goes to the Stripe card payment path for non-cash. For wallet payments, it needs to use `stripe.paymentRequest()` to trigger the native Apple Pay sheet. This requires:
+- Creating a `paymentRequest` with the correct total amount
+- Calling `.show()` to present the Apple Pay sheet
+- Handling the `paymentmethod` event to confirm payment via the `create-payment-intent` edge function
 
 ### Technical Details
 
 **Files to modify:**
-- `src/components/checkout/CheckoutForm.tsx` — Remove guest guard from wallet detection, show wallet options for guests, add Apple/Google Pay icons
-- `src/pages/Checkout.tsx` — Update button text logic for wallet type, load Stripe when wallet is selected
 
-**New file:**
-- `src/components/icons/ApplePayIcon.tsx` — SVG icon components for Apple Pay and Google Pay marks
+- **`src/pages/Checkout.tsx`**:
+  - Add `stripeReady` state that resolves when `stripePromise` is loaded
+  - Disable submit button when `currentPaymentType === 'wallet' && !stripeReady`
+  - Wrap guest form in `<Elements>` when wallet is selected and stripePromise is available
+
+- **`src/components/checkout/CheckoutForm.tsx`**:
+  - Add a dedicated wallet payment branch in `handleSubmit` that uses `stripe.paymentRequest()` to invoke native Apple Pay/Google Pay
+  - Create the payment intent server-side, then confirm via the native wallet sheet
+  - Pass order total as a prop so the paymentRequest has the correct amount
 
