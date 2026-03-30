@@ -204,9 +204,9 @@ const Checkout = () => {
     return orderType === 'pickup' ? branchCashSettings.allow_cash_pickup : branchCashSettings.allow_cash_delivery;
   }, [branchCashSettings, orderType]);
 
-  // Load Stripe publishable key only when card payment is selected
+  // Load Stripe publishable key when card or wallet payment is selected
   useEffect(() => {
-    if (currentPaymentType !== 'card') return;
+    if (currentPaymentType !== 'card' && currentPaymentType !== 'wallet') return;
     if (stripePromise) return; // Already loaded
     const loadStripeKey = async () => {
       try {
