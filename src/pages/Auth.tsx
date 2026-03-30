@@ -17,6 +17,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
 
 import { useBranding } from "@/hooks/useBranding";
+import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
 
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters")
@@ -183,13 +184,7 @@ const Auth = () => {
 
   const handleAppleSignIn = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
-      });
-
+      const { error } = await nativeAppleSignIn();
       if (error) throw error;
     } catch (error: any) {
       toast.error("Failed to sign in with Apple. Please try again.");
