@@ -549,7 +549,7 @@ export const CheckoutForm = ({
                 className="w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 border-border bg-card hover:bg-accent/50 cursor-pointer transition-all duration-300 text-left"
               >
                 <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                  {paymentType === 'cash' ? <Banknote className="h-5 w-5 text-primary" /> : paymentType === 'wallet' ? <Smartphone className="h-5 w-5 text-primary" /> : <CreditCard className="h-5 w-5 text-primary" />}
+                  {paymentType === 'cash' ? <Banknote className="h-5 w-5 text-primary" /> : paymentType === 'wallet' ? (availableWallets.applePay ? <ApplePayIcon className="h-5 w-5 text-primary" /> : <GooglePayIcon className="h-5 w-5 text-primary" />) : <CreditCard className="h-5 w-5 text-primary" />}
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-sm">
