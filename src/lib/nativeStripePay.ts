@@ -158,7 +158,7 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
             amount: options.orderTotal,
           },
         ],
-        merchantIdentifier: 'merchant.app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10',
+        merchantIdentifier: 'merchant.sashiko.app',
         countryCode,
         currency: currencyCode,
       });
@@ -175,7 +175,7 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
             amount: options.orderTotal,
           },
         ],
-        merchantIdentifier: 'merchant.app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10',
+        merchantIdentifier: 'merchant.sashiko.app',
         countryCode,
         currency: currencyCode,
       });
