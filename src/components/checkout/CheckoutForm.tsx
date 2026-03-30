@@ -118,11 +118,7 @@ export const CheckoutForm = ({
   const [isAddingNewCard, setIsAddingNewCard] = useState(false);
   const [showGuestCardForm, setShowGuestCardForm] = useState(false);
 
-  // Notify parent when payment type changes
-  useEffect(() => {
-    const walletType = availableWallets.applePay ? 'applePay' as const : 'googlePay' as const;
-    onPaymentTypeChange?.(paymentType, paymentType === 'wallet' ? walletType : undefined);
-  }, [paymentType, onPaymentTypeChange, availableWallets]);
+  // (moved below availableWallets declaration)
   
   // Wrapper function to handle address selection and capture location data
   const handleAddressSelect = (addressId: string, locationData?: { latitude: number; longitude: number; address: string }) => {
