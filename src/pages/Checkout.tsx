@@ -215,7 +215,11 @@ const Checkout = () => {
           body: { key_type: 'STRIPE_PUBLISHABLE_KEY' },
         });
         if (error) throw error;
-        if (data?.key) setStripePromise(loadStripe(data.key));
+        if (data?.key) {
+          const promise = loadStripe(data.key);
+          setStripePromise(promise);
+          promise.then((s) => { if (s) setStripeReady(true); });
+        }
       } catch (error) {
         console.error('Error loading Stripe key:', error);
         toast.error('Failed to initialize payment system');
