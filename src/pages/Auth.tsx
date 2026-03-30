@@ -184,13 +184,7 @@ const Auth = () => {
 
   const handleAppleSignIn = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
-      });
-
+      const { error } = await nativeAppleSignIn();
       if (error) throw error;
     } catch (error: any) {
       toast.error("Failed to sign in with Apple. Please try again.");
