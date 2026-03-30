@@ -414,8 +414,115 @@ export const CheckoutForm = ({
           navigate('/order-history', { replace: true });
         }
         clearCart();
+      } else if (paymentType === 'wallet') {
+        // Wallet payment (Apple Pay / Google Pay) via Stripe Payment Request
+        if (!stripe) {
+          setError('Payment system is not ready. Please wait a moment and try again.');
+          return;
+        }
+
+        console.log('Starting wallet payment flow...');
+        const currency = (await import('@/lib/currency')).getGlobalCurrency().toLowerCase();
+        
+        // Create payment intent first
+        const { data: piData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
+          body: {
+            items: items.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity, image_url: item.image_url })),
+            branch_id: branch?.id,
+            order_type: orderType,
+            delivery_address_id: (!isGuest && selectedAddressId && selectedAddressId !== 'current-location' && selectedAddressId !== 'selected-location') ? selectedAddressId : null,
+            guest_info: isGuest && guestInfo ? { name: guestInfo.name, email: guestInfo.email, phone: guestInfo.phone } : null,
+            estimated_delivery_time: scheduledDateTime || null,
+            delivery_fee: orderType === 'delivery' ? deliveryFee : 0,
+            currency,
+            tax,
+          }
+        });
+
+        if (piError || !piData?.clientSecret) {
+          throw new Error('Failed to create payment. Please try again.');
+        }
+
+        // Create payment request for native wallet
+        const paymentRequest = stripe.paymentRequest({
+          country: 'US',
+          currency,
+          total: {
+            label: 'Order Total',
+            amount: Math.round(orderTotal * 100),
+          },
+          requestPayerName: true,
+          requestPayerEmail: true,
+        });
+
+        const canMakePayment = await paymentRequest.canMakePayment();
+        if (!canMakePayment) {
+          // Fallback: confirm directly with wallet via confirmCardPayment
+          // This handles native iOS where canMakePayment may not work in WebView
+          setError('Wallet payment is not available. Please try card payment instead.');
+          return;
+        }
+
+        // Listen for payment method
+        paymentRequest.on('paymentmethod', async (ev: any) => {
+          try {
+            const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+              piData.clientSecret,
+              { payment_method: ev.paymentMethod.id },
+              { handleActions: false }
+            );
+
+            if (confirmError) {
+              ev.complete('fail');
+              setError(confirmError.message || 'Payment failed');
+              return;
+            }
+
+            ev.complete('success');
+
+            if (paymentIntent?.status === 'succeeded') {
+              // Confirm order
+              const { data: orderData, error: orderError } = await supabase.functions.invoke('confirm-payment', {
+                body: {
+                  payment_intent_id: paymentIntent.id,
+                  guest_address: orderType === 'delivery' ? (guestAddress || selectedAddress?.address_line1 || null) : null,
+                  guest_delivery_lat: orderType === 'delivery' ? (guestDeliveryLat || null) : null,
+                  guest_delivery_lng: orderType === 'delivery' ? (guestDeliveryLng || null) : null,
+                }
+              });
+
+              if (orderError) throw new Error('Failed to create order');
+
+              // Store guest order
+              if (isGuest && orderData?.order_id && guestInfo?.email) {
+                const { addGuestOrder } = await import('@/lib/guestOrders');
+                addGuestOrder({
+                  id: orderData.order_id,
+                  email: guestInfo.email,
+                  order_number: orderData.order_number || '',
+                  created_at: new Date().toISOString(),
+                });
+              }
+
+              toast({ title: 'Payment successful!', description: 'Your order has been placed.' });
+              onBeforeNavigate?.();
+              if (orderData?.order_id) {
+                navigate(`/order-tracking/${orderData.order_id}`, { replace: true });
+              } else {
+                navigate('/order-history', { replace: true });
+              }
+              clearCart();
+            }
+          } catch (err: any) {
+            ev.complete('fail');
+            setError(err.message || 'Payment failed');
+          }
+        });
+
+        // Show native payment sheet
+        paymentRequest.show();
       } else {
-        // Online payment via Stripe
+        // Online payment via Stripe (card)
         if (!stripe) {
           setError('Payment system is not ready. Please wait a moment and try again.');
           return;
