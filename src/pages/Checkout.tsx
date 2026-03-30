@@ -983,44 +983,54 @@ const Checkout = () => {
               </div>
             </div>
           ) : isGuest ? (
-            <CheckoutForm 
-              orderType={orderType} 
-              onOrderTypeChange={setOrderType} 
-              selectedAddressId={selectedAddressId} 
-              onAddressSelect={(addressId, locationData) => {
-                if (locationData) setSelectedLocationData(locationData);
-                setSelectedAddressId(addressId);
-              }} 
-              branch={branch} 
-              hasClientSecret={false} 
-              canDeliver={canDeliver}
-              isGuest={true}
-              guestInfo={guestInfo}
-              guestAddress={activeLocation?.address || ''}
-              guestDeliveryLat={activeLocation?.latitude}
-              guestDeliveryLng={activeLocation?.longitude}
-              onPaymentTypeChange={(type, walletType) => {
-                paymentTypeRef.current = type;
-                setCurrentPaymentType(type);
-                if (type === 'cash') {
-                  setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
-                } else if (type === 'wallet') {
-                  const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
-                  setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
-                } else {
-                  setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
-                }
-              }}
-              cashbackAmount={0}
-              onGuestCardValidityChange={setGuestCardValid}
-              guestCardSubmitRef={guestCardSubmitRef}
-              orderInstructions={orderInstructions}
-              scheduledDateTime={scheduledDateTime}
-              deliveryFee={deliveryFee}
-               onBeforeNavigate={() => { isNavigatingAway.current = true; }}
-               cashAllowed={cashAllowed}
-               tax={tax}
-            />
+            (() => {
+              const guestCheckoutForm = (
+                <CheckoutForm 
+                  orderType={orderType} 
+                  onOrderTypeChange={setOrderType} 
+                  selectedAddressId={selectedAddressId} 
+                  onAddressSelect={(addressId, locationData) => {
+                    if (locationData) setSelectedLocationData(locationData);
+                    setSelectedAddressId(addressId);
+                  }} 
+                  branch={branch} 
+                  hasClientSecret={false} 
+                  canDeliver={canDeliver}
+                  isGuest={true}
+                  guestInfo={guestInfo}
+                  guestAddress={activeLocation?.address || ''}
+                  guestDeliveryLat={activeLocation?.latitude}
+                  guestDeliveryLng={activeLocation?.longitude}
+                  onPaymentTypeChange={(type, walletType) => {
+                    paymentTypeRef.current = type;
+                    setCurrentPaymentType(type);
+                    if (type === 'cash') {
+                      setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
+                    } else if (type === 'wallet') {
+                      const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
+                      setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
+                    } else {
+                      setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
+                    }
+                  }}
+                  cashbackAmount={0}
+                  onGuestCardValidityChange={setGuestCardValid}
+                  guestCardSubmitRef={guestCardSubmitRef}
+                  orderInstructions={orderInstructions}
+                  scheduledDateTime={scheduledDateTime}
+                  deliveryFee={deliveryFee}
+                  onBeforeNavigate={() => { isNavigatingAway.current = true; }}
+                  cashAllowed={cashAllowed}
+                  tax={tax}
+                  orderTotal={grandTotal}
+                />
+              );
+              // Wrap in Elements when wallet is selected so useStripe() works for guests
+              if (currentPaymentType === 'wallet' && stripePromise) {
+                return <Elements stripe={stripePromise}>{guestCheckoutForm}</Elements>;
+              }
+              return guestCheckoutForm;
+            })()
           ) : stripePromise && clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <CheckoutForm 
