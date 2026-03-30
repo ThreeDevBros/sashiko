@@ -926,3 +926,13 @@ export const CheckoutForm = ({
 
     </form>;
 };
+
+/**
+ * Wrapper that safely calls useStripe/useElements hooks.
+ * Use this ONLY when rendered inside an <Elements> provider.
+ */
+export const StripeCheckoutForm = (props: Omit<CheckoutFormProps, 'stripe' | 'elements'>) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  return <CheckoutForm {...props} stripe={stripe} elements={elements} />;
+};
