@@ -138,6 +138,13 @@ export const CheckoutForm = ({
     applePay: false,
     googlePay: false
   });
+
+  // Notify parent when payment type changes
+  useEffect(() => {
+    const walletType = availableWallets.applePay ? 'applePay' as const : 'googlePay' as const;
+    onPaymentTypeChange?.(paymentType, paymentType === 'wallet' ? walletType : undefined);
+  }, [paymentType, onPaymentTypeChange, availableWallets]);
+
   const { savedCards: prefetchedCards, isLoading: cardsLoading, refreshCards } = useSavedCards();
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
