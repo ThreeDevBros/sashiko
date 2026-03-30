@@ -152,17 +152,32 @@ export const CheckoutForm = ({
       setPaymentType('card');
     }
   }, [prefetchedCards, cardsLoading]);
-  // Only check wallets when stripe is available (not guest mode)
+  // Check available wallets - native iOS always gets Apple Pay
   useEffect(() => {
-    // Skip for guest mode
     if (isGuest) return;
     
+    // On native iOS, Apple Pay is available via the device regardless of Stripe's web detection
+    const isNativeIos = Capacitor.getPlatform() === 'ios';
+    const isNativeAndroid = Capacitor.getPlatform() === 'android';
+    
+    if (isNativeIos) {
+      setAvailableWallets({ applePay: true, googlePay: false });
+      console.log('Native iOS detected - Apple Pay enabled');
+      return;
+    }
+    
+    if (isNativeAndroid) {
+      setAvailableWallets({ applePay: false, googlePay: true });
+      console.log('Native Android detected - Google Pay enabled');
+      return;
+    }
+
     if (!stripe) {
       console.log('Stripe is not loaded yet');
     } else {
       console.log('Stripe loaded successfully');
 
-      // Detect available payment wallets
+      // Detect available payment wallets via Stripe Payment Request API (web only)
       const checkWallets = async () => {
         try {
           const paymentRequest = stripe.paymentRequest({
