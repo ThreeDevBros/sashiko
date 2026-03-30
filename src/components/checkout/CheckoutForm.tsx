@@ -635,8 +635,8 @@ export const CheckoutForm = ({
                   </button>
                 </div>
 
-                {/* Digital Wallets - Only for logged-in users */}
-                {!isGuest && (availableWallets.applePay || availableWallets.googlePay) && <div className="space-y-2">
+                {/* Digital Wallets */}
+                {(availableWallets.applePay || availableWallets.googlePay) && <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Digital Wallets</h3>
                     
                     {availableWallets.applePay && <button 
