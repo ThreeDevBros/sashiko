@@ -9,14 +9,6 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  build: {
-    rollupOptions: {
-      external: [
-        '@capacitor-community/apple-sign-in',
-        '@codetrix-studio/capacitor-google-auth',
-      ],
-    },
-  },
   plugins: [
     react(),
     VitePWA({
