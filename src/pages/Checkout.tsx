@@ -1030,6 +1030,7 @@ const Checkout = () => {
                   cashAllowed={cashAllowed}
                   tax={tax}
                   orderTotal={grandTotal}
+                  walletSystemReady={stripeReady}
                 />
               );
               // Wrap in Elements when wallet is selected so useStripe() works for guests
@@ -1064,10 +1065,11 @@ const Checkout = () => {
                  cashAllowed={cashAllowed}
                  tax={tax}
                  orderTotal={grandTotal}
+                 walletSystemReady={stripeReady}
                />
             </Elements>
           ) : (
-            {currentPaymentType === 'wallet' && stripePromise ? (
+            currentPaymentType === 'wallet' && stripePromise ? (
               <Elements stripe={stripePromise}>
                 <CheckoutForm 
                   orderType={orderType} 
@@ -1092,6 +1094,7 @@ const Checkout = () => {
                   cashAllowed={cashAllowed}
                   tax={tax}
                   orderTotal={grandTotal}
+                  walletSystemReady={stripeReady}
                 />
               </Elements>
             ) : (
@@ -1118,6 +1121,7 @@ const Checkout = () => {
                cashAllowed={cashAllowed}
                tax={tax}
                orderTotal={grandTotal}
+               walletSystemReady={stripeReady}
              />
             )}
           )}
