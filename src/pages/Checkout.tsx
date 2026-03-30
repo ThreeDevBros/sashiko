@@ -162,6 +162,24 @@ const Checkout = () => {
   const [scheduleMinDays, setScheduleMinDays] = useState(0);
   const [scheduleMaxDays, setScheduleMaxDays] = useState(7);
 
+  const handlePaymentTypeChange = useCallback((type: 'card' | 'wallet' | 'cash', walletType?: 'applePay' | 'googlePay') => {
+    paymentTypeRef.current = type;
+    setCurrentPaymentType(type);
+
+    if (type === 'cash') {
+      setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
+      return;
+    }
+
+    if (type === 'wallet') {
+      const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
+      setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
+      return;
+    }
+
+    setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
+  }, []);
+
   useEffect(() => {
     const loadSettings = async () => {
       const config = await fetchDeliveryFeeConfig();
@@ -1001,18 +1019,7 @@ const Checkout = () => {
                   guestAddress={activeLocation?.address || ''}
                   guestDeliveryLat={activeLocation?.latitude}
                   guestDeliveryLng={activeLocation?.longitude}
-                  onPaymentTypeChange={(type, walletType) => {
-                    paymentTypeRef.current = type;
-                    setCurrentPaymentType(type);
-                    if (type === 'cash') {
-                      setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
-                    } else if (type === 'wallet') {
-                      const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
-                      setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
-                    } else {
-                      setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
-                    }
-                  }}
+                  onPaymentTypeChange={handlePaymentTypeChange}
                   cashbackAmount={0}
                   onGuestCardValidityChange={setGuestCardValid}
                   guestCardSubmitRef={guestCardSubmitRef}
@@ -1045,18 +1052,7 @@ const Checkout = () => {
                 hasClientSecret={!!clientSecret} 
                 canDeliver={canDeliver}
                 clientSecret={clientSecret}
-                onPaymentTypeChange={(type, walletType) => {
-                  paymentTypeRef.current = type;
-                  setCurrentPaymentType(type);
-                  if (type === 'cash') {
-                    setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
-                  } else if (type === 'wallet') {
-                    const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
-                    setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
-                  } else {
-                    setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
-                  }
-                }}
+                onPaymentTypeChange={handlePaymentTypeChange}
                 cashbackAmount={cashbackDiscount}
                 guestAddress={activeLocation?.address || ''}
                 guestDeliveryLat={activeLocation?.latitude}
@@ -1071,7 +1067,35 @@ const Checkout = () => {
                />
             </Elements>
           ) : (
-            <CheckoutForm 
+            {currentPaymentType === 'wallet' && stripePromise ? (
+              <Elements stripe={stripePromise}>
+                <CheckoutForm 
+                  orderType={orderType} 
+                  onOrderTypeChange={setOrderType} 
+                  selectedAddressId={selectedAddressId} 
+                  onAddressSelect={(addressId, locationData) => {
+                    if (locationData) setSelectedLocationData(locationData);
+                    setSelectedAddressId(addressId);
+                  }} 
+                  branch={branch} 
+                  hasClientSecret={false} 
+                  canDeliver={canDeliver}
+                  onPaymentTypeChange={handlePaymentTypeChange}
+                  cashbackAmount={cashbackDiscount}
+                  guestAddress={activeLocation?.address || ''}
+                  guestDeliveryLat={activeLocation?.latitude}
+                  guestDeliveryLng={activeLocation?.longitude}
+                  orderInstructions={orderInstructions}
+                  scheduledDateTime={scheduledDateTime}
+                  deliveryFee={deliveryFee}
+                  onBeforeNavigate={() => { isNavigatingAway.current = true; }}
+                  cashAllowed={cashAllowed}
+                  tax={tax}
+                  orderTotal={grandTotal}
+                />
+              </Elements>
+            ) : (
+              <CheckoutForm 
               orderType={orderType} 
               onOrderTypeChange={setOrderType} 
               selectedAddressId={selectedAddressId} 
@@ -1082,18 +1106,7 @@ const Checkout = () => {
               branch={branch} 
               hasClientSecret={false} 
               canDeliver={canDeliver}
-              onPaymentTypeChange={(type, walletType) => {
-                paymentTypeRef.current = type;
-                setCurrentPaymentType(type);
-                if (type === 'cash') {
-                  setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
-                } else if (type === 'wallet') {
-                  const label = walletType === 'applePay' ? 'Apple Pay' : 'Google Pay';
-                  setButtonText({ loading: 'Processing Payment...', action: `Pay with ${label}` });
-                } else {
-                  setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
-                }
-              }}
+              onPaymentTypeChange={handlePaymentTypeChange}
               cashbackAmount={cashbackDiscount}
               guestAddress={activeLocation?.address || ''}
               guestDeliveryLat={activeLocation?.latitude}
@@ -1106,6 +1119,7 @@ const Checkout = () => {
                tax={tax}
                orderTotal={grandTotal}
              />
+            )}
           )}
         </Card>
 
