@@ -20,7 +20,12 @@ export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
   }
 
   try {
-    const { SignInWithApple } = await import('@capacitor-community/apple-sign-in');
+    // Access the plugin via Capacitor's runtime plugin registry
+    // This avoids npm import resolution issues at build time
+    const SignInWithApple = (Capacitor as any).Plugins?.SignInWithApple;
+    if (!SignInWithApple) {
+      return { error: new Error('SignInWithApple plugin not available') };
+    }
 
     const result = await SignInWithApple.authorize({
       clientId: 'app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10',
@@ -36,7 +41,7 @@ export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
     const { error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: identityToken,
-      nonce: '', // Apple Sign In via Capacitor doesn't use nonce by default
+      nonce: '',
     });
 
     if (error) {
@@ -45,9 +50,8 @@ export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
 
     return { error: null };
   } catch (err: any) {
-    // User cancelled or other error
     if (err?.message?.includes('cancelled') || err?.code === '1001') {
-      return { error: null }; // User cancelled, not an error
+      return { error: null };
     }
     return { error: err instanceof Error ? err : new Error(String(err)) };
   }
