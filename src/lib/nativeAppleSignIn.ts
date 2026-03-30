@@ -1,22 +1,20 @@
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 
 /**
  * Performs native Apple Sign In on iOS via Capacitor,
  * then exchanges the identity token with Supabase.
- * Falls back to web OAuth on non-native platforms.
+ * Falls back to web OAuth via Lovable Cloud on non-native platforms.
  */
 export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
   // Only use native flow on iOS native app
   if (Capacitor.getPlatform() !== 'ios') {
-    // Fallback to web OAuth
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
+    // Fallback to Lovable Cloud managed Apple OAuth on web
+    const result = await lovable.auth.signInWithOAuth('apple', {
+      redirect_uri: window.location.origin,
     });
-    return { error: error ? new Error(error.message) : null };
+    return { error: result.error ? (result.error instanceof Error ? result.error : new Error(String(result.error))) : null };
   }
 
   try {
