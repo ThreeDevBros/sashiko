@@ -140,7 +140,10 @@ const Auth = () => {
       });
 
       if (error) throw error;
-      toast.success(t('auth.accountCreated'));
+      // Show OTP verification screen
+      setSignupEmail(email);
+      setShowOtpVerification(true);
+      toast.success("Verification code sent to your email!");
     } catch (error: any) {
       const message = error.message?.includes("already registered") 
         ? t('auth.alreadyRegistered')
