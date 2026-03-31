@@ -212,10 +212,15 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
 
   } catch (err: any) {
     // User cancelled the wallet sheet
+    const msg = (err?.message ?? '').toLowerCase();
+    const code = (err?.code ?? '').toLowerCase();
     if (
-      err?.message?.includes('canceled') ||
-      err?.message?.includes('cancelled') ||
-      err?.code === 'ERR_CANCELED'
+      msg.includes('canceled') ||
+      msg.includes('cancelled') ||
+      msg.includes('cancel') ||
+      code === 'err_canceled' ||
+      code === 'payment_canceled' ||
+      err?.type === 'canceled'
     ) {
       return { success: false, cancelled: true };
     }
