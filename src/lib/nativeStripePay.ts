@@ -149,6 +149,7 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
     const currencyCode = options.currency.toUpperCase();
 
     // 2. Present native wallet sheet
+    let walletResult: any;
     if (platform === 'ios') {
       await StripePlugin.createApplePay({
         paymentIntentClientSecret: clientSecret,
@@ -163,8 +164,8 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
         currency: currencyCode,
       });
 
-      const appleResult = await StripePlugin.presentApplePay();
-      console.log('Apple Pay result:', appleResult);
+      walletResult = await StripePlugin.presentApplePay();
+      console.log('Apple Pay result:', walletResult);
 
     } else if (platform === 'android') {
       await StripePlugin.createGooglePay({
@@ -180,8 +181,17 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
         currency: currencyCode,
       });
 
-      const googleResult = await StripePlugin.presentGooglePay();
-      console.log('Google Pay result:', googleResult);
+      walletResult = await StripePlugin.presentGooglePay();
+      console.log('Google Pay result:', walletResult);
+    }
+
+    // 2b. Check wallet result before proceeding
+    const paymentResult = walletResult?.paymentResult;
+    if (paymentResult === 'Canceled') {
+      return { success: false, cancelled: true };
+    }
+    if (paymentResult && paymentResult !== 'Completed') {
+      return { success: false, error: 'Payment was not completed. Please try again.' };
     }
 
     // 3. Extract payment intent ID from client secret
@@ -201,7 +211,7 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
     });
 
     if (orderError) {
-      return { success: false, error: 'Payment succeeded but order creation failed. Please contact support.' };
+      return { success: false, error: 'Order could not be finalized. Please contact support.' };
     }
 
     return {
