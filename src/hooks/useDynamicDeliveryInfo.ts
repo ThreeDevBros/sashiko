@@ -123,6 +123,9 @@ export function useDynamicDeliveryInfo(): DynamicDeliveryInfo {
     ? calculateDistance(branchLat, branchLng, userLat, userLng)
     : null;
 
+  const deliveryRadius = branch?.delivery_radius_km || 10;
+  const isOutOfRadius = distanceKm != null ? distanceKm > deliveryRadius : false;
+
   const deliveryFee = distanceKm != null && deliveryFeeConfig
     ? calculateDeliveryFee(distanceKm, deliveryFeeConfig)
     : null;
@@ -131,9 +134,13 @@ export function useDynamicDeliveryInfo(): DynamicDeliveryInfo {
     ? estimatedTime + transitMinutes
     : null;
 
-  const timeLabel = totalDeliveryMinutes != null
-    ? `${totalDeliveryMinutes}–${totalDeliveryMinutes + 10} min`
-    : `${estimatedTime}–${estimatedTime + 10} min`;
+  const pickupTimeLabel = `${estimatedTime}–${estimatedTime + 10} min`;
+
+  const timeLabel = isOutOfRadius
+    ? pickupTimeLabel
+    : totalDeliveryMinutes != null
+      ? `${totalDeliveryMinutes}–${totalDeliveryMinutes + 10} min`
+      : pickupTimeLabel;
 
   const feeLabel = deliveryFee != null
     ? (deliveryFee === 0 ? 'Free' : formatCurrency(deliveryFee))
@@ -150,5 +157,7 @@ export function useDynamicDeliveryInfo(): DynamicDeliveryInfo {
     feeLabel,
     timeLabel,
     loading,
+    isOutOfRadius,
+    distanceKm,
   };
 }
