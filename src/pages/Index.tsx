@@ -274,7 +274,7 @@ const Index = () => {
               {popularItems.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => navigate('/order')}
+                  onClick={() => navigate(`/order?item=${item.id}`)}
                   className="flex-shrink-0 w-[160px] cursor-pointer group snap-start"
                 >
                   <Card className="overflow-hidden hover:shadow-xl transition-all duration-200 border-border active:scale-[0.96] active:opacity-90 shadow-md">
