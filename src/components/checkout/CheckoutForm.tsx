@@ -433,7 +433,9 @@ export const CheckoutForm = ({
           });
 
           if (result.cancelled) {
-            // User dismissed the wallet sheet — not an error
+            // User dismissed the wallet sheet — not an error, reset state
+            setLoading(false);
+            isSubmittingRef.current = false;
             return;
           }
 
