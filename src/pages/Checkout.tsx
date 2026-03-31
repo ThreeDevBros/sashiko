@@ -1012,7 +1012,41 @@ const Checkout = () => {
             </div>
           ) : isGuest ? (
             (() => {
-              const guestCheckoutForm = (
+              // When guest selects wallet payment, use StripeCheckoutForm so useStripe() provides the stripe instance
+              if (currentPaymentType === 'wallet' && stripePromise) {
+                return (
+                  <Elements stripe={stripePromise}>
+                    <StripeCheckoutForm 
+                      orderType={orderType} 
+                      onOrderTypeChange={setOrderType} 
+                      selectedAddressId={selectedAddressId} 
+                      onAddressSelect={(addressId, locationData) => {
+                        if (locationData) setSelectedLocationData(locationData);
+                        setSelectedAddressId(addressId);
+                      }} 
+                      branch={branch} 
+                      hasClientSecret={false} 
+                      canDeliver={canDeliver}
+                      isGuest={true}
+                      guestInfo={guestInfo}
+                      guestAddress={activeLocation?.address || ''}
+                      guestDeliveryLat={activeLocation?.latitude}
+                      guestDeliveryLng={activeLocation?.longitude}
+                      onPaymentTypeChange={handlePaymentTypeChange}
+                      cashbackAmount={0}
+                      orderInstructions={orderInstructions}
+                      scheduledDateTime={scheduledDateTime}
+                      deliveryFee={deliveryFee}
+                      onBeforeNavigate={() => { isNavigatingAway.current = true; }}
+                      cashAllowed={cashAllowed}
+                      tax={tax}
+                      orderTotal={grandTotal}
+                      walletSystemReady={stripeReady}
+                    />
+                  </Elements>
+                );
+              }
+              return (
                 <CheckoutForm 
                   orderType={orderType} 
                   onOrderTypeChange={setOrderType} 
@@ -1043,11 +1077,6 @@ const Checkout = () => {
                   walletSystemReady={stripeReady}
                 />
               );
-              // Wrap in Elements when wallet is selected so useStripe() works for guests
-              if (currentPaymentType === 'wallet' && stripePromise) {
-                return <Elements stripe={stripePromise}>{guestCheckoutForm}</Elements>;
-              }
-              return guestCheckoutForm;
             })()
           ) : stripePromise && clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
