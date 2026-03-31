@@ -13,6 +13,7 @@ import LoadingScreen from "./components/LoadingScreen";
 import { TopNav } from "./components/TopNav";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { GlobalDriverTracker } from "./components/driver/GlobalDriverTracker";
+import { PhonePromptDialog } from "./components/PhonePromptDialog";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
