@@ -6,6 +6,7 @@ import { useBranding } from '@/hooks/useBranding';
 import { useBranch } from '@/hooks/useBranch';
 import { useCart } from '@/contexts/CartContext';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MenuItem } from '@/components/menu/MenuItem';
 import { MenuItemDetailSheet } from '@/components/menu/MenuItemDetailSheet';
@@ -22,6 +23,8 @@ export const MenuDisplay = () => {
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
 
   const handleItemClick = (item: MenuItemType) => {
     setSelectedItem(item);
@@ -94,7 +97,19 @@ export const MenuDisplay = () => {
     enabled: !!branch?.id,
   });
 
-  // Listen for branch changes
+  // Auto-open item from query param (e.g. /order?item=xxx)
+  useEffect(() => {
+    const itemId = searchParams.get('item');
+    if (itemId && menuItems && menuItems.length > 0) {
+      const found = menuItems.find(i => i.id === itemId);
+      if (found) {
+        setSelectedItem(found);
+        setDetailSheetOpen(true);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, menuItems, setSearchParams]);
+
   useEffect(() => {
     const handleBranchChange = () => {
       setIsTransitioning(true);

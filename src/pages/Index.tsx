@@ -12,15 +12,13 @@ import { Card } from "@/components/ui/card";
 import { BranchSelectorDialog } from "@/components/BranchSelectorDialog";
 import { DeliveryLocationSelector } from "@/components/DeliveryLocationSelector";
 import { BranchInfoPill } from "@/components/BranchInfoPill";
-import { CalendarCheck, Star, User, ArrowRight, Clock, ChevronDown, Package } from "lucide-react";
+import { CalendarCheck, Star, User, ArrowRight, ChevronDown, Package } from "lucide-react";
 import { ActiveOrderBanner } from "@/components/ActiveOrderBanner";
 import { ActiveReservationBanner } from "@/components/ActiveReservationBanner";
 import { SocialMediaSection } from "@/components/SocialMediaSection";
-import { Badge } from "@/components/ui/badge";
 import { HeroBannerSlideshow } from "@/components/HeroBannerSlideshow";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { formatCurrency } from "@/lib/currency";
 import heroFood from "@/assets/hero-food.jpg";
 import type { BannerItem } from "@/components/admin/HomePageViewSection";
 
@@ -276,7 +274,7 @@ const Index = () => {
               {popularItems.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => navigate('/order')}
+                  onClick={() => navigate(`/order?item=${item.id}`)}
                   className="flex-shrink-0 w-[160px] cursor-pointer group snap-start"
                 >
                   <Card className="overflow-hidden hover:shadow-xl transition-all duration-200 border-border active:scale-[0.96] active:opacity-90 shadow-md">
@@ -289,17 +287,6 @@ const Index = () => {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">{item.name}</div>
-                      )}
-                      <Badge className="absolute top-2 right-2 bg-background/95 backdrop-blur-sm text-foreground border-border shadow-sm">
-                        {formatCurrency(item.price, currency)}
-                      </Badge>
-                      {item.preparation_time_mins && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent p-2">
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{item.preparation_time_mins} min</span>
-                          </div>
-                        </div>
                       )}
                     </div>
                     <div className="p-2.5">
