@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { BranchSelectorDialog } from "@/components/BranchSelectorDialog";
 import { DeliveryLocationSelector } from "@/components/DeliveryLocationSelector";
 import { BranchInfoPill } from "@/components/BranchInfoPill";
-import { CalendarCheck, Star, User, ArrowRight, Clock, ChevronDown, Package } from "lucide-react";
+import { CalendarCheck, Star, User, ArrowRight, ChevronDown, Package } from "lucide-react";
 import { ActiveOrderBanner } from "@/components/ActiveOrderBanner";
 import { ActiveReservationBanner } from "@/components/ActiveReservationBanner";
 import { SocialMediaSection } from "@/components/SocialMediaSection";
