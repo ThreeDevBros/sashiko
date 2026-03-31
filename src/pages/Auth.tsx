@@ -49,6 +49,8 @@ const Auth = () => {
   const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [signupEmail, setSignupEmail] = useState("");
 
   // Signup validation
   const isFullNameValid = fullName.trim().length >= 2;
