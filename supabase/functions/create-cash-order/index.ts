@@ -80,6 +80,23 @@ serve(async (req) => {
 
     console.log('Creating cash order for:', user ? `user ${user.id}` : `guest ${guest_info?.email}`);
 
+    // Ensure profile exists for authenticated users (prevents FK violation)
+    if (user?.id) {
+      const { data: existingProfile } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (!existingProfile) {
+        console.log('Profile missing for user, creating one...');
+        await supabaseClient.from('profiles').insert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || '',
+        });
+      }
+    }
+
     // Reverse-geocode if address is generic and we have coordinates
     if (guest_delivery_lat && guest_delivery_lng && (!guest_address || guest_address === 'Pinned location' || guest_address === 'Current location')) {
       try {

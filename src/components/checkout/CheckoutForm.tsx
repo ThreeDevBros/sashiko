@@ -668,8 +668,8 @@ export const CheckoutForm = ({
     } catch (error: any) {
       console.error('Payment error:', error);
       // Extract a user-friendly message
-      let errorMessage = 'We couldn\'t process your payment. Please try again.';
-      if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function')) {
+      let errorMessage = 'Something went wrong placing your order. Please try again.';
+      if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function') && !error.message.includes('FunctionsFetchError')) {
         errorMessage = error.message;
       }
       setError(errorMessage);
