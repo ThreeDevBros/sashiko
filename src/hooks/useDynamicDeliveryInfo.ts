@@ -14,6 +14,8 @@ interface DynamicDeliveryInfo {
   feeLabel: string;
   timeLabel: string;
   loading: boolean;
+  isOutOfRadius: boolean;
+  distanceKm: number | null;
 }
 
 // Module-level cache so results persist across page navigations / remounts
