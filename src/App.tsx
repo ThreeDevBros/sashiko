@@ -261,6 +261,7 @@ const AppContent = () => {
         <Toaster />
         <Sonner />
         <GlobalDriverTracker />
+        <PhonePromptDialog />
         <BrowserRouter>
           <ScrollToTop />
           <PageTransitionProvider>
