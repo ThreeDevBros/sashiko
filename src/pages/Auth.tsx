@@ -15,6 +15,7 @@ import { z } from "zod";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useTheme } from "@/components/ThemeProvider";
 import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
+import OtpVerification from "@/components/auth/OtpVerification";
 
 import { useBranding } from "@/hooks/useBranding";
 import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
@@ -48,6 +49,8 @@ const Auth = () => {
   const [isPasswordReset, setIsPasswordReset] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [signupEmail, setSignupEmail] = useState("");
 
   // Signup validation
   const isFullNameValid = fullName.trim().length >= 2;
@@ -137,7 +140,10 @@ const Auth = () => {
       });
 
       if (error) throw error;
-      toast.success(t('auth.accountCreated'));
+      // Show OTP verification screen
+      setSignupEmail(email);
+      setShowOtpVerification(true);
+      toast.success("Verification code sent to your email!");
     } catch (error: any) {
       const message = error.message?.includes("already registered") 
         ? t('auth.alreadyRegistered')
@@ -311,6 +317,52 @@ const Auth = () => {
               </form>
             </CardContent>
           </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Show OTP verification screen after signup
+  if (showOtpVerification) {
+    return (
+      <div 
+        className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+        style={branding?.login_bg_color ? {
+          background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
+        } : undefined}
+      >
+        <div className="absolute inset-0 opacity-10">
+          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="food-bg-otp" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
+                <path d="M20 20 Q30 10 40 20 Q50 30 40 40 Q30 50 20 40 Z" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" opacity="0.3"/>
+                <circle cx="70" cy="30" r="8" stroke="hsl(var(--accent))" strokeWidth="2" fill="none" opacity="0.3"/>
+                <path d="M80 70 L90 80 M80 80 L90 70" stroke="hsl(var(--primary))" strokeWidth="2" opacity="0.3"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#food-bg-otp)" />
+          </svg>
+        </div>
+        <div className="w-full max-w-md relative z-10">
+          <div className="text-center mb-4">
+            <div className="mx-auto mb-2 flex items-center justify-center" style={{ width: `${Math.min((branding as any)?.login_logo_size || 160, 300)}px`, height: `${Math.min((branding as any)?.login_logo_size || 160, 300)}px` }}>
+              <img 
+                src={branding?.login_logo_url || sashikoLogo} 
+                alt={branding?.tenant_name || "Sashiko Asian Fusion"} 
+                className="w-full h-full object-contain invert dark:invert"
+              />
+            </div>
+          </div>
+          <OtpVerification
+            email={signupEmail}
+            onVerified={() => {
+              setShowOtpVerification(false);
+              navigate('/');
+            }}
+            onBack={() => {
+              setShowOtpVerification(false);
+            }}
+          />
         </div>
       </div>
     );
