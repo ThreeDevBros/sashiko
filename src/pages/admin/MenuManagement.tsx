@@ -386,6 +386,25 @@ export default function MenuManagement() {
 
   const deleteItemMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Delete related records first to avoid FK constraint errors
+      const { error: branchError } = await supabase
+        .from('branch_menu_items')
+        .delete()
+        .eq('menu_item_id', id);
+      if (branchError) throw branchError;
+
+      const { error: allergenError } = await supabase
+        .from('menu_item_allergens')
+        .delete()
+        .eq('menu_item_id', id);
+      if (allergenError) throw allergenError;
+
+      const { error: modifierError } = await supabase
+        .from('menu_item_modifiers')
+        .delete()
+        .eq('menu_item_id', id);
+      if (modifierError) throw modifierError;
+
       const { error } = await supabase
         .from('menu_items')
         .delete()
@@ -395,6 +414,9 @@ export default function MenuManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-items-with-branches'] });
       toast({ title: 'Menu item deleted successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Failed to delete menu item', description: error.message, variant: 'destructive' });
     },
   });
 
