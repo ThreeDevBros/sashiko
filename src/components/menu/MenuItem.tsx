@@ -51,7 +51,7 @@ export const MenuItem = ({ item, branding, onItemClick, index = 0 }: MenuItemPro
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           {/* Item Name */}
           <h3 
-            className="text-base font-bold transition-colors duration-300 group-hover:text-primary line-clamp-1 text-foreground"
+            className="text-sm font-bold transition-colors duration-300 group-hover:text-primary line-clamp-1 text-foreground"
             style={{ 
               fontFamily: branding?.font_family || 'inherit'
             }}
