@@ -23,6 +23,20 @@ export const MenuDisplay = () => {
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Auto-open item from query param (e.g. /order?item=xxx)
+  useEffect(() => {
+    const itemId = searchParams.get('item');
+    if (itemId && menuItems && menuItems.length > 0) {
+      const found = menuItems.find(i => i.id === itemId);
+      if (found) {
+        setSelectedItem(found);
+        setDetailSheetOpen(true);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, menuItems, setSearchParams]);
 
   const handleItemClick = (item: MenuItemType) => {
     setSelectedItem(item);

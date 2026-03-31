@@ -288,17 +288,6 @@ const Index = () => {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">{item.name}</div>
                       )}
-                      <Badge className="absolute top-2 right-2 bg-background/95 backdrop-blur-sm text-foreground border-border shadow-sm">
-                        {formatCurrency(item.price, currency)}
-                      </Badge>
-                      {item.preparation_time_mins && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent p-2">
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{item.preparation_time_mins} min</span>
-                          </div>
-                        </div>
-                      )}
                     </div>
                     <div className="p-2.5">
                       <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">
