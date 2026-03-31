@@ -61,7 +61,7 @@ export const MenuItem = ({ item, branding, onItemClick, index = 0 }: MenuItemPro
 
           {/* Description */}
           {item.description && (
-            <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+            <p className="text-[11px] leading-snug text-muted-foreground line-clamp-3 mt-0.5">
               {item.description}
             </p>
           )}
