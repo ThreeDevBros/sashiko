@@ -15,6 +15,7 @@ import { z } from "zod";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useTheme } from "@/components/ThemeProvider";
 import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
+import OtpVerification from "@/components/auth/OtpVerification";
 
 import { useBranding } from "@/hooks/useBranding";
 import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
