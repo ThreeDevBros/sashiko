@@ -6,6 +6,7 @@ import { useBranding } from '@/hooks/useBranding';
 import { useBranch } from '@/hooks/useBranch';
 import { useCart } from '@/contexts/CartContext';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MenuItem } from '@/components/menu/MenuItem';
 import { MenuItemDetailSheet } from '@/components/menu/MenuItemDetailSheet';
