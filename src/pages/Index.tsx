@@ -16,11 +16,9 @@ import { CalendarCheck, Star, User, ArrowRight, ChevronDown, Package } from "luc
 import { ActiveOrderBanner } from "@/components/ActiveOrderBanner";
 import { ActiveReservationBanner } from "@/components/ActiveReservationBanner";
 import { SocialMediaSection } from "@/components/SocialMediaSection";
-import { Badge } from "@/components/ui/badge";
 import { HeroBannerSlideshow } from "@/components/HeroBannerSlideshow";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { formatCurrency } from "@/lib/currency";
 import heroFood from "@/assets/hero-food.jpg";
 import type { BannerItem } from "@/components/admin/HomePageViewSection";
 
