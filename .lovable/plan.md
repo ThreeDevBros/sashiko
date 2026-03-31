@@ -1,59 +1,38 @@
 
 
-# Fix: "Failed to update branding" — Missing tenant_settings Row
+# Fix: Apple Pay / Google Pay Not Working for Guest Users
 
-## Root Cause
+## Problem
 
-The `tenant_settings` table has **zero rows**. When the Customise page loads, the query returns null, so `branding?.id` is `undefined`. The update call `.update(updates).eq('id', undefined)` fails silently or errors out, triggering the "Failed to update branding" toast.
+When a guest user selects Apple Pay or Google Pay on **web**, the payment fails because:
+
+1. The guest checkout renders `CheckoutForm` (not `StripeCheckoutForm`), so the `stripe` prop is always `null`
+2. Even when the form is wrapped in `<Elements>` for wallet payments (line 1047-1049), the component doesn't call `useStripe()` — it still receives `stripe={null}`
+3. The web wallet path checks `if (!stripe)` and shows "Payment system is not ready"
+
+On **native** (iOS/Android), this isn't an issue because the native path uses the Capacitor Stripe plugin directly and skips the `stripe` object entirely.
 
 ## Solution
 
-**Upsert instead of update**: Modify the mutation in `Customise.tsx` to handle the case where no row exists yet. Use an **upsert** pattern — if `branding?.id` exists, update; otherwise, insert a new row.
+When guest + wallet is selected, use `StripeCheckoutForm` instead of `CheckoutForm` inside the `<Elements>` wrapper. This ensures `useStripe()` is called and the `stripe` object is available for web wallet payments.
 
-### Changes
+## Changes
 
-**File: `src/pages/admin/Customise.tsx`** (lines 99-117)
+### File: `src/pages/Checkout.tsx` (~lines 1015-1051)
 
-Update `updateBrandingMutation` to:
-1. If `branding?.id` exists, perform `.update(updates).eq('id', branding.id)` as before
-2. If `branding?.id` is undefined/null, perform `.insert(updates)` to create the initial row
-3. Alternatively, use `.upsert()` with a default ID
+Update the guest checkout rendering logic:
 
-The simplest approach: change the mutation to check for `branding?.id` and either insert or update accordingly:
+- When `currentPaymentType === 'wallet'` and `stripePromise` exists, wrap `StripeCheckoutForm` (not `CheckoutForm`) in `<Elements>` so `useStripe()` provides the stripe instance
+- Pass all the same guest-specific props (`isGuest`, `guestInfo`, `guestAddress`, etc.)
+- Keep the non-wallet guest path using `CheckoutForm` as-is (cash doesn't need Stripe)
 
-```typescript
-mutationFn: async (updates: any) => {
-  if (branding?.id) {
-    const { error } = await supabase
-      .from('tenant_settings')
-      .update(updates)
-      .eq('id', branding.id);
-    if (error) throw error;
-  } else {
-    const { error } = await supabase
-      .from('tenant_settings')
-      .insert(updates);
-    if (error) throw error;
-  }
-},
+```text
+Current flow (broken):
+  guest + wallet → <Elements><CheckoutForm stripe={null} /></Elements>
+
+Fixed flow:
+  guest + wallet → <Elements><StripeCheckoutForm (calls useStripe internally) /></Elements>
 ```
 
-This single change fixes the "Failed to update branding" error for fresh setups where no tenant_settings row exists yet.
-
-### Also: Seed the initial row via migration
-
-Create a migration to insert a default `tenant_settings` row so the table is never empty going forward. This is a safety net:
-
-```sql
-INSERT INTO public.tenant_settings (tenant_name)
-VALUES ('Sashiko')
-ON CONFLICT DO NOTHING;
-```
-
-## Files Modified
-
-| File | Change |
-|------|--------|
-| `src/pages/admin/Customise.tsx` | Use insert-or-update pattern in mutation |
-| Migration | Seed default tenant_settings row |
+This is a single rendering change — no backend or edge function modifications needed.
 
