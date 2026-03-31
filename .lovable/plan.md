@@ -1,38 +1,23 @@
 
 
-# Fix: Apple Pay / Google Pay Not Working for Guest Users
+# Remove Price/Time from Popular Items & Navigate to Item Detail
 
-## Problem
-
-When a guest user selects Apple Pay or Google Pay on **web**, the payment fails because:
-
-1. The guest checkout renders `CheckoutForm` (not `StripeCheckoutForm`), so the `stripe` prop is always `null`
-2. Even when the form is wrapped in `<Elements>` for wallet payments (line 1047-1049), the component doesn't call `useStripe()` — it still receives `stripe={null}`
-3. The web wallet path checks `if (!stripe)` and shows "Payment system is not ready"
-
-On **native** (iOS/Android), this isn't an issue because the native path uses the Capacitor Stripe plugin directly and skips the `stripe` object entirely.
-
-## Solution
-
-When guest + wallet is selected, use `StripeCheckoutForm` instead of `CheckoutForm` inside the `<Elements>` wrapper. This ensures `useStripe()` is called and the `stripe` object is available for web wallet payments.
+## Overview
+On the homepage, popular item cards currently show a price badge and preparation time overlay. These will be removed. When a user taps a popular item, they'll navigate to `/order?item={itemId}`, and the MenuDisplay component will auto-open that item's detail sheet.
 
 ## Changes
 
-### File: `src/pages/Checkout.tsx` (~lines 1015-1051)
+### 1. Homepage Popular Items (`src/pages/Index.tsx`)
+- Remove the price `Badge` overlay (lines 293-295)
+- Remove the preparation time `Clock` overlay (lines 296-303)
+- Change the `onClick` from `navigate('/order')` to `navigate(`/order?item=${item.id}`)`
 
-Update the guest checkout rendering logic:
+### 2. MenuDisplay Auto-Open Item (`src/components/MenuDisplay.tsx`)
+- Read `item` query param via `useSearchParams`
+- When menu items are loaded and the query param is present, find the matching item and auto-open the `MenuItemDetailSheet`
+- Clear the query param after opening so it doesn't re-trigger
 
-- When `currentPaymentType === 'wallet'` and `stripePromise` exists, wrap `StripeCheckoutForm` (not `CheckoutForm`) in `<Elements>` so `useStripe()` provides the stripe instance
-- Pass all the same guest-specific props (`isGuest`, `guestInfo`, `guestAddress`, etc.)
-- Keep the non-wallet guest path using `CheckoutForm` as-is (cash doesn't need Stripe)
-
-```text
-Current flow (broken):
-  guest + wallet → <Elements><CheckoutForm stripe={null} /></Elements>
-
-Fixed flow:
-  guest + wallet → <Elements><StripeCheckoutForm (calls useStripe internally) /></Elements>
-```
-
-This is a single rendering change — no backend or edge function modifications needed.
+### 3. Import Cleanup (`src/pages/Index.tsx`)
+- Remove `Clock` from lucide-react imports if no longer used elsewhere
+- Remove `Badge` import if no longer used elsewhere in the file
 
