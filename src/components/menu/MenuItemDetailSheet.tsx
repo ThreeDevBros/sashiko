@@ -244,7 +244,7 @@ export const MenuItemDetailSheet = ({
               </h2>
               
               {item.description && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
+                <p className="text-xs text-muted-foreground mt-1">{item.description}</p>
               )}
               
               <span className="text-lg font-bold text-primary mt-2 block">
