@@ -1,48 +1,53 @@
 
 
-## Root Cause
+# Fix Plan: Payment Drawer, Apple Pay Cancellation, and Cash Order Errors
 
-The bug is a **React Rules of Hooks violation** in `CheckoutForm.tsx` (lines 89-94):
+## Problem Summary
 
-```typescript
-try {
-  stripe = useStripe();
-  elements = useElements();
-} catch (e) {
-  // Hooks not available (guest mode without Elements wrapper)
-}
+Three distinct issues identified:
+
+1. **Apple Pay cancellation shows wrong error**: When user cancels Apple Pay, `presentApplePay()` resolves (doesn't throw). The code then calls `confirm-payment` which sees payment status `requires_payment_method` and returns an error. This triggers the misleading message "Payment succeeded but order creation failed."
+
+2. **Cash order throws "couldn't process payment" error**: The `create-cash-order` edge function fails with a foreign key violation: `orders.user_id` references `profiles`, but the logged-in user has no profile row. The error falls through to the generic catch block showing "We couldn't process your payment."
+
+3. **Payment drawer needs backdrop blur and proper swipe-to-dismiss**: The Vaul drawer needs a blurred backdrop and should dismiss smoothly when swiped down on all platforms.
+
+---
+
+## Changes
+
+### 1. Fix Apple Pay cancellation detection (`src/lib/nativeStripePay.ts`)
+
+After `presentApplePay()` / `presentGooglePay()`, check the result status. The `@capacitor-community/stripe` plugin returns `{ paymentResult: 'Completed' | 'Canceled' | 'Failed' }`. If the result is not `Completed`, return early as cancelled or failed — do NOT call `confirm-payment`.
+
+```text
+presentApplePay() → check result.paymentResult
+  'Completed' → proceed to confirm-payment
+  'Canceled'  → return { cancelled: true }
+  Other       → return { error: 'Payment not completed' }
 ```
 
-React hooks **must** be called unconditionally at the top level — wrapping them in try/catch does not make them safe. When `CheckoutForm` renders without an `<Elements>` wrapper (which happens for guests on cash, and for logged-in users before `clientSecret` loads), these hooks throw internally, corrupting React's hook tracking. This causes unpredictable behavior: the drawer state, card selection, and UI updates all break silently because React's internal fiber state is out of sync.
+### 2. Fix cash order foreign key error (`supabase/functions/create-cash-order/index.ts`)
 
-The `Checkout.tsx` page conditionally wraps `CheckoutForm` in `<Elements>` based on payment type — so the same component mounts/unmounts with and without the provider, making this hook violation trigger frequently on native iOS.
+Before inserting the order, check if the user has a profile. If not, create one automatically using the service role client. This handles the case where a user authenticated but never got a profile row created.
 
-## Plan
+### 3. Improve payment drawer UX (`src/components/ui/drawer.tsx` + `CheckoutForm.tsx`)
 
-### 1. Split CheckoutForm to respect Rules of Hooks
+- Add `backdrop-blur-sm` to the `DrawerOverlay` component for the blur effect across all platforms
+- The Vaul drawer already handles swipe-to-dismiss natively; the blur addition will make the background effect consistent
 
-**File:** `src/components/checkout/CheckoutForm.tsx`
+### 4. Better error message for confirm-payment failures (`src/lib/nativeStripePay.ts`)
 
-- Remove the try/catch around `useStripe()` / `useElements()`
-- Accept `stripe` and `elements` as **optional props** instead of calling the hooks directly
-- Create a thin wrapper component `StripeCheckoutForm` that calls the hooks and passes them down
+Change the error message on line 204 from "Payment succeeded but order creation failed" to something less alarming, since this path is now only reachable for genuine server errors (not cancellations).
 
-```
-CheckoutForm          — receives stripe/elements as props (no hooks)
-StripeCheckoutForm    — calls useStripe()/useElements(), forwards to CheckoutForm
-```
+---
 
-### 2. Update Checkout.tsx to use the correct wrapper
+## Files Modified
 
-**File:** `src/pages/Checkout.tsx`
-
-- When inside `<Elements>`, render `<StripeCheckoutForm>` (which calls hooks safely)
-- When outside `<Elements>`, render `<CheckoutForm>` directly (stripe/elements will be null)
-- Remove the duplicated conditional wrapping logic — simplify to two clear paths
-
-This eliminates the hooks violation entirely. No hook is ever called outside its provider.
-
-### Technical Details
-
-The core issue: React tracks hooks by **call order per component instance**. When `useStripe()` throws inside try/catch, React has already incremented its hook counter. The catch swallows the error but the counter is wrong, so every subsequent hook (`useState`, `useEffect`, etc.) reads from the wrong slot. This causes state to leak between hooks — explaining why the drawer opens/closes erratically, selections don't stick, and the UI feels "buggy" without a visible error.
+| File | Change |
+|------|--------|
+| `src/lib/nativeStripePay.ts` | Check `presentApplePay`/`presentGooglePay` result before calling confirm-payment |
+| `supabase/functions/create-cash-order/index.ts` | Auto-create profile if missing before order insert |
+| `src/components/ui/drawer.tsx` | Add `backdrop-blur-sm` to DrawerOverlay |
+| `src/components/checkout/CheckoutForm.tsx` | Improve error handling for cash order path |
 
