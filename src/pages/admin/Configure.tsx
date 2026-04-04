@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, DollarSign, Globe, Settings, Coins, Timer, ToggleLeft, Truck, Banknote, CalendarDays, HandCoins, FileText, ShieldCheck } from 'lucide-react';
+import { Trash2, DollarSign, Globe, Settings, Coins, Timer, ToggleLeft, Truck, Banknote, CalendarDays, HandCoins, FileText, ShieldCheck, Copy, ExternalLink } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -1280,6 +1280,29 @@ const Configure = () => {
                 >
                   {saveTermsMutation.isPending ? 'Saving...' : 'Save Terms of Service'}
                 </Button>
+                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <a
+                    href={`${window.location.origin}/legal/terms`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary underline truncate"
+                  >
+                    {`${window.location.origin}/legal/terms`}
+                  </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 ml-auto"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/legal/terms`);
+                      toast({ title: 'Copied!', description: 'Terms of Service URL copied to clipboard.' });
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copy URL
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1308,6 +1331,29 @@ const Configure = () => {
                 >
                   {savePrivacyMutation.isPending ? 'Saving...' : 'Save Privacy Policy'}
                 </Button>
+                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <a
+                    href={`${window.location.origin}/legal/privacy`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary underline truncate"
+                  >
+                    {`${window.location.origin}/legal/privacy`}
+                  </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 ml-auto"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/legal/privacy`);
+                      toast({ title: 'Copied!', description: 'Privacy Policy URL copied to clipboard.' });
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copy URL
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
