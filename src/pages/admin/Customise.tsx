@@ -487,16 +487,19 @@ export default function Customise() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setIsUploadingLoginLogo(true);
+                      setLoginLogoProgress(0);
                       try {
                         const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
-                        const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
-                        if (error) { toast.error('Upload failed'); return; }
-                        const { data: { publicUrl } } = supabase.storage.from('restaurant-images').getPublicUrl(fileName);
+                        const { publicUrl } = await uploadWithProgress(
+                          'restaurant-images', fileName, file,
+                          (p) => setLoginLogoProgress(p),
+                        );
                         await updateBrandingMutation.mutateAsync({ login_logo_url: publicUrl });
                       } catch {
                         toast.error('Upload failed');
                       } finally {
                         setIsUploadingLoginLogo(false);
+                        setLoginLogoProgress(0);
                         if (loginLogoInputRef.current) loginLogoInputRef.current.value = '';
                       }
                     }}
