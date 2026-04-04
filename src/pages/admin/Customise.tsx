@@ -238,11 +238,7 @@ export default function Customise() {
                 disabled={!logoFile || isOnCooldown || isUploadingLogo}
                 className="w-full"
               >
-                {isUploadingLogo ? (
-                  <><CircularProgress progress={logoProgress} size={20} strokeWidth={3} className="mr-2 text-primary-foreground" /> {logoProgress}%</>
-                ) : (
-                  'Upload Logo'
-                )}
+                {isUploadingLogo ? `Uploading… ${logoProgress}%` : 'Upload Logo'}
               </Button>
             </div>
 
