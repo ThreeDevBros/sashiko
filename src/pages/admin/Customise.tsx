@@ -395,7 +395,7 @@ export default function Customise() {
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       {isUploadingLoginLogo ? (
-                        <Loader2 className="w-6 h-6 animate-spin text-white" />
+                        <CircularProgress progress={loginLogoProgress} size={40} strokeWidth={4} className="text-white" />
                       ) : (
                         <>
                           <Label htmlFor="login-logo-change" className="cursor-pointer">
