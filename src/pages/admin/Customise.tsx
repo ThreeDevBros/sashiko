@@ -28,6 +28,9 @@ export default function Customise() {
   const [primaryColor, setPrimaryColor] = useState('#16a34a');
   const [accentColor, setAccentColor] = useState('#f97316');
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const loginLogoInputRef = useRef<HTMLInputElement>(null);
+  const loginLogoChangeRef = useRef<HTMLInputElement>(null);
   const [restaurantName, setRestaurantName] = useState('');
   const [loginBgColor, setLoginBgColor] = useState('#f97316');
   const [loginLogoSize, setLoginLogoSize] = useState(100);
@@ -125,27 +128,26 @@ export default function Customise() {
   const handleLogoUpload = async () => {
     if (!logoFile) return;
 
-    await executeAction(async () => {
-      try {
-        const fileExt = logoFile.name.split('.').pop();
-        const fileName = `logo-${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('restaurant-images')
-          .upload(fileName, logoFile);
+    try {
+      const fileExt = logoFile.name.split('.').pop();
+      const fileName = `logo-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('restaurant-images')
+        .upload(fileName, logoFile);
 
-        if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('restaurant-images')
-          .getPublicUrl(fileName);
+      const { data: { publicUrl } } = supabase.storage
+        .from('restaurant-images')
+        .getPublicUrl(fileName);
 
-        await updateBrandingMutation.mutateAsync({ logo_url: publicUrl });
-        setLogoFile(null);
-      } catch (error) {
-        toast.error('Failed to upload logo');
-      }
-    });
+      await updateBrandingMutation.mutateAsync({ logo_url: publicUrl });
+      setLogoFile(null);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    } catch (error) {
+      toast.error('Failed to upload logo');
+    }
   };
 
   const handleSaveColors = async () => {
@@ -213,6 +215,7 @@ export default function Customise() {
               )}
               <div>
                 <Input
+                  ref={logoInputRef}
                   type="file"
                   accept="image/*"
                   onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
@@ -404,21 +407,26 @@ export default function Customise() {
                       </Button>
                     </div>
                     <Input
+                      ref={loginLogoChangeRef}
                       id="login-logo-change"
                       type="file"
                       accept="image/*"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        executeAction(async () => {
+                        try {
                           const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
                           const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
                           if (error) { toast.error('Upload failed'); return; }
                           const { data: { publicUrl } } = supabase.storage.from('restaurant-images').getPublicUrl(fileName);
                           await updateBrandingMutation.mutateAsync({ login_logo_url: publicUrl });
-                        });
+                        } catch {
+                          toast.error('Upload failed');
+                        } finally {
+                          if (loginLogoChangeRef.current) loginLogoChangeRef.current.value = '';
+                        }
                       }}
-                      disabled={isOnCooldown}
+                      disabled={updateBrandingMutation.isPending}
                       className="hidden"
                     />
                   </div>
@@ -448,19 +456,24 @@ export default function Customise() {
                     </div>
                   </Label>
                   <Input
+                    ref={loginLogoInputRef}
                     id="login-logo-upload"
                     type="file"
                     accept="image/*"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      executeAction(async () => {
+                      try {
                         const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
                         const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
                         if (error) { toast.error('Upload failed'); return; }
                         const { data: { publicUrl } } = supabase.storage.from('restaurant-images').getPublicUrl(fileName);
                         await updateBrandingMutation.mutateAsync({ login_logo_url: publicUrl });
-                      });
+                      } catch {
+                        toast.error('Upload failed');
+                      } finally {
+                        if (loginLogoInputRef.current) loginLogoInputRef.current.value = '';
+                      }
                     }}
                     className="hidden"
                   />
