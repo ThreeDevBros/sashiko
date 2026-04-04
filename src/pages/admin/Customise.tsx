@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Upload, Palette, Image, Trash2, RefreshCw, Type, Bold, Italic, Underline } from 'lucide-react';
+import { Upload, Palette, Image, Trash2, RefreshCw, Type, Bold, Italic, Underline, Loader2 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import HomePageViewSection from '@/components/admin/HomePageViewSection';
@@ -32,6 +32,8 @@ export default function Customise() {
   const loginLogoInputRef = useRef<HTMLInputElement>(null);
   const loginLogoChangeRef = useRef<HTMLInputElement>(null);
   const [restaurantName, setRestaurantName] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingLoginLogo, setIsUploadingLoginLogo] = useState(false);
   const [loginBgColor, setLoginBgColor] = useState('#f97316');
   const [loginLogoSize, setLoginLogoSize] = useState(100);
   const [loginTagline, setLoginTagline] = useState('Authentic Asian Cuisine');
@@ -127,7 +129,7 @@ export default function Customise() {
 
   const handleLogoUpload = async () => {
     if (!logoFile) return;
-
+    setIsUploadingLogo(true);
     try {
       const fileExt = logoFile.name.split('.').pop();
       const fileName = `logo-${Date.now()}.${fileExt}`;
@@ -147,6 +149,8 @@ export default function Customise() {
       if (logoInputRef.current) logoInputRef.current.value = '';
     } catch (error) {
       toast.error('Failed to upload logo');
+    } finally {
+      setIsUploadingLogo(false);
     }
   };
 
@@ -223,10 +227,14 @@ export default function Customise() {
               </div>
               <Button 
                 onClick={handleLogoUpload}
-                disabled={!logoFile || isOnCooldown}
+                disabled={!logoFile || isOnCooldown || isUploadingLogo}
                 className="w-full"
               >
-                Upload Logo
+                {isUploadingLogo ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading…</>
+                ) : (
+                  'Upload Logo'
+                )}
               </Button>
             </div>
 
@@ -385,26 +393,32 @@ export default function Customise() {
                       className="w-full h-full object-contain p-1"
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Label htmlFor="login-logo-change" className="cursor-pointer">
-                        <Button type="button" variant="secondary" size="sm" className="pointer-events-none">
-                          <RefreshCw className="w-3 h-3 mr-1" />
-                          Change
-                        </Button>
-                      </Label>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          executeAction(async () => {
-                            await updateBrandingMutation.mutateAsync({ login_logo_url: null });
-                          });
-                        }}
-                        disabled={isOnCooldown}
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Remove
-                      </Button>
+                      {isUploadingLoginLogo ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-white" />
+                      ) : (
+                        <>
+                          <Label htmlFor="login-logo-change" className="cursor-pointer">
+                            <Button type="button" variant="secondary" size="sm" className="pointer-events-none">
+                              <RefreshCw className="w-3 h-3 mr-1" />
+                              Change
+                            </Button>
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              executeAction(async () => {
+                                await updateBrandingMutation.mutateAsync({ login_logo_url: null });
+                              });
+                            }}
+                            disabled={isOnCooldown}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Remove
+                          </Button>
+                        </>
+                      )}
                     </div>
                     <Input
                       ref={loginLogoChangeRef}
@@ -414,6 +428,7 @@ export default function Customise() {
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
+                        setIsUploadingLoginLogo(true);
                         try {
                           const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
                           const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
@@ -423,6 +438,7 @@ export default function Customise() {
                         } catch {
                           toast.error('Upload failed');
                         } finally {
+                          setIsUploadingLoginLogo(false);
                           if (loginLogoChangeRef.current) loginLogoChangeRef.current.value = '';
                         }
                       }}
@@ -451,8 +467,11 @@ export default function Customise() {
                 <div>
                   <Label htmlFor="login-logo-upload" className="cursor-pointer">
                     <div className="flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                      <Upload className="w-5 h-5" />
-                      <span>Click to upload login logo</span>
+                      {isUploadingLoginLogo ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /><span>Uploading…</span></>
+                      ) : (
+                        <><Upload className="w-5 h-5" /><span>Click to upload login logo</span></>
+                      )}
                     </div>
                   </Label>
                   <Input
@@ -463,6 +482,7 @@ export default function Customise() {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
+                      setIsUploadingLoginLogo(true);
                       try {
                         const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
                         const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
@@ -472,6 +492,7 @@ export default function Customise() {
                       } catch {
                         toast.error('Upload failed');
                       } finally {
+                        setIsUploadingLoginLogo(false);
                         if (loginLogoInputRef.current) loginLogoInputRef.current.value = '';
                       }
                     }}
