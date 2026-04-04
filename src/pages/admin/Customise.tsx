@@ -128,27 +128,26 @@ export default function Customise() {
   const handleLogoUpload = async () => {
     if (!logoFile) return;
 
-    await executeAction(async () => {
-      try {
-        const fileExt = logoFile.name.split('.').pop();
-        const fileName = `logo-${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('restaurant-images')
-          .upload(fileName, logoFile);
+    try {
+      const fileExt = logoFile.name.split('.').pop();
+      const fileName = `logo-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('restaurant-images')
+        .upload(fileName, logoFile);
 
-        if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('restaurant-images')
-          .getPublicUrl(fileName);
+      const { data: { publicUrl } } = supabase.storage
+        .from('restaurant-images')
+        .getPublicUrl(fileName);
 
-        await updateBrandingMutation.mutateAsync({ logo_url: publicUrl });
-        setLogoFile(null);
-      } catch (error) {
-        toast.error('Failed to upload logo');
-      }
-    });
+      await updateBrandingMutation.mutateAsync({ logo_url: publicUrl });
+      setLogoFile(null);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    } catch (error) {
+      toast.error('Failed to upload logo');
+    }
   };
 
   const handleSaveColors = async () => {
