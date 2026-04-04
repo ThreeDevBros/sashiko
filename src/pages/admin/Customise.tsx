@@ -134,19 +134,15 @@ export default function Customise() {
   const handleLogoUpload = async () => {
     if (!logoFile) return;
     setIsUploadingLogo(true);
+    setLogoProgress(0);
     try {
       const fileExt = logoFile.name.split('.').pop();
       const fileName = `logo-${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
-        .from('restaurant-images')
-        .upload(fileName, logoFile);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('restaurant-images')
-        .getPublicUrl(fileName);
+      const { publicUrl } = await uploadWithProgress(
+        'restaurant-images', fileName, logoFile,
+        (p) => setLogoProgress(p),
+      );
 
       await updateBrandingMutation.mutateAsync({ logo_url: publicUrl });
       setLogoFile(null);
@@ -155,6 +151,7 @@ export default function Customise() {
       toast.error('Failed to upload logo');
     } finally {
       setIsUploadingLogo(false);
+      setLogoProgress(0);
     }
   };
 
