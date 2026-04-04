@@ -482,6 +482,7 @@ export default function Customise() {
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
+                      setIsUploadingLoginLogo(true);
                       try {
                         const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
                         const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
@@ -491,6 +492,7 @@ export default function Customise() {
                       } catch {
                         toast.error('Upload failed');
                       } finally {
+                        setIsUploadingLoginLogo(false);
                         if (loginLogoInputRef.current) loginLogoInputRef.current.value = '';
                       }
                     }}
