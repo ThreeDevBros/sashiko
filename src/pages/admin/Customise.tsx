@@ -456,19 +456,24 @@ export default function Customise() {
                     </div>
                   </Label>
                   <Input
+                    ref={loginLogoInputRef}
                     id="login-logo-upload"
                     type="file"
                     accept="image/*"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      executeAction(async () => {
+                      try {
                         const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
                         const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
                         if (error) { toast.error('Upload failed'); return; }
                         const { data: { publicUrl } } = supabase.storage.from('restaurant-images').getPublicUrl(fileName);
                         await updateBrandingMutation.mutateAsync({ login_logo_url: publicUrl });
-                      });
+                      } catch {
+                        toast.error('Upload failed');
+                      } finally {
+                        if (loginLogoInputRef.current) loginLogoInputRef.current.value = '';
+                      }
                     }}
                     className="hidden"
                   />
