@@ -1283,19 +1283,19 @@ const Configure = () => {
                 <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
                   <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                   <a
-                    href={`${window.location.origin}/legal/terms`}
+                    href="https://sashikoasianfusion.com/legal/terms"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-primary underline truncate"
                   >
-                    {`${window.location.origin}/legal/terms`}
+                    sashikoasianfusion.com/legal/terms
                   </a>
                   <Button
                     variant="outline"
                     size="sm"
                     className="shrink-0 ml-auto"
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/legal/terms`);
+                      navigator.clipboard.writeText('https://sashikoasianfusion.com/legal/terms');
                       toast({ title: 'Copied!', description: 'Terms of Service URL copied to clipboard.' });
                     }}
                   >
@@ -1334,19 +1334,19 @@ const Configure = () => {
                 <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
                   <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                   <a
-                    href={`${window.location.origin}/legal/privacy`}
+                    href="https://sashikoasianfusion.com/legal/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-primary underline truncate"
                   >
-                    {`${window.location.origin}/legal/privacy`}
+                    sashikoasianfusion.com/legal/privacy
                   </a>
                   <Button
                     variant="outline"
                     size="sm"
                     className="shrink-0 ml-auto"
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/legal/privacy`);
+                      navigator.clipboard.writeText('https://sashikoasianfusion.com/legal/privacy');
                       toast({ title: 'Copied!', description: 'Privacy Policy URL copied to clipboard.' });
                     }}
                   >
