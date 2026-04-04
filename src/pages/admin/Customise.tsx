@@ -215,6 +215,7 @@ export default function Customise() {
               )}
               <div>
                 <Input
+                  ref={logoInputRef}
                   type="file"
                   accept="image/*"
                   onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
