@@ -469,7 +469,7 @@ export default function Customise() {
                   <Label htmlFor="login-logo-upload" className="cursor-pointer">
                     <div className="flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-4 hover:bg-muted/50 transition-colors">
                       {isUploadingLoginLogo ? (
-                        <><Loader2 className="w-5 h-5 animate-spin" /><span>Uploading…</span></>
+                        <><CircularProgress progress={loginLogoProgress} size={24} strokeWidth={3} /><span>Uploading {loginLogoProgress}%</span></>
                       ) : (
                         <><Upload className="w-5 h-5" /><span>Click to upload login logo</span></>
                       )}
