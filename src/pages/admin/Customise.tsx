@@ -232,7 +232,7 @@ export default function Customise() {
                 className="w-full"
               >
                 {isUploadingLogo ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading…</>
+                  <><CircularProgress progress={logoProgress} size={20} strokeWidth={3} className="mr-2 text-primary-foreground" /> {logoProgress}%</>
                 ) : (
                   'Upload Logo'
                 )}
