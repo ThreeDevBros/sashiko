@@ -129,7 +129,7 @@ export default function Customise() {
 
   const handleLogoUpload = async () => {
     if (!logoFile) return;
-
+    setIsUploadingLogo(true);
     try {
       const fileExt = logoFile.name.split('.').pop();
       const fileName = `logo-${Date.now()}.${fileExt}`;
@@ -149,6 +149,8 @@ export default function Customise() {
       if (logoInputRef.current) logoInputRef.current.value = '';
     } catch (error) {
       toast.error('Failed to upload logo');
+    } finally {
+      setIsUploadingLogo(false);
     }
   };
 
