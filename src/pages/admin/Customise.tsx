@@ -28,6 +28,9 @@ export default function Customise() {
   const [primaryColor, setPrimaryColor] = useState('#16a34a');
   const [accentColor, setAccentColor] = useState('#f97316');
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const loginLogoInputRef = useRef<HTMLInputElement>(null);
+  const loginLogoChangeRef = useRef<HTMLInputElement>(null);
   const [restaurantName, setRestaurantName] = useState('');
   const [loginBgColor, setLoginBgColor] = useState('#f97316');
   const [loginLogoSize, setLoginLogoSize] = useState(100);
