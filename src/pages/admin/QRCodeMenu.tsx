@@ -54,7 +54,7 @@ const QRCodeMenu = () => {
   });
 
   const selectedBranch = branches?.find(b => b.id === selectedBranchId);
-  const menuUrl = selectedBranchId ? `${window.location.origin}/qr-menu/${selectedBranchId}` : '';
+  const menuUrl = selectedBranchId ? `https://sashikoasianfusion.com/qr-menu/${selectedBranchId}` : '';
 
   const categoriesWithItems = categories?.filter(cat => menuItems?.some(item => item.category_id === cat.id)) || [];
 
