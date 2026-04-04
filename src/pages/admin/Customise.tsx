@@ -32,6 +32,8 @@ export default function Customise() {
   const loginLogoInputRef = useRef<HTMLInputElement>(null);
   const loginLogoChangeRef = useRef<HTMLInputElement>(null);
   const [restaurantName, setRestaurantName] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingLoginLogo, setIsUploadingLoginLogo] = useState(false);
   const [loginBgColor, setLoginBgColor] = useState('#f97316');
   const [loginLogoSize, setLoginLogoSize] = useState(100);
   const [loginTagline, setLoginTagline] = useState('Authentic Asian Cuisine');
