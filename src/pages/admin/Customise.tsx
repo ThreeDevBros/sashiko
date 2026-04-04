@@ -3,7 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Upload, Palette, Image, Trash2, RefreshCw, Type, Bold, Italic, Underline, Loader2 } from 'lucide-react';
+import { Upload, Palette, Image, Trash2, RefreshCw, Type, Bold, Italic, Underline } from 'lucide-react';
+import { CircularProgress } from '@/components/ui/circular-progress';
+import { uploadWithProgress } from '@/lib/uploadWithProgress';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import HomePageViewSection from '@/components/admin/HomePageViewSection';
