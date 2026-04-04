@@ -227,10 +227,14 @@ export default function Customise() {
               </div>
               <Button 
                 onClick={handleLogoUpload}
-                disabled={!logoFile || isOnCooldown}
+                disabled={!logoFile || isOnCooldown || isUploadingLogo}
                 className="w-full"
               >
-                Upload Logo
+                {isUploadingLogo ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading…</>
+                ) : (
+                  'Upload Logo'
+                )}
               </Button>
             </div>
 
