@@ -216,17 +216,19 @@ const BranchMenu = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-4 text-center">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-center gap-4">
           {branding?.logo_url && (
-            <img src={branding.logo_url} alt="Logo" className="h-10 mx-auto mb-2 object-contain" />
+            <img src={branding.logo_url} alt="Logo" className="h-16 w-16 object-contain flex-shrink-0" />
           )}
-          <h1
-            className="text-xl font-bold text-foreground"
-            style={{ fontFamily: branding?.font_family || 'inherit' }}
-          >
-            {branch.name}
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">{branch.address}, {branch.city}</p>
+          <div className="text-left">
+            <h1
+              className="text-xl font-bold text-foreground"
+              style={{ fontFamily: branding?.font_family || 'inherit' }}
+            >
+              {branch.name}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">{branch.address}, {branch.city}</p>
+          </div>
         </div>
       </div>
 
