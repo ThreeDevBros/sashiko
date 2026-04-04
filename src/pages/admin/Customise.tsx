@@ -197,13 +197,20 @@ export default function Customise() {
             {/* Logo */}
             <div className="space-y-3">
               <Label className="text-sm font-semibold">Logo</Label>
-              {branding?.logo_url && (
+              {(branding?.logo_url || isUploadingLogo) && (
                 <div className="rounded-lg border p-4 bg-muted/50 flex items-center justify-between">
-                  <img 
-                    src={branding.logo_url} 
-                    alt="Current logo" 
-                    className="h-20 object-contain"
-                  />
+                  <div className="flex items-center gap-4">
+                    {branding?.logo_url && (
+                      <img 
+                        src={branding.logo_url} 
+                        alt="Current logo" 
+                        className="h-20 object-contain"
+                      />
+                    )}
+                    {isUploadingLogo && (
+                      <CircularProgress progress={logoProgress} size={48} strokeWidth={4} className="text-primary" />
+                    )}
+                  </div>
                   <Button
                     variant="destructive"
                     size="icon"
@@ -212,7 +219,7 @@ export default function Customise() {
                         await updateBrandingMutation.mutateAsync({ logo_url: null });
                       });
                     }}
-                    disabled={isOnCooldown}
+                    disabled={isOnCooldown || isUploadingLogo}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -231,11 +238,7 @@ export default function Customise() {
                 disabled={!logoFile || isOnCooldown || isUploadingLogo}
                 className="w-full"
               >
-                {isUploadingLogo ? (
-                  <><CircularProgress progress={logoProgress} size={20} strokeWidth={3} className="mr-2 text-primary-foreground" /> {logoProgress}%</>
-                ) : (
-                  'Upload Logo'
-                )}
+                {isUploadingLogo ? `Uploading… ${logoProgress}%` : 'Upload Logo'}
               </Button>
             </div>
 
