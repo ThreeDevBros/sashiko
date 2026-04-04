@@ -393,26 +393,32 @@ export default function Customise() {
                       className="w-full h-full object-contain p-1"
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Label htmlFor="login-logo-change" className="cursor-pointer">
-                        <Button type="button" variant="secondary" size="sm" className="pointer-events-none">
-                          <RefreshCw className="w-3 h-3 mr-1" />
-                          Change
-                        </Button>
-                      </Label>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          executeAction(async () => {
-                            await updateBrandingMutation.mutateAsync({ login_logo_url: null });
-                          });
-                        }}
-                        disabled={isOnCooldown}
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Remove
-                      </Button>
+                      {isUploadingLoginLogo ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-white" />
+                      ) : (
+                        <>
+                          <Label htmlFor="login-logo-change" className="cursor-pointer">
+                            <Button type="button" variant="secondary" size="sm" className="pointer-events-none">
+                              <RefreshCw className="w-3 h-3 mr-1" />
+                              Change
+                            </Button>
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              executeAction(async () => {
+                                await updateBrandingMutation.mutateAsync({ login_logo_url: null });
+                              });
+                            }}
+                            disabled={isOnCooldown}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Remove
+                          </Button>
+                        </>
+                      )}
                     </div>
                     <Input
                       ref={loginLogoChangeRef}
