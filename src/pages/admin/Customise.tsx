@@ -3,7 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Upload, Palette, Image, Trash2, RefreshCw, Type, Bold, Italic, Underline, Loader2 } from 'lucide-react';
+import { Upload, Palette, Image, Trash2, RefreshCw, Type, Bold, Italic, Underline } from 'lucide-react';
+import { CircularProgress } from '@/components/ui/circular-progress';
+import { uploadWithProgress } from '@/lib/uploadWithProgress';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import HomePageViewSection from '@/components/admin/HomePageViewSection';
@@ -33,7 +35,9 @@ export default function Customise() {
   const loginLogoChangeRef = useRef<HTMLInputElement>(null);
   const [restaurantName, setRestaurantName] = useState('');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoProgress, setLogoProgress] = useState(0);
   const [isUploadingLoginLogo, setIsUploadingLoginLogo] = useState(false);
+  const [loginLogoProgress, setLoginLogoProgress] = useState(0);
   const [loginBgColor, setLoginBgColor] = useState('#f97316');
   const [loginLogoSize, setLoginLogoSize] = useState(100);
   const [loginTagline, setLoginTagline] = useState('Authentic Asian Cuisine');
@@ -130,19 +134,15 @@ export default function Customise() {
   const handleLogoUpload = async () => {
     if (!logoFile) return;
     setIsUploadingLogo(true);
+    setLogoProgress(0);
     try {
       const fileExt = logoFile.name.split('.').pop();
       const fileName = `logo-${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
-        .from('restaurant-images')
-        .upload(fileName, logoFile);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('restaurant-images')
-        .getPublicUrl(fileName);
+      const { publicUrl } = await uploadWithProgress(
+        'restaurant-images', fileName, logoFile,
+        (p) => setLogoProgress(p),
+      );
 
       await updateBrandingMutation.mutateAsync({ logo_url: publicUrl });
       setLogoFile(null);
@@ -151,6 +151,7 @@ export default function Customise() {
       toast.error('Failed to upload logo');
     } finally {
       setIsUploadingLogo(false);
+      setLogoProgress(0);
     }
   };
 
@@ -231,7 +232,7 @@ export default function Customise() {
                 className="w-full"
               >
                 {isUploadingLogo ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading…</>
+                  <><CircularProgress progress={logoProgress} size={20} strokeWidth={3} className="mr-2 text-primary-foreground" /> {logoProgress}%</>
                 ) : (
                   'Upload Logo'
                 )}
@@ -394,7 +395,7 @@ export default function Customise() {
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       {isUploadingLoginLogo ? (
-                        <Loader2 className="w-6 h-6 animate-spin text-white" />
+                        <CircularProgress progress={loginLogoProgress} size={40} strokeWidth={4} className="text-white" />
                       ) : (
                         <>
                           <Label htmlFor="login-logo-change" className="cursor-pointer">
@@ -429,16 +430,19 @@ export default function Customise() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         setIsUploadingLoginLogo(true);
+                        setLoginLogoProgress(0);
                         try {
                           const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
-                          const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
-                          if (error) { toast.error('Upload failed'); return; }
-                          const { data: { publicUrl } } = supabase.storage.from('restaurant-images').getPublicUrl(fileName);
+                          const { publicUrl } = await uploadWithProgress(
+                            'restaurant-images', fileName, file,
+                            (p) => setLoginLogoProgress(p),
+                          );
                           await updateBrandingMutation.mutateAsync({ login_logo_url: publicUrl });
                         } catch {
                           toast.error('Upload failed');
                         } finally {
                           setIsUploadingLoginLogo(false);
+                          setLoginLogoProgress(0);
                           if (loginLogoChangeRef.current) loginLogoChangeRef.current.value = '';
                         }
                       }}
@@ -468,7 +472,7 @@ export default function Customise() {
                   <Label htmlFor="login-logo-upload" className="cursor-pointer">
                     <div className="flex items-center justify-center gap-2 border-2 border-dashed rounded-lg p-4 hover:bg-muted/50 transition-colors">
                       {isUploadingLoginLogo ? (
-                        <><Loader2 className="w-5 h-5 animate-spin" /><span>Uploading…</span></>
+                        <><CircularProgress progress={loginLogoProgress} size={24} strokeWidth={3} /><span>Uploading {loginLogoProgress}%</span></>
                       ) : (
                         <><Upload className="w-5 h-5" /><span>Click to upload login logo</span></>
                       )}
@@ -483,16 +487,19 @@ export default function Customise() {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setIsUploadingLoginLogo(true);
+                      setLoginLogoProgress(0);
                       try {
                         const fileName = `login/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
-                        const { error } = await supabase.storage.from('restaurant-images').upload(fileName, file);
-                        if (error) { toast.error('Upload failed'); return; }
-                        const { data: { publicUrl } } = supabase.storage.from('restaurant-images').getPublicUrl(fileName);
+                        const { publicUrl } = await uploadWithProgress(
+                          'restaurant-images', fileName, file,
+                          (p) => setLoginLogoProgress(p),
+                        );
                         await updateBrandingMutation.mutateAsync({ login_logo_url: publicUrl });
                       } catch {
                         toast.error('Upload failed');
                       } finally {
                         setIsUploadingLoginLogo(false);
+                        setLoginLogoProgress(0);
                         if (loginLogoInputRef.current) loginLogoInputRef.current.value = '';
                       }
                     }}
