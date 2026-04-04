@@ -1331,6 +1331,29 @@ const Configure = () => {
                 >
                   {savePrivacyMutation.isPending ? 'Saving...' : 'Save Privacy Policy'}
                 </Button>
+                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <a
+                    href={`${window.location.origin}/legal/privacy`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary underline truncate"
+                  >
+                    {`${window.location.origin}/legal/privacy`}
+                  </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 ml-auto"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/legal/privacy`);
+                      toast({ title: 'Copied!', description: 'Privacy Policy URL copied to clipboard.' });
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copy URL
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
