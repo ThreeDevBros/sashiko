@@ -370,10 +370,13 @@ const Auth = () => {
 
   return (
     <div 
-      className="min-h-screen max-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={branding?.login_bg_color ? {
-        background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
-      } : undefined}
+      className="fixed inset-0 flex items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        ...(branding?.login_bg_color ? {
+          background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
+        } : {}),
+        overscrollBehavior: 'none',
+      }}
     >
       {/* Food Pattern Background */}
       <div className="absolute inset-0 opacity-10">
@@ -389,7 +392,7 @@ const Auth = () => {
         </svg>
       </div>
 
-      <div className="w-full max-w-md relative z-10">
+      <div className="w-full max-w-md relative z-10 max-h-full overflow-y-auto [-webkit-overflow-scrolling:touch]">
         
         {/* Logo Section */}
         <div className="text-center mb-4 mt-4">
