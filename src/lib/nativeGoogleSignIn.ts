@@ -1,21 +1,22 @@
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 
 /**
  * Performs native Google Sign In on iOS/Android via Capacitor,
  * then exchanges the ID token with Supabase.
- * Falls back to web OAuth on non-native platforms.
+ * Falls back to Lovable Cloud managed OAuth on web.
  */
 export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
   if (!Capacitor.isNativePlatform()) {
-    // Fallback to web OAuth
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
+    // Use Lovable Cloud managed Google OAuth on web
+    const result = await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
     });
-    return { error: error ? new Error(error.message) : null };
+    if (result.error) {
+      return { error: result.error instanceof Error ? result.error : new Error(String(result.error)) };
+    }
+    return { error: null };
   }
 
   try {
