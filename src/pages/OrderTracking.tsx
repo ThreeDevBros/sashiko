@@ -290,7 +290,7 @@ export default function OrderTracking() {
     }
   };
 
-
+  const showCashbackEarnedToast = (orderTotal: number) => {
     if (cashbackRate > 0 && orderTotal > 0) {
       const cashbackEarned = (orderTotal * cashbackRate) / 100;
       const currency = branding?.currency || 'USD';
