@@ -175,6 +175,9 @@ export default function OrderTracking() {
         if (data?.order) {
           const gOrder = data.order;
           const oldStatus = order?.status;
+          if (gOrder.status !== oldStatus && oldStatus) {
+            showStatusChangeToast(gOrder.status, gOrder.order_type || 'delivery', gOrder.order_number || '');
+          }
           setOrder(gOrder);
           if (gOrder.order_items) {
             setOrderItems(gOrder.order_items.map((oi: any) => ({
