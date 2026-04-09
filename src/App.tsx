@@ -65,9 +65,9 @@ const queryClient = new QueryClient();
 prefetchSavedCards(queryClient);
 
 const AppRoutes = () => {
-  usePushNotifications();
   const location = useLocation();
   const navigate = useNavigate();
+  usePushNotifications(navigate);
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isStaffRoute = location.pathname.startsWith('/staff');
   const isDriverRoute = location.pathname.startsWith('/driver');
