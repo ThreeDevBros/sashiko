@@ -1,56 +1,64 @@
 
 
-# Switch to Your Own Google OAuth Credentials
+# Implement Native iOS Push Notifications
 
-## The Problem
+## Current State
 
-The current code uses `lovable.auth.signInWithOAuth('google')` — Lovable's managed OAuth layer. You want full control using your own Google Cloud credentials.
+The foundation is already in place:
+- **Client hook** (`usePushNotifications.ts`): Requests permissions, registers with APNs/FCM, saves tokens to `push_device_tokens` table. Already called in `App.tsx`.
+- **Database**: `push_device_tokens` table exists with proper RLS policies.
+- **Broadcast edge function**: Already has FCM sending logic, but uses the **deprecated legacy FCM API** (`fcm.googleapis.com/fcm/send`).
 
-The redirect URI `https://cqzprtgcptqusmospdys.supabase.co/auth/v1/callback` **is valid** and should save fine in Google Cloud Console. If you're getting an error, it's likely because:
-- The **OAuth consent screen** hasn't been fully configured yet (Google requires this before you can save credentials)
-- The app status is set to "Testing" without adding test users
-- There's a stale browser cache on the Google Cloud Console page
+**What's missing:**
+1. `FCM_SERVER_KEY` secret is **not configured** — push sending silently skips.
+2. The legacy FCM HTTP API is deprecated (June 2024). Should migrate to **FCM HTTP v2 API** using a service account.
+3. No **order-specific push notifications** — customers don't get notified when their order status changes.
+4. Foreground notification handling just logs to console instead of showing an in-app alert.
 
-**Try**: Go to Google Cloud Console → APIs & Services → **OAuth consent screen** → make sure it's fully configured (app name, support email, authorized domains including `supabase.co`). Then go back to Credentials and save.
+## Plan
 
-## Code Changes
+### 1. Migrate edge function to FCM HTTP v2 API
+Update `send-broadcast-notification/index.ts` to use the modern FCM v2 endpoint (`https://fcm.googleapis.com/v2/projects/{project_id}/messages:send`) with a **Google Service Account** for authentication instead of the deprecated server key.
 
-### 1. Update `src/lib/nativeGoogleSignIn.ts`
-Replace the Lovable managed OAuth call with direct backend OAuth:
+- Replace `FCM_SERVER_KEY` with a new secret `FIREBASE_SERVICE_ACCOUNT_JSON` containing the Firebase service account JSON.
+- Generate an OAuth2 access token from the service account to authenticate requests.
+- Send individual messages per device token (v2 API doesn't support `registration_ids` batch).
 
-```typescript
-if (!Capacitor.isNativePlatform()) {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin,
-    },
-  });
-  if (error) return { error: new Error(error.message) };
-  return { error: null };
-}
+### 2. Create order status push notification edge function
+New edge function `send-order-push` that triggers when an order status changes (e.g., confirmed, preparing, ready, out for delivery, delivered). Sends a push notification to the customer's registered devices.
+
+- Accepts `order_id` and `new_status` as input.
+- Looks up the order's `user_id`, fetches their device tokens.
+- Sends a contextual push message (e.g., "Your order is being prepared!").
+
+### 3. Trigger push on order status change
+Update the staff/admin order management flow to call the `send-order-push` edge function whenever an order status is updated.
+
+### 4. Improve foreground notification handling
+Update `usePushNotifications.ts` to show a toast notification when a push is received while the app is in the foreground, and navigate to the relevant order when tapped.
+
+### 5. Request Firebase Service Account secret
+Prompt you to provide the `FIREBASE_SERVICE_ACCOUNT_JSON` secret value from your Firebase project.
+
+## What you need to do (native/Xcode side)
+These are manual steps required outside Lovable:
+- **Firebase Console**: Upload your APNs Authentication Key (.p8 file) under Project Settings → Cloud Messaging → iOS app.
+- **Xcode**: Ensure "Push Notifications" capability is enabled in your app target.
+- **GoogleService-Info.plist**: Must be present in the iOS project (you likely already have this for Google Sign-In).
+
+## Technical Details
+
+**FCM v2 auth flow in edge function:**
+```
+Service Account JSON → JWT → Exchange for OAuth2 token → POST to FCM v2 endpoint
 ```
 
-Remove the `lovable` import from this file since it's no longer needed here.
-
-### 2. Update `capacitor.config.ts`
-Replace the placeholder `serverClientId` with your actual Web Client ID from Google Cloud Console.
-
-### 3. Configure Google Auth in Lovable Cloud
-In the Cloud → Users → Auth Settings → Google section, enter your:
-- **Google Client ID** (Web client)
-- **Google Client Secret**
-
-This configures the backend to accept Google tokens using your credentials.
-
-### 4. Google Cloud Console Setup
-In your Google Cloud OAuth client:
-- **Authorized JavaScript origins**: `https://sashikoasianfusion.com`, `https://www.sashikoasianfusion.com`, `https://sashiko.lovable.app`
-- **Authorized redirect URI**: `https://cqzprtgcptqusmospdys.supabase.co/auth/v1/callback`
-- **OAuth consent screen**: Must have `supabase.co` listed under authorized domains
-
-## What stays the same
-- Apple sign-in continues using Lovable managed OAuth (unchanged)
-- Native iOS/Android Google sign-in flow stays the same (uses ID token exchange)
-- The `PhonePromptDialog` for collecting phone numbers from OAuth users remains
+**Order push message examples:**
+| Status | Message |
+|---|---|
+| confirmed | "Your order #123 has been confirmed!" |
+| preparing | "Your order #123 is being prepared" |
+| ready | "Your order #123 is ready for pickup!" |
+| out_for_delivery | "Your order #123 is on its way!" |
+| delivered | "Your order #123 has been delivered" |
 
