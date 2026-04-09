@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendFcmV2 } from "../_shared/fcm-v2.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +15,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const fcmServerKey = Deno.env.get('FCM_SERVER_KEY');
+    // FCM v2 is handled by the shared helper
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -129,8 +130,8 @@ serve(async (req) => {
       }
     }
 
-    // --- PUSH NOTIFICATIONS via FCM ---
-    if ((channel === 'push' || channel === 'both') && fcmServerKey) {
+    // --- PUSH NOTIFICATIONS via FCM v2 ---
+    if (channel === 'push' || channel === 'both') {
       const { data: deviceTokens } = await supabase
         .from('push_device_tokens')
         .select('token')
@@ -138,36 +139,20 @@ serve(async (req) => {
 
       const tokens = (deviceTokens || []).map((d: any) => d.token);
 
-      for (let i = 0; i < tokens.length; i += 500) {
-        const batch = tokens.slice(i, i + 500);
-        const res = await fetch('https://fcm.googleapis.com/fcm/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `key=${fcmServerKey}`,
-            'Content-Type': 'application/json',
+      if (tokens.length > 0) {
+        const messages = tokens.map((token: string) => ({
+          token,
+          title: notification.title,
+          body: notification.message,
+          data: {
+            type: 'broadcast',
+            notification_id: notification.id,
           },
-          body: JSON.stringify({
-            registration_ids: batch,
-            notification: {
-              title: notification.title,
-              body: notification.message,
-            },
-            data: {
-              type: 'broadcast',
-              notification_id: notification.id,
-            },
-          }),
-        });
+        }));
 
-        if (res.ok) {
-          const result = await res.json();
-          sentCount += result.success || 0;
-        } else {
-          await res.text();
-        }
+        const pushSent = await sendFcmV2(messages);
+        sentCount += pushSent;
       }
-    } else if ((channel === 'push' || channel === 'both') && !fcmServerKey) {
-      console.warn('FCM_SERVER_KEY not configured, skipping push notifications');
     }
 
     // Update notification status

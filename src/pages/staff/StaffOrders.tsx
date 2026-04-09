@@ -262,6 +262,14 @@ export default function StaffOrders() {
             if (emailErr) console.error('Order email error:', emailErr);
           });
       }
+
+      // Send push notification for status change
+      if (['confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'].includes(status)) {
+        supabase.functions.invoke('send-order-push', { body: { order_id: id, new_status: status } })
+          .then(({ error: pushErr }) => {
+            if (pushErr) console.error('Push notification error:', pushErr);
+          });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-orders'] });
