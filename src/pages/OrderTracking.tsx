@@ -109,6 +109,31 @@ export default function OrderTracking() {
     loadCashbackRate();
   }, [orderId]);
 
+  // Start/end iOS Live Activity when order loads or status changes
+  const liveActivityStarted = useRef(false);
+  useEffect(() => {
+    if (!order || isGuest) return;
+    const isActive = !['delivered', 'cancelled'].includes(order.status);
+
+    if (isActive && !liveActivityStarted.current) {
+      areLiveActivitiesSupported().then(supported => {
+        if (!supported) return;
+        startOrderLiveActivity({
+          orderId: order.id,
+          orderNumber: order.order_number,
+          orderType: order.order_type,
+          status: order.status,
+          statusMessage: getStatusMessage(),
+          etaMinutes: null,
+        });
+        liveActivityStarted.current = true;
+      });
+    } else if (!isActive && liveActivityStarted.current) {
+      endOrderLiveActivity(order.id);
+      liveActivityStarted.current = false;
+    }
+  }, [order?.id, order?.status, isGuest]);
+
   // Subscribe to real-time order status updates
   useEffect(() => {
     if (!orderId) return;
