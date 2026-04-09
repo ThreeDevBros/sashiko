@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Package, Phone, MapPin, Store, Clock, Navigation, Coins, ExternalLink, AlertTriangle, XCircle } from 'lucide-react';
+import { Package, Phone, MapPin, Store, Clock, Navigation, Coins, ExternalLink, AlertTriangle, XCircle, CheckCircle2, ChefHat } from 'lucide-react';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
 import {
   AlertDialog,
