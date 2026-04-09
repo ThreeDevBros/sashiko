@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-export const usePushNotifications = () => {
+export const usePushNotifications = (navigate?: (path: string) => void) => {
   const registered = useRef(false);
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export const usePushNotifications = () => {
 
       PushNotifications.addListener('registration', async (token) => {
         registered.current = true;
-        const platform = Capacitor.getPlatform(); // 'ios' or 'android'
+        const platform = Capacitor.getPlatform();
         
         await (supabase.from('push_device_tokens') as any).upsert(
           {
@@ -38,13 +39,30 @@ export const usePushNotifications = () => {
       });
 
       PushNotifications.addListener('pushNotificationReceived', (notification) => {
-        // Notification received while app is in foreground
-        console.log('Push received:', notification);
+        // Show in-app toast for foreground notifications
+        const data = notification.data || {};
+        const title = notification.title || 'Notification';
+        const body = notification.body || '';
+
+        if (data.type === 'order_status' && data.order_id) {
+          toast(title, {
+            description: body,
+            action: navigate ? {
+              label: 'View Order',
+              onClick: () => navigate(`/order/${data.order_id}`),
+            } : undefined,
+          });
+        } else {
+          toast(title, { description: body });
+        }
       });
 
-      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-        // User tapped on notification
-        console.log('Push action:', notification);
+      PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        // User tapped on notification — navigate to relevant screen
+        const data = action.notification.data || {};
+        if (data.type === 'order_status' && data.order_id && navigate) {
+          navigate(`/order/${data.order_id}`);
+        }
       });
     };
 
@@ -53,5 +71,5 @@ export const usePushNotifications = () => {
     return () => {
       PushNotifications.removeAllListeners();
     };
-  }, []);
+  }, [navigate]);
 };
