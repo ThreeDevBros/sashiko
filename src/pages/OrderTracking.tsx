@@ -128,6 +128,11 @@ export default function OrderTracking() {
             const newStatus = (payload.new as any).status;
             const oldStatus = order?.status;
             
+            // Show live status notification
+            if (newStatus !== oldStatus && oldStatus) {
+              showStatusChangeToast(newStatus, order?.order_type || 'delivery', order?.order_number || '');
+            }
+            
             // Show cashback toast when order is delivered
             if (newStatus === 'delivered' && oldStatus !== 'delivered' && !hasShownCashbackToast.current) {
               const orderTotal = (payload.new as any).total || order?.total || 0;
