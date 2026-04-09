@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Package, Phone, MapPin, Store, Clock, Navigation, Coins, ExternalLink, AlertTriangle, XCircle } from 'lucide-react';
+import { Package, Phone, MapPin, Store, Clock, Navigation, Coins, ExternalLink, AlertTriangle, XCircle, CheckCircle2, ChefHat } from 'lucide-react';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
 import {
   AlertDialog,
@@ -23,7 +23,7 @@ import { useBranding } from '@/hooks/useBranding';
 import { useTheme } from '@/components/ThemeProvider';
 import { OrderProgressTracker } from '@/components/order/OrderProgressTracker';
 import { OrderTrackingMap } from '@/components/order/OrderTrackingMap';
-import { DeliveryTimeEstimate } from '@/components/order/DeliveryTimeEstimate';
+import { LiveOrderCountdown } from '@/components/order/LiveOrderCountdown';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import { getGuestOrders } from '@/lib/guestOrders';
@@ -128,6 +128,11 @@ export default function OrderTracking() {
             const newStatus = (payload.new as any).status;
             const oldStatus = order?.status;
             
+            // Show live status notification
+            if (newStatus !== oldStatus && oldStatus) {
+              showStatusChangeToast(newStatus, order?.order_type || 'delivery', order?.order_number || '');
+            }
+            
             // Show cashback toast when order is delivered
             if (newStatus === 'delivered' && oldStatus !== 'delivered' && !hasShownCashbackToast.current) {
               const orderTotal = (payload.new as any).total || order?.total || 0;
@@ -170,6 +175,9 @@ export default function OrderTracking() {
         if (data?.order) {
           const gOrder = data.order;
           const oldStatus = order?.status;
+          if (gOrder.status !== oldStatus && oldStatus) {
+            showStatusChangeToast(gOrder.status, gOrder.order_type || 'delivery', gOrder.order_number || '');
+          }
           setOrder(gOrder);
           if (gOrder.order_items) {
             setOrderItems(gOrder.order_items.map((oi: any) => ({
@@ -260,6 +268,28 @@ export default function OrderTracking() {
       }
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const showStatusChangeToast = (newStatus: string, orderType: string, orderNumber: string) => {
+    const messages: Record<string, { title: string; icon: React.ReactNode }> = {
+      confirmed: { title: '✅ Order confirmed!', icon: <CheckCircle2 className="h-5 w-5 text-blue-500" /> },
+      preparing: { title: '👨‍🍳 Your food is being prepared', icon: <ChefHat className="h-5 w-5 text-orange-500" /> },
+      ready: {
+        title: orderType === 'pickup' ? '🎉 Ready for pickup!' : '✅ Food is ready',
+        icon: <Package className="h-5 w-5 text-green-500" />,
+      },
+      out_for_delivery: { title: '🚗 Your order is on its way!', icon: <Navigation className="h-5 w-5 text-primary" /> },
+      delivered: { title: '🎉 Order delivered!', icon: <Package className="h-5 w-5 text-green-500" /> },
+      cancelled: { title: '❌ Order cancelled', icon: <XCircle className="h-5 w-5 text-destructive" /> },
+    };
+    const msg = messages[newStatus];
+    if (msg) {
+      toast(msg.title, {
+        icon: msg.icon,
+        description: `Order #${orderNumber}`,
+        duration: 4000,
+      });
     }
   };
 
@@ -564,8 +594,8 @@ export default function OrderTracking() {
         {/* Order Progress Tracker */}
         <OrderProgressTracker status={order.status} orderType={order.order_type} />
 
-        {/* Delivery Time Estimate */}
-        <DeliveryTimeEstimate
+        {/* Live Countdown Timer */}
+        <LiveOrderCountdown
           orderType={order.order_type}
           status={order.status}
           estimatedReadyAt={order.estimated_ready_at}
