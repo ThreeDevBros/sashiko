@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { lovable } from '@/integrations/lovable';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -8,14 +9,14 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
   if (!Capacitor.isNativePlatform()) {
-    // Use direct Supabase OAuth with your own Google credentials
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
+    const result = await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
+      extraParams: {
+        prompt: 'select_account',
       },
     });
-    if (error) return { error: new Error(error.message) };
+
+    if (result.error) return { error: new Error(result.error.message) };
     return { error: null };
   }
 
