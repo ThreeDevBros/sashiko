@@ -23,7 +23,7 @@ import { useBranding } from '@/hooks/useBranding';
 import { useTheme } from '@/components/ThemeProvider';
 import { OrderProgressTracker } from '@/components/order/OrderProgressTracker';
 import { OrderTrackingMap } from '@/components/order/OrderTrackingMap';
-import { DeliveryTimeEstimate } from '@/components/order/DeliveryTimeEstimate';
+import { LiveOrderCountdown } from '@/components/order/LiveOrderCountdown';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import { getGuestOrders } from '@/lib/guestOrders';
