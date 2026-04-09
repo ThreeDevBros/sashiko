@@ -27,6 +27,7 @@ import { LiveOrderCountdown } from '@/components/order/LiveOrderCountdown';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import { getGuestOrders } from '@/lib/guestOrders';
+import { areLiveActivitiesSupported, startOrderLiveActivity, endOrderLiveActivity } from '@/lib/nativeLiveActivity';
 
 interface Order {
   id: string;
