@@ -564,8 +564,8 @@ export default function OrderTracking() {
         {/* Order Progress Tracker */}
         <OrderProgressTracker status={order.status} orderType={order.order_type} />
 
-        {/* Delivery Time Estimate */}
-        <DeliveryTimeEstimate
+        {/* Live Countdown Timer */}
+        <LiveOrderCountdown
           orderType={order.order_type}
           status={order.status}
           estimatedReadyAt={order.estimated_ready_at}
