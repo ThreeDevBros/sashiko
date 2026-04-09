@@ -1,23 +1,56 @@
 
 
-# Remove Price/Time from Popular Items & Navigate to Item Detail
+# Switch to Your Own Google OAuth Credentials
 
-## Overview
-On the homepage, popular item cards currently show a price badge and preparation time overlay. These will be removed. When a user taps a popular item, they'll navigate to `/order?item={itemId}`, and the MenuDisplay component will auto-open that item's detail sheet.
+## The Problem
 
-## Changes
+The current code uses `lovable.auth.signInWithOAuth('google')` — Lovable's managed OAuth layer. You want full control using your own Google Cloud credentials.
 
-### 1. Homepage Popular Items (`src/pages/Index.tsx`)
-- Remove the price `Badge` overlay (lines 293-295)
-- Remove the preparation time `Clock` overlay (lines 296-303)
-- Change the `onClick` from `navigate('/order')` to `navigate(`/order?item=${item.id}`)`
+The redirect URI `https://cqzprtgcptqusmospdys.supabase.co/auth/v1/callback` **is valid** and should save fine in Google Cloud Console. If you're getting an error, it's likely because:
+- The **OAuth consent screen** hasn't been fully configured yet (Google requires this before you can save credentials)
+- The app status is set to "Testing" without adding test users
+- There's a stale browser cache on the Google Cloud Console page
 
-### 2. MenuDisplay Auto-Open Item (`src/components/MenuDisplay.tsx`)
-- Read `item` query param via `useSearchParams`
-- When menu items are loaded and the query param is present, find the matching item and auto-open the `MenuItemDetailSheet`
-- Clear the query param after opening so it doesn't re-trigger
+**Try**: Go to Google Cloud Console → APIs & Services → **OAuth consent screen** → make sure it's fully configured (app name, support email, authorized domains including `supabase.co`). Then go back to Credentials and save.
 
-### 3. Import Cleanup (`src/pages/Index.tsx`)
-- Remove `Clock` from lucide-react imports if no longer used elsewhere
-- Remove `Badge` import if no longer used elsewhere in the file
+## Code Changes
+
+### 1. Update `src/lib/nativeGoogleSignIn.ts`
+Replace the Lovable managed OAuth call with direct backend OAuth:
+
+```typescript
+if (!Capacitor.isNativePlatform()) {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+    },
+  });
+  if (error) return { error: new Error(error.message) };
+  return { error: null };
+}
+```
+
+Remove the `lovable` import from this file since it's no longer needed here.
+
+### 2. Update `capacitor.config.ts`
+Replace the placeholder `serverClientId` with your actual Web Client ID from Google Cloud Console.
+
+### 3. Configure Google Auth in Lovable Cloud
+In the Cloud → Users → Auth Settings → Google section, enter your:
+- **Google Client ID** (Web client)
+- **Google Client Secret**
+
+This configures the backend to accept Google tokens using your credentials.
+
+### 4. Google Cloud Console Setup
+In your Google Cloud OAuth client:
+- **Authorized JavaScript origins**: `https://sashikoasianfusion.com`, `https://www.sashikoasianfusion.com`, `https://sashiko.lovable.app`
+- **Authorized redirect URI**: `https://cqzprtgcptqusmospdys.supabase.co/auth/v1/callback`
+- **OAuth consent screen**: Must have `supabase.co` listed under authorized domains
+
+## What stays the same
+- Apple sign-in continues using Lovable managed OAuth (unchanged)
+- Native iOS/Android Google sign-in flow stays the same (uses ID token exchange)
+- The `PhonePromptDialog` for collecting phone numbers from OAuth users remains
 
