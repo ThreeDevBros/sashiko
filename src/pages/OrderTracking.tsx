@@ -268,7 +268,29 @@ export default function OrderTracking() {
     }
   };
 
-  const showCashbackEarnedToast = (orderTotal: number) => {
+  const showStatusChangeToast = (newStatus: string, orderType: string, orderNumber: string) => {
+    const messages: Record<string, { title: string; icon: React.ReactNode }> = {
+      confirmed: { title: '✅ Order confirmed!', icon: <CheckCircle2 className="h-5 w-5 text-blue-500" /> },
+      preparing: { title: '👨‍🍳 Your food is being prepared', icon: <ChefHat className="h-5 w-5 text-orange-500" /> },
+      ready: {
+        title: orderType === 'pickup' ? '🎉 Ready for pickup!' : '✅ Food is ready',
+        icon: <Package className="h-5 w-5 text-green-500" />,
+      },
+      out_for_delivery: { title: '🚗 Your order is on its way!', icon: <Navigation className="h-5 w-5 text-primary" /> },
+      delivered: { title: '🎉 Order delivered!', icon: <Package className="h-5 w-5 text-green-500" /> },
+      cancelled: { title: '❌ Order cancelled', icon: <XCircle className="h-5 w-5 text-destructive" /> },
+    };
+    const msg = messages[newStatus];
+    if (msg) {
+      toast(msg.title, {
+        icon: msg.icon,
+        description: `Order #${orderNumber}`,
+        duration: 4000,
+      });
+    }
+  };
+
+
     if (cashbackRate > 0 && orderTotal > 0) {
       const cashbackEarned = (orderTotal * cashbackRate) / 100;
       const currency = branding?.currency || 'USD';
