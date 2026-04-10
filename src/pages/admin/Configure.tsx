@@ -249,6 +249,25 @@ const Configure = () => {
     },
   });
 
+  // Save cookies & data usage mutation
+  const saveCookiesMutation = useMutation({
+    mutationFn: async () => {
+      if (!tenantSettings?.id) throw new Error('No tenant settings found');
+      const { error } = await supabase
+        .from('tenant_settings')
+        .update({ cookies_data_usage: cookiesDataUsage || null } as any)
+        .eq('id', tenantSettings.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['legal-content'] });
+      toast({ title: 'Cookies & Data Usage saved', description: 'Content has been updated successfully' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
+    },
+  });
 
   // Save payment settings mutation
   const savePaymentSettingsMutation = useMutation({
