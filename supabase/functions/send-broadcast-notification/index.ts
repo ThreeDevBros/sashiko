@@ -15,8 +15,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    // FCM v2 is handled by the shared helper
-
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Verify the caller is an admin
@@ -27,20 +25,15 @@ serve(async (req) => {
       });
     }
 
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const authClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const userId = claimsData.claims.sub;
 
-    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
+    const { data: isAdmin } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: 'Admin access required' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -59,7 +52,7 @@ serve(async (req) => {
 
     if (notifError || !notification) throw new Error('Notification not found');
 
-    // Get recipient user IDs
+    // Get recipient user IDs (for email channel)
     let userIds: string[] = [];
 
     if (notification.recipient_filter === 'active') {
@@ -75,16 +68,6 @@ serve(async (req) => {
       userIds = (profiles || []).map((p: any) => p.id);
     }
 
-    if (userIds.length === 0) {
-      await supabase
-        .from('broadcast_notifications')
-        .update({ status: 'sent', sent_count: 0, sent_at: new Date().toISOString() })
-        .eq('id', notification_id);
-      return new Response(JSON.stringify({ sent: 0 }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     let sentCount = 0;
     const channel = notification.channel;
 
@@ -98,14 +81,15 @@ serve(async (req) => {
 
     // --- EMAIL via transactional email queue ---
     if (channel === 'email' || channel === 'both') {
-      const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-      const emailMap = new Map(authUsers?.map((u: any) => [u.id, u.email]) || []);
+      if (userIds.length > 0) {
+        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+        const emailMap = new Map(authUsers?.map((u: any) => [u.id, u.email]) || []);
 
-      const emails = userIds
-        .map((id: string) => emailMap.get(id))
-        .filter((e: string | undefined): e is string => !!e);
+        const emails = userIds
+          .map((id: string) => emailMap.get(id))
+          .filter((e: string | undefined): e is string => !!e);
 
-      const emailHtml = `<!DOCTYPE html>
+        const emailHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#ffffff;font-family:'Inter',Arial,sans-serif;">
 <div style="max-width:580px;margin:0 auto;padding:20px 25px;">
@@ -116,31 +100,53 @@ serve(async (req) => {
 </div>
 </body></html>`;
 
-      for (const email of emails) {
-        await supabase.rpc('enqueue_email', {
-          queue_name: 'transactional_emails',
-          payload: {
-            to: email,
-            subject: notification.title,
-            html: emailHtml,
-            from_name: tenantName,
-          },
-        });
-        sentCount++;
+        for (const email of emails) {
+          await supabase.rpc('enqueue_email', {
+            queue_name: 'transactional_emails',
+            payload: {
+              to: email,
+              subject: notification.title,
+              html: emailHtml,
+              from_name: tenantName,
+            },
+          });
+          sentCount++;
+        }
       }
     }
 
     // --- PUSH NOTIFICATIONS via FCM v2 ---
     if (channel === 'push' || channel === 'both') {
-      const { data: deviceTokens } = await supabase
-        .from('push_device_tokens')
-        .select('token')
-        .in('user_id', userIds);
+      // Get ALL device tokens — both authenticated users and guest devices
+      let allTokens: string[] = [];
 
-      const tokens = (deviceTokens || []).map((d: any) => d.token);
+      if (notification.recipient_filter === 'active' && userIds.length > 0) {
+        // For "active" filter: get tokens for active users + all guest tokens
+        const { data: userTokens } = await supabase
+          .from('push_device_tokens')
+          .select('token')
+          .in('user_id', userIds);
+        const { data: guestTokens } = await supabase
+          .from('push_device_tokens')
+          .select('token')
+          .is('user_id', null);
+        allTokens = [
+          ...(userTokens || []).map((d: any) => d.token),
+          ...(guestTokens || []).map((d: any) => d.token),
+        ];
+      } else {
+        // For "all" filter: get every device token
+        const { data: deviceTokens } = await supabase
+          .from('push_device_tokens')
+          .select('token');
+        allTokens = (deviceTokens || []).map((d: any) => d.token);
+      }
 
-      if (tokens.length > 0) {
-        const messages = tokens.map((token: string) => ({
+      // Deduplicate
+      const uniqueTokens = [...new Set(allTokens)];
+
+      if (uniqueTokens.length > 0) {
+        const messages = uniqueTokens.map((token: string) => ({
           token,
           title: notification.title,
           body: notification.message,
@@ -153,6 +159,17 @@ serve(async (req) => {
         const pushSent = await sendFcmV2(messages);
         sentCount += pushSent;
       }
+    }
+
+    // Handle case where nothing was sent
+    if (sentCount === 0 && userIds.length === 0) {
+      await supabase
+        .from('broadcast_notifications')
+        .update({ status: 'sent', sent_count: 0, sent_at: new Date().toISOString() })
+        .eq('id', notification_id);
+      return new Response(JSON.stringify({ sent: 0 }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Update notification status
