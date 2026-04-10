@@ -170,12 +170,28 @@ PY
 }
 
 run_pod_install() {
-  if [ -d "$REPO_ROOT/ios/App" ]; then
+  if [ ! -d "$REPO_ROOT/ios/App" ]; then
+    return
+  fi
+
+  if command -v pod >/dev/null 2>&1; then
     echo "🍫 Installing CocoaPods dependencies..."
     (
       cd "$REPO_ROOT/ios/App"
       pod install --repo-update
     )
+  else
+    echo "⚠️  CocoaPods not installed here; skipping pod install."
+    echo "   On your Mac, install it with: sudo gem install cocoapods"
+  fi
+}
+
+open_xcode_workspace() {
+  if [ "$(uname -s)" = "Darwin" ] && command -v xcodebuild >/dev/null 2>&1; then
+    echo "🚀 Opening Xcode workspace..."
+    npx cap open ios
+  else
+    echo "ℹ️  Skipping Xcode auto-open in this environment."
   fi
 }
 
@@ -206,9 +222,7 @@ patch_podfile
 disable_user_script_sandboxing
 patch_app_delegate
 run_pod_install
-
-echo "🚀 Opening Xcode workspace..."
-npx cap open ios
+open_xcode_workspace
 
 echo ""
-echo "✅ Done. Future pulls won't be blocked by generated ios/ files on this machine."
+echo "✅ Done. Use: bash scripts/rebuild-ios.sh"
