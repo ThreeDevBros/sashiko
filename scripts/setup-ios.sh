@@ -19,11 +19,11 @@ npx cap sync ios
 # 4. Patch Podfile to add FirebaseMessaging
 PODFILE="ios/App/Podfile"
 if ! grep -q "FirebaseMessaging" "$PODFILE"; then
-  echo "🔧 Adding FirebaseMessaging to Podfile..."
-  sed -i '' "s/target 'App' do/target 'App' do\n  pod 'FirebaseMessaging', '~> 11.0'/" "$PODFILE"
-  echo "   ✅ FirebaseMessaging added to Podfile"
+  echo "🔧 Adding Firebase pods to Podfile..."
+  sed -i '' "s/target 'App' do/target 'App' do\n  pod 'FirebaseCore', '~> 11.0'\n  pod 'FirebaseMessaging', '~> 11.0'/" "$PODFILE"
+  echo "   ✅ FirebaseCore + FirebaseMessaging added to Podfile"
 else
-  echo "   ℹ️  FirebaseMessaging already in Podfile"
+  echo "   ℹ️  Firebase pods already in Podfile"
 fi
 
 # 5. Pod install
