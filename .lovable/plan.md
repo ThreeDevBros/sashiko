@@ -1,46 +1,49 @@
 
-Goal: break the git conflict loop, then harden the repo so local iOS files stop blocking pulls.
 
-1. Immediate recovery
-- Root cause: `git stash pop` keeps re-applying generated local iOS files plus old `package.json` / `package-lock.json` edits.
-- The repo already has the correct Capacitor-compatible dependency version (`@capacitor/preferences` is pinned to `~7.0.0`), so the main blocker is your local conflicted worktree.
+## Plan: Delete shell scripts and provide simple manual steps
 
-Recommended recovery path:
+### What I will do in the repo
+1. **Delete** `scripts/rebuild-ios.sh`, `scripts/setup-ios.sh`, and `scripts/PushNotificationSetup.swift`
+2. **Delete** the `scripts/` folder entirely (if nothing else is in it)
+3. **Remove** `ios/` directory files from the repo (since you are deleting it locally)
+4. **Update `.lovable/plan.md`** with the manual steps below so they are always accessible
+
+### What you run on your Mac (every time after `git pull`)
+
 ```bash
-git reset --hard HEAD
-git clean -fd ios
-git pull
+# 1. Install deps & build
 npm install
 npm run build
+
+# 2. Add iOS platform fresh
+npx cap add ios
+
+# 3. Sync web assets into native project
 npx cap sync ios
+
+# 4. Add Firebase pods — open ios/App/Podfile and add these two lines inside "target 'App' do", before "capacitor_pods":
+#      pod 'FirebaseCore', '~> 11.0'
+#      pod 'FirebaseMessaging', '~> 11.0'
+
+# 5. Install pods
+cd ios/App && pod install --repo-update && cd ../..
+
+# 6. Open Xcode
 npx cap open ios
 ```
 
-Important notes:
-- Do not run `git stash pop` again for this iOS sync work.
-- If you made any manual native-only edits inside `ios/` that you want to keep, copy them out first before `git clean -fd ios`.
+### Once Xcode is open (one-time setup per rebuild)
 
-2. Reconnect the native push file
-- After Xcode opens, copy `scripts/PushNotificationSetup.swift` into the Xcode App group so it exists at:
-  `ios/App/App/PushNotificationSetup.swift`
-- Confirm `AppDelegate.swift` still calls:
-  `PushNotificationSetup.shared.configure()`
-- Confirm `GoogleService-Info.plist` is still in the App target.
+1. **Copy `GoogleService-Info.plist`** into `ios/App/App/` (drag into Xcode App group, check "Copy items if needed")
+2. **Create a new Swift file** in the App target called `PushNotificationSetup.swift` — paste the contents from the repo's current `scripts/PushNotificationSetup.swift`
+3. **Edit `AppDelegate.swift`**:
+   - Add imports at the top: `import FirebaseCore`, `import FirebaseMessaging`, `import UserNotifications`
+   - Add `PushNotificationSetup.shared.configure()` before `return true` in `didFinishLaunchingWithOptions`
+   - Add the two bridge methods (didRegister/didFail for remote notifications) that forward to `PushNotificationSetup.shared`
+4. **In Build Settings**: Set "User Script Sandboxing" to **No**
+5. **In Signing & Capabilities**: Add Push Notifications, Sign in with Apple, Apple Pay (merchant.sashiko.app)
 
-3. Why this happened
-- The build error was originally from trying to install the latest `@capacitor/preferences` (v8), which is incompatible with your Capacitor 7 project.
-- The pull errors happened because your machine had unresolved/stashed local changes in:
-  - `package.json`
-  - `package-lock.json`
-  - generated `ios/` files
-- Since `ios/` is locally generated, stashing and popping it keeps recreating the same merge problems.
+### Keeping it conflict-proof
+- I will add `/ios/` to `.gitignore` so the generated native folder never gets committed or causes merge conflicts again
+- From now on, after every `git pull`, just run the 6 commands above
 
-4. Prevent this from happening again
-After approval, I would make two repo changes:
-- Add `ios/` to `.gitignore` so generated native files are not accidentally staged
-- Harden `scripts/setup-ios.sh` so the iOS setup follows a clean reset workflow and uses `scripts/PushNotificationSetup.swift` as the source of truth
-
-Technical details
-- `src/hooks/usePushNotifications.ts` now imports `@capacitor/preferences`
-- `package.json` already pins the correct plugin major version for Capacitor 7
-- The current issue is not the Swift code itself; it is the dirty git state caused by local generated native files and old lockfile changes
