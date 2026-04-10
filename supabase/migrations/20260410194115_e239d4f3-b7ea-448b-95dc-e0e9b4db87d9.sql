@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_settings ADD COLUMN cookies_data_usage text DEFAULT NULL;
