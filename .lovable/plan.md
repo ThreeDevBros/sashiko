@@ -88,12 +88,11 @@ final class PushNotificationSetup: NSObject, MessagingDelegate, UNUserNotificati
     }
 
     private func upsertTokenToSupabase(token: String) {
-        guard let url = URL(string: "\(supabaseUrl)/rest/v1/push_device_tokens") else { return }
+        guard let url = URL(string: "\(supabaseUrl)/rest/v1/push_device_tokens?on_conflict=token") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("return=minimal,resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
-        request.setValue("token", forHTTPHeaderField: "on-conflict")
         request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(supabaseAnonKey)", forHTTPHeaderField: "Authorization")
         let body: [String: Any] = [
