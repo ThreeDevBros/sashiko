@@ -4,13 +4,19 @@ set -e
 echo "=== iOS Setup Script ==="
 echo ""
 
+# 0. Clean any previous iOS build
+if [ -d "ios" ]; then
+  echo "🧹 Removing existing ios/ directory..."
+  rm -rf ios
+fi
+
 # 1. Build web assets
 echo "📦 Building web assets..."
 npm run build
 
 # 2. Add iOS platform
 echo "📱 Adding iOS platform..."
-npx cap add ios || echo "iOS platform already exists, continuing..."
+npx cap add ios
 
 # 3. Sync
 echo "🔄 Syncing Capacitor..."
@@ -40,7 +46,18 @@ if [ -f "$PBXPROJ" ]; then
   echo "   ✅ User Script Sandboxing disabled"
 fi
 
-# 7. Patch AppDelegate.swift to call PushNotificationSetup
+# 7. Copy PushNotificationSetup.swift from scripts/
+SWIFT_SRC="scripts/PushNotificationSetup.swift"
+SWIFT_DST="ios/App/App/PushNotificationSetup.swift"
+if [ -f "$SWIFT_SRC" ]; then
+  echo "📋 Copying PushNotificationSetup.swift into Xcode project..."
+  cp "$SWIFT_SRC" "$SWIFT_DST"
+  echo "   ✅ Copied to $SWIFT_DST"
+else
+  echo "   ⚠️  $SWIFT_SRC not found — you'll need to add it manually"
+fi
+
+# 8. Patch AppDelegate.swift to call PushNotificationSetup
 APPDELEGATE="ios/App/App/AppDelegate.swift"
 if [ -f "$APPDELEGATE" ] && ! grep -q "PushNotificationSetup" "$APPDELEGATE"; then
   echo "🔧 Patching AppDelegate.swift..."
@@ -59,8 +76,8 @@ echo "========================================="
 echo ""
 echo "Now open ios/App/App.xcworkspace in Xcode and:"
 echo ""
-echo "1. Drag PushNotificationSetup.swift into the App group"
-echo "   (ios/App/App/ folder, next to AppDelegate.swift)"
+echo "1. Add PushNotificationSetup.swift to the App target"
+echo "   (Right-click App group → Add Files → select ios/App/App/PushNotificationSetup.swift)"
 echo ""
 echo "2. Drag GoogleService-Info.plist into the App group"
 echo ""
