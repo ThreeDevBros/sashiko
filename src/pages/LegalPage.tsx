@@ -10,14 +10,15 @@ export default function LegalPage() {
   const navigate = useNavigate();
   const { branding } = useBranding();
   const isTerms = type === 'terms';
-  const title = isTerms ? 'Terms of Service' : 'Privacy Policy';
+  const isCookies = type === 'cookies';
+  const title = isTerms ? 'Terms of Service' : isCookies ? 'Cookies & Data Usage' : 'Privacy Policy';
   const tenantName = branding?.tenant_name || 'Sashiko';
   const currentYear = new Date().getFullYear();
 
   const { data: content, isLoading } = useQuery({
     queryKey: ['legal-content', type],
     queryFn: async () => {
-      const field = isTerms ? 'terms_of_service' : 'privacy_policy';
+      const field = isTerms ? 'terms_of_service' : isCookies ? 'cookies_data_usage' : 'privacy_policy';
       const { data, error } = await supabase
         .from('tenant_settings')
         .select(field)
@@ -53,15 +54,21 @@ export default function LegalPage() {
           <div className="flex items-center justify-center gap-4 mb-3">
             <button
               onClick={() => navigate('/legal/terms')}
-              className={`text-sm transition-colors ${isTerms ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`text-sm transition-colors ${type === 'terms' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Terms of Service
             </button>
             <button
               onClick={() => navigate('/legal/privacy')}
-              className={`text-sm transition-colors ${!isTerms ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`text-sm transition-colors ${type === 'privacy' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
             >
               Privacy Policy
+            </button>
+            <button
+              onClick={() => navigate('/legal/cookies')}
+              className={`text-sm transition-colors ${type === 'cookies' ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Cookies & Data Usage
             </button>
           </div>
           <p className="text-center text-xs text-muted-foreground">

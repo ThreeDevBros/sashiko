@@ -19,6 +19,7 @@ const backNavigationMap: NavigationMap = {
   '/driver-dashboard': '/',
   '/legal/terms': '/',
   '/legal/privacy': '/',
+  '/legal/cookies': '/',
   
   // Admin routes
   '/admin': '/',

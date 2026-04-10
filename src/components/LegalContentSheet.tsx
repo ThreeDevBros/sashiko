@@ -11,26 +11,26 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface LegalContentSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  type: 'terms' | 'privacy';
+  type: 'terms' | 'privacy' | 'cookies';
 }
 
 export const LegalContentSheet = ({ open, onOpenChange, type }: LegalContentSheetProps) => {
   const { data: content, isLoading } = useQuery({
     queryKey: ['legal-content', type],
     queryFn: async () => {
+      const field = type === 'terms' ? 'terms_of_service' : type === 'cookies' ? 'cookies_data_usage' : 'privacy_policy';
       const { data, error } = await supabase
         .from('tenant_settings')
-        .select(type === 'terms' ? 'terms_of_service' : 'privacy_policy')
+        .select(field)
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      const val = type === 'terms' ? (data as any)?.terms_of_service : (data as any)?.privacy_policy;
-      return val || null;
+      return (data as any)?.[field] || null;
     },
     enabled: open,
   });
 
-  const title = type === 'terms' ? 'Terms of Service' : 'Privacy Policy';
+  const title = type === 'terms' ? 'Terms of Service' : type === 'cookies' ? 'Cookies & Data Usage' : 'Privacy Policy';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

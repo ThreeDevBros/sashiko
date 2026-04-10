@@ -1164,6 +1164,7 @@ export type Database = {
           banner_data: Json
           banner_style: string
           cashback_rate: number | null
+          cookies_data_usage: string | null
           created_at: string | null
           cta_button_text: string | null
           currency: string | null
@@ -1228,6 +1229,7 @@ export type Database = {
           banner_data?: Json
           banner_style?: string
           cashback_rate?: number | null
+          cookies_data_usage?: string | null
           created_at?: string | null
           cta_button_text?: string | null
           currency?: string | null
@@ -1292,6 +1294,7 @@ export type Database = {
           banner_data?: Json
           banner_style?: string
           cashback_rate?: number | null
+          cookies_data_usage?: string | null
           created_at?: string | null
           cta_button_text?: string | null
           currency?: string | null
