@@ -1,43 +1,51 @@
 
 
-## Fix iOS Push Notifications
+## Rebuild iOS from Scratch — Full Setup
 
-### Problem
-The native iOS app grants notification permission but never delivers notifications because:
-1. **No Firebase SDK** — Firebase Messaging is not in the Podfile, so APNs tokens never get converted to FCM tokens
-2. **No AppDelegate forwarding** — the native app doesn't forward device tokens to Capacitor
-3. **Registration timing** — the hook only tries once on mount; if the user isn't logged in yet, it silently fails forever
+### What You'll Get
+After this, you delete `ios/`, run a few commands, and only need to manually:
+1. Copy `PushNotificationSetup.swift` into `ios/App/App/`
+2. Copy `GoogleService-Info.plist` into `ios/App/App/`
+3. Add both files to Xcode (right-click App group → Add Files)
+4. Enable Push Notifications + Sign in with Apple + Apple Pay capabilities in Xcode
 
-### Changes in Lovable
+Everything else will be automated.
 
-**1. Fix `usePushNotifications.ts` — retry registration after login**
-- Listen for `supabase.auth.onAuthStateChange` so registration retries when a user signs in after app launch
-- Add console logging to help debug token registration
+### Changes I'll Make
 
-### Files for You to Paste into Xcode
+**1. Create `scripts/setup-ios.sh`** — a one-command script you run after deleting `ios/`:
+```
+npm run build
+npx cap add ios
+npx cap sync ios
+```
+Then automatically:
+- Patches `ios/App/Podfile` to add `FirebaseMessaging` pod
+- Runs `pod install --repo-update`
+- Disables User Script Sandboxing in Xcode project
+- Prints reminder to add Swift file, plist, and capabilities
 
-**2. Create `ios-native-setup/PushNotification.swift`** (artifact file you'll copy)
-- A standalone Swift file using `@objc` methods that you add to your Xcode project
-- Initializes Firebase, forwards APNs tokens to both Firebase Messaging and Capacitor
-- No changes needed to AppDelegate.swift — this file uses `load()` or a manual call pattern
+**2. Regenerate `/mnt/documents/ios-native-setup/` files:**
+- **PushNotificationSetup.swift** — standalone Swift file (no AppDelegate changes), initializes Firebase, bridges APNs→FCM tokens to Capacitor
+- **SETUP-INSTRUCTIONS.md** — step-by-step checklist
 
-**3. Create `ios-native-setup/Podfile-additions.txt`** (artifact file)
-- The exact lines to add to your `ios/App/Podfile`
-- Adds `FirebaseMessaging` pod
+### What You Do After I'm Done
 
-**4. Create `ios-native-setup/SETUP-INSTRUCTIONS.md`** (artifact file)
-- Step-by-step instructions for adding the files and rebuilding
+```bash
+rm -rf ios
+bash scripts/setup-ios.sh
+```
 
-### Technical Details
+Then in Xcode:
+1. Open `ios/App/App.xcworkspace`
+2. Drag `PushNotificationSetup.swift` into the App group
+3. Drag `GoogleService-Info.plist` into the App group
+4. Under Signing & Capabilities: add Push Notifications, Sign in with Apple, Apple Pay (merchant.sashiko.app)
+5. Set User Script Sandboxing to No (if script didn't handle it)
+6. Build and run
 
-- The `PushNotification.swift` file will use `FirebaseApp.configure()` and implement `MessagingDelegate` to capture the FCM token
-- It registers as a `UNUserNotificationCenter` delegate and forwards `didRegisterForRemoteNotificationsWithDeviceToken` to Firebase via swizzling (Firebase's default behavior)
-- Firebase method swizzling handles the APNs-to-FCM token mapping automatically, so you don't need to edit AppDelegate
-
-### Steps Summary
-1. I update `usePushNotifications.ts` with auth-aware retry logic
-2. I create setup files in `/mnt/documents/ios-native-setup/`
-3. You add `pod 'FirebaseMessaging'` to Podfile, run `pod install`
-4. You drag `PushNotification.swift` into your Xcode project
-5. Rebuild and test
+### Technical Notes
+- The Podfile patch adds `FirebaseMessaging` inside the `target 'App'` block
+- `PushNotificationSetup.swift` uses `NSObject.load()` to auto-initialize without touching AppDelegate
+- `capacitor.config.ts` stays as-is (no server.url for production native builds)
 
