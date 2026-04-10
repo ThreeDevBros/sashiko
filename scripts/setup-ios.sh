@@ -40,6 +40,18 @@ if [ -f "$PBXPROJ" ]; then
   echo "   ✅ User Script Sandboxing disabled"
 fi
 
+# 7. Patch AppDelegate.swift to call PushNotificationSetup
+APPDELEGATE="ios/App/App/AppDelegate.swift"
+if [ -f "$APPDELEGATE" ] && ! grep -q "PushNotificationSetup" "$APPDELEGATE"; then
+  echo "🔧 Patching AppDelegate.swift..."
+  sed -i '' '/return true/i\
+        PushNotificationSetup.shared.configure()
+' "$APPDELEGATE"
+  echo "   ✅ AppDelegate patched with PushNotificationSetup.shared.configure()"
+else
+  echo "   ℹ️  AppDelegate already patched or not found"
+fi
+
 echo ""
 echo "========================================="
 echo "✅ iOS project setup complete!"
