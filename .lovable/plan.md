@@ -1,161 +1,102 @@
-# iOS Manual Rebuild Steps
 
-No automation scripts — everything is done manually for full control.
+What the latest evidence says
 
-## After every `git pull`, run these commands:
+- Yes, I can now tell where the issue is much more clearly.
+- The failure is no longer on the iPhone side for token capture/storage.
+- The failure is also no longer on the Google OAuth token exchange step.
 
-```bash
-npm install
-npm run build
-npx cap add ios
-npx cap sync ios
+What is working
+- iOS app gets an FCM token:
+  - your native log shows `[PushSetup] FCM token: fe0JfpN8...`
+- Web layer reads that token:
+  - `[Push] FCM token from Preferences: fe0JfpN8...`
+- Backend stores it successfully:
+  - `[Push] Token saved to database (guest)`
+  - `[Push] Token saved to database (authenticated)`
+- Backend gets an OAuth access token successfully:
+  - edge logs show `[FCM] OAuth2 token obtained successfully, expires_in: 3599s`
+
+What is failing
+- The actual request from the backend to Firebase Cloud Messaging fails for every token:
+  - `401 Request is missing required authentication credential`
+- This happens after the helper says it has an access token, which means the bug is in how the shared FCM sender is constructing or using that token during the final `fetch()` to FCM.
+
+Why this points to the shared backend helper
+- The same shared file `supabase/functions/_shared/fcm-v2.ts` is used by:
+  - `send-broadcast-notification`
+  - `send-order-push`
+- In that helper:
+  - it successfully creates a JWT
+  - successfully exchanges it for an OAuth token
+  - then calls `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
+  - but Google still says the request has no valid auth credential
+- That narrows it to one of these backend-side causes:
+  1. the returned OAuth response is not being validated enough before use
+  2. the Authorization header value is malformed at send time
+  3. the token response shape is unexpected and `data.access_token` is not what we think
+  4. less likely: the function instance is using stale code/secret state and needs a clean redeploy of all functions that import the shared helper
+
+What is not the blocker right now
+- Not device registration
+- Not guest/auth linking
+- Not the iOS logs you pasted
+- Not APNs token vs FCM token confusion anymore
+- Not invalid token format filtering
+
+Recommended next implementation
+1. Harden the shared FCM helper
+- Add strict validation after token exchange:
+  - verify `token_type === "Bearer"`
+  - verify `access_token` exists and is non-empty
+  - log safe metadata only: token_type, expires_in, access token length/prefix
+- Build the Authorization header from a trimmed token value.
+- Log the exact FCM request metadata before send:
+  - project id
+  - whether auth header is present
+  - token length/prefix
+  - endpoint being called
+- Log the full FCM error body, not the truncated 200-char slice.
+
+2. Redeploy every function that imports the shared helper
+- Redeploy:
+  - `send-broadcast-notification`
+  - `send-order-push`
+- This matters because the shared `_shared/fcm-v2.ts` change needs all importing functions refreshed.
+
+3. Run a fresh broadcast test and inspect new logs
+- We should confirm whether the access token is:
+  - missing
+  - empty
+  - wrong token type
+  - malformed at header construction
+- If Firebase then returns a different error such as sender/project mismatch or APNs config issues, that will be the real next blocker.
+
+4. Optional fallback if the HTTP v2 helper still behaves oddly
+- Replace the manual JWT/OAuth implementation with Google-auth library based signing inside the function, or a known-good fetch pattern with URLSearchParams/body encoding and stricter response parsing.
+- Only do this if the improved diagnostics still show an inexplicable 401 despite a valid bearer token.
+
+Expected outcome
+- Most likely outcome: the new diagnostics will expose that the token being passed to `Authorization: Bearer ...` is empty/malformed or not the actual access token string.
+- Second most likely outcome: after redeploying both functions, the 401 changes to a more specific Firebase/APNs error, which means auth was fixed and we can then solve the next real provider configuration issue.
+
+Technical details
+```text
+Current chain:
+iPhone -> valid FCM token -> DB saved -> edge function -> OAuth token OK -> FCM send 401
+
+So the break is here:
+OAuth token received
+   |
+   v
+Authorization header / final FCM request
+   |
+   v
+FCM rejects request with 401
 ```
 
-Then edit `ios/App/Podfile` — add these two lines inside `target 'App' do`, before `capacitor_pods`:
+Files involved
+- `supabase/functions/_shared/fcm-v2.ts`
+- `supabase/functions/send-broadcast-notification/index.ts`
+- `supabase/functions/send-order-push/index.ts`
 
-```ruby
-pod 'FirebaseCore', '~> 11.0'
-pod 'FirebaseMessaging', '~> 11.0'
-```
-
-Then install pods and open Xcode:
-
-```bash
-cd ios/App && pod install --repo-update && cd ../..
-npx cap open ios
-```
-
-## One-time Xcode setup (after each rebuild)
-
-1. **GoogleService-Info.plist** — drag into `ios/App/App/` in Xcode (check "Copy items if needed")
-2. **PushNotificationSetup.swift** — create a new Swift file in the App target with these contents:
-
-```swift
-import UIKit
-import FirebaseCore
-import FirebaseMessaging
-import Capacitor
-
-final class PushNotificationSetup: NSObject, MessagingDelegate, UNUserNotificationCenterDelegate {
-
-    static let shared = PushNotificationSetup()
-
-    private let prefsKey = "CapacitorStorage.fcm_push_token"
-
-    private override init() { super.init() }
-
-    func configure() {
-        if FirebaseApp.app() == nil {
-            FirebaseApp.configure()
-        }
-        Messaging.messaging().delegate = self
-        UNUserNotificationCenter.current().delegate = self
-        print("[PushSetup] Firebase configured & delegates set")
-    }
-
-    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        guard let token = fcmToken, !token.isEmpty else { return }
-        print("[PushSetup] FCM token: \(token.prefix(20))...")
-        UserDefaults.standard.set(token, forKey: prefsKey)
-    }
-
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification,
-        withCompletionHandler handler: @escaping (UNNotificationPresentationOptions) -> Void
-    ) {
-        handler([.banner, .sound, .badge])
-    }
-
-    func application(_ application: UIApplication,
-                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        Messaging.messaging().apnsToken = deviceToken
-        NotificationCenter.default.post(
-            name: .capacitorDidRegisterForRemoteNotifications,
-            object: deviceToken
-        )
-    }
-
-    func application(_ application: UIApplication,
-                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        NotificationCenter.default.post(
-            name: .capacitorDidFailToRegisterForRemoteNotifications,
-            object: error
-        )
-    }
-}
-```
-
-3. **Edit AppDelegate.swift** — add these imports and calls:
-
-```swift
-import UIKit
-import Capacitor
-import FirebaseCore
-import FirebaseMessaging
-import UserNotifications
-
-@UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
-    var window: UIWindow?
-
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        PushNotificationSetup.shared.configure()
-        return true
-    }
-
-    func application(_ application: UIApplication,
-                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        PushNotificationSetup.shared.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
-    }
-
-    func application(_ application: UIApplication,
-                     didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        PushNotificationSetup.shared.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
-    }
-
-    func applicationWillResignActive(_ application: UIApplication) {}
-    func applicationDidEnterBackground(_ application: UIApplication) {}
-    func applicationWillEnterForeground(_ application: UIApplication) {}
-    func applicationDidBecomeActive(_ application: UIApplication) {}
-    func applicationWillTerminate(_ application: UIApplication) {}
-
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
-    }
-
-    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
-    }
-}
-```
-
-4. **Build Settings** → Set "User Script Sandboxing" to **No**
-5. **Signing & Capabilities** → Add:
-   - Push Notifications
-   - Sign in with Apple
-   - Apple Pay (Merchant ID: merchant.sashiko.app)
-
-## Push Notification Credential Checklist
-
-Before push notifications will work, **all of these must match**:
-
-1. **Xcode Bundle ID** — must be `com.sashiko.app`
-2. **Firebase Console → Project Settings → iOS app** — Bundle ID must be exactly `com.sashiko.app`
-3. **`GoogleService-Info.plist`** — must belong to that same Firebase iOS app (check `BUNDLE_ID` and `PROJECT_ID` inside the plist)
-4. **APNs Auth Key** — in [Apple Developer → Keys](https://developer.apple.com/account/resources/authkeys/list):
-   - Create or verify a key with "Apple Push Notifications service (APNs)" enabled
-   - Download the `.p8` file
-   - Note the **Key ID** and your **Team ID**
-5. **Upload to Firebase** — in Firebase Console → Project Settings → Cloud Messaging → Apple app configuration:
-   - Upload the `.p8` key
-   - Enter the Key ID and Team ID
-   - Ensure it shows as active
-6. **`FIREBASE_SERVICE_ACCOUNT_JSON` secret** — must be from the **same** Firebase project as the `GoogleService-Info.plist`
-
-### How to verify
-- The `project_id` inside `GoogleService-Info.plist` must match the `project_id` inside the service account JSON
-- If you recently regenerated any credentials, re-upload them to Firebase and re-download `GoogleService-Info.plist`
-
-### Removing old native upsert code
-Your `PushNotificationSetup.swift` should **NOT** contain `upsertTokenToSupabase`. Token registration is now handled entirely by the web JS hook via the `register-push-device` edge function. Remove any direct Supabase HTTP calls from the Swift file.
+If approved, I’ll implement the diagnostics hardening in the shared helper, redeploy both push-related backend functions, and use the new logs to identify the exact final auth failure.
