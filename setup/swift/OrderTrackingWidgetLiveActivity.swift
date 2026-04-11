@@ -9,29 +9,29 @@ struct OrderTrackingWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: GenericAttributes.self) { context in
             let status = context.state.values["status"] ?? "pending"
-            let orderNumber = context.state.values["orderNumber"] ?? "#000"
             let statusMessage = context.state.values["statusMessage"] ?? "Processing…"
             let etaText = context.state.values["etaMinutes"] ?? ""
 
-            HStack(spacing: 12) {
+            // Lock Screen / Banner view
+            HStack(spacing: 14) {
                 ZStack {
                     Circle()
                         .fill(statusColor(status).opacity(0.15))
-                        .frame(width: 44, height: 44)
+                        .frame(width: 46, height: 46)
                     Image(systemName: statusIcon(status))
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(statusColor(status))
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Order \(orderNumber)")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(statusLabel(status))
                         .font(.subheadline)
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                     Text(statusMessage)
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
 
                 Spacer()
@@ -40,7 +40,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                     VStack(spacing: 1) {
                         Text("\(mins)")
                             .font(.title2)
-                            .fontWeight(.bold)
+                            .fontWeight(.heavy)
                             .foregroundColor(statusColor(status))
                         Text("min")
                             .font(.caption2)
@@ -50,12 +50,11 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
             .activityBackgroundTint(.clear)
 
         } dynamicIsland: { context in
             let status = context.state.values["status"] ?? "pending"
-            let orderNumber = context.state.values["orderNumber"] ?? "#000"
             let statusMessage = context.state.values["statusMessage"] ?? ""
             let etaText = context.state.values["etaMinutes"] ?? ""
 
@@ -64,7 +63,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                     HStack(spacing: 6) {
                         Image(systemName: statusIcon(status))
                             .foregroundColor(statusColor(status))
-                        Text(orderNumber)
+                        Text(statusLabel(status))
                             .font(.headline)
                             .fontWeight(.bold)
                     }
@@ -101,6 +100,20 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                 Image(systemName: statusIcon(status))
                     .foregroundColor(statusColor(status))
             }
+        }
+    }
+
+    /// Short label shown as the bold title line (replaces order ID)
+    private func statusLabel(_ status: String) -> String {
+        switch status {
+        case "pending":          return "Order Placed"
+        case "confirmed":        return "Confirmed"
+        case "preparing":        return "Preparing"
+        case "ready":            return "Ready"
+        case "out_for_delivery": return "On Its Way"
+        case "delivered":        return "Delivered"
+        case "cancelled":        return "Cancelled"
+        default:                 return "Order Update"
         }
     }
 

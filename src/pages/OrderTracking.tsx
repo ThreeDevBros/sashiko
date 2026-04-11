@@ -154,7 +154,7 @@ export default function OrderTracking() {
       endOrderLiveActivity(order.id);
       liveActivityStarted.current = false;
     }
-  }, [order?.id, order?.status, isGuest]);
+  }, [order?.id, order?.status, order?.estimated_ready_at, isGuest]);
 
   // Subscribe to real-time order status updates
   useEffect(() => {
@@ -521,21 +521,21 @@ export default function OrderTracking() {
     
     switch (order.status) {
       case 'pending':
-        return 'Your order is being reviewed by the restaurant';
+        return 'Waiting for confirmation';
       case 'confirmed':
-        return 'Great news! The restaurant has accepted your order';
+        return 'Order confirmed!';
       case 'preparing':
-        return 'Your delicious food is being prepared';
+        return 'Preparing your food 👨‍🍳';
       case 'ready':
         return order.order_type === 'pickup' 
-          ? 'Your order is ready! Head to the restaurant to pick it up'
-          : 'Your order is ready and waiting for the driver';
+          ? 'Ready for pickup!'
+          : 'Ready — waiting for driver';
       case 'out_for_delivery':
-        return 'Your order is on its way!';
+        return 'On its way to you!';
       case 'delivered':
-        return 'Your order has been delivered. Enjoy!';
+        return 'Delivered — enjoy! 🎉';
       case 'cancelled':
-        return 'This order has been cancelled';
+        return 'Order cancelled';
       default:
         return 'Order status: ' + order.status;
     }

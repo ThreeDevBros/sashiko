@@ -110,27 +110,29 @@ serve(async (req) => {
       })
       .eq('id', order_id);
 
-    // --- FCM Push Notifications (collapsible per order) ---
-    const { data: tokens } = await supabase
-      .from('push_device_tokens')
-      .select('token')
-      .eq('user_id', order.user_id);
-
+    // --- FCM Push Notifications — only for terminal statuses (delivered/cancelled) ---
     let fcmResult = { sent: 0, failed: 0, attempted: 0, skipped_invalid: 0, errors: [] as string[] };
-    if (tokens && tokens.length > 0) {
-      const messages = tokens.map((t: any) => ({
-        token: t.token,
-        title,
-        body,
-        collapseKey: `order_${order_id}`,
-        ongoing: !isTerminalStatus, // Keep notification pinned until order completes
-        data: {
-          type: 'order_status',
-          order_id,
-          status: new_status,
-        },
-      }));
-      fcmResult = await sendFcmV2(messages);
+    if (isTerminalStatus) {
+      const { data: tokens } = await supabase
+        .from('push_device_tokens')
+        .select('token')
+        .eq('user_id', order.user_id);
+
+      if (tokens && tokens.length > 0) {
+        const messages = tokens.map((t: any) => ({
+          token: t.token,
+          title,
+          body,
+          collapseKey: `order_${order_id}`,
+          ongoing: false,
+          data: {
+            type: 'order_status',
+            order_id,
+            status: new_status,
+          },
+        }));
+        fcmResult = await sendFcmV2(messages);
+      }
     }
 
     // --- Live Activity Updates ---
