@@ -218,7 +218,7 @@ export default function StaffOrders() {
     return () => clearInterval(interval);
   }, [queryClient, staffBranchId]);
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, error: ordersError } = useQuery({
     queryKey: ['staff-orders', staffBranchId],
     queryFn: async () => {
       if (!staffBranchId) return [];
@@ -228,7 +228,10 @@ export default function StaffOrders() {
         .in('status', ACTIVE_STATUSES)
         .eq('branch_id', staffBranchId)
         .order('created_at', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error('Staff orders query failed:', error);
+        throw error;
+      }
       return data;
     },
     enabled: !!staffBranchId,
