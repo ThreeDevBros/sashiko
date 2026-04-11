@@ -106,7 +106,7 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
             description: body,
             action: navigateRef.current ? {
               label: 'View Order',
-              onClick: () => navigateRef.current?.(`/order/${data.order_id}`),
+              onClick: () => navigateRef.current?.(`/order-tracking/${data.order_id}`),
             } : undefined,
           });
         } else {
