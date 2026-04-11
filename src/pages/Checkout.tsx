@@ -438,7 +438,7 @@ const Checkout = () => {
             items: items.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity, image_url: item.image_url, special_instructions: item.special_instructions || undefined })),
             branch_id: branch.id,
             order_type: orderType,
-            delivery_address_id: selectedAddressId,
+            delivery_address_id: (selectedAddressId === 'current-location' || selectedAddressId === 'selected-location') ? null : selectedAddressId,
             estimated_delivery_time: scheduledDateTime || null,
             delivery_fee: deliveryFee,
             currency: (currency || 'USD').toLowerCase(),
