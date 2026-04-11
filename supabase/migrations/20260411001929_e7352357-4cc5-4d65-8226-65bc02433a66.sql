@@ -1,0 +1,1 @@
+DELETE FROM public.push_device_tokens WHERE token ~ '^[0-9a-fA-F]{64}$';

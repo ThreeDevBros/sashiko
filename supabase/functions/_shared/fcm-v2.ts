@@ -22,7 +22,6 @@ async function createJWT(serviceAccount: { client_email: string; private_key: st
   const payloadB64 = base64UrlEncode(encoder.encode(JSON.stringify(payload)));
   const signingInput = `${headerB64}.${payloadB64}`;
 
-  // Import private key
   const pemContents = serviceAccount.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
@@ -75,6 +74,18 @@ async function getAccessToken(serviceAccount: { client_email: string; private_ke
   return data.access_token;
 }
 
+/**
+ * Returns true if the token looks like a valid FCM token.
+ * APNs device tokens are 64-char uppercase hex strings — we skip those.
+ */
+export function isValidFcmToken(token: string): boolean {
+  if (!token || token.length < 20) return false;
+  // APNs tokens are 64-char hex (uppercase or lowercase)
+  if (/^[0-9a-fA-F]{64}$/.test(token)) return false;
+  // FCM tokens typically contain a colon
+  return true;
+}
+
 export interface FcmMessage {
   token: string;
   title: string;
@@ -82,23 +93,49 @@ export interface FcmMessage {
   data?: Record<string, string>;
 }
 
-export async function sendFcmV2(messages: FcmMessage[]): Promise<number> {
+export interface FcmSendResult {
+  attempted: number;
+  sent: number;
+  failed: number;
+  skipped_invalid: number;
+  errors: string[];
+}
+
+export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> {
+  const result: FcmSendResult = {
+    attempted: 0,
+    sent: 0,
+    failed: 0,
+    skipped_invalid: 0,
+    errors: [],
+  };
+
   const serviceAccountJson = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON');
   if (!serviceAccountJson) {
     console.warn('FIREBASE_SERVICE_ACCOUNT_JSON not configured, skipping push');
-    return 0;
+    return result;
   }
 
   const serviceAccount = JSON.parse(serviceAccountJson);
   const projectId = serviceAccount.project_id;
   if (!projectId) throw new Error('project_id missing from service account');
 
+  console.log(`[FCM] Using Firebase project: ${projectId}`);
+  console.log(`[FCM] Total messages queued: ${messages.length}`);
+
   const accessToken = await getAccessToken(serviceAccount);
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
-  let successCount = 0;
-
   for (const msg of messages) {
+    // Skip invalid tokens
+    if (!isValidFcmToken(msg.token)) {
+      console.warn(`[FCM] Skipping invalid/APNs-format token: ${msg.token.slice(0, 16)}...`);
+      result.skipped_invalid++;
+      continue;
+    }
+
+    result.attempted++;
+
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -127,15 +164,22 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<number> {
       });
 
       if (res.ok) {
-        successCount++;
+        result.sent++;
       } else {
         const errBody = await res.text();
-        console.error(`FCM send failed for token ${msg.token.slice(0, 10)}...: ${errBody}`);
+        result.failed++;
+        const errSummary = `Token ${msg.token.slice(0, 12)}...: ${res.status} ${errBody.slice(0, 200)}`;
+        result.errors.push(errSummary);
+        console.error(`[FCM] Send failed: ${errSummary}`);
       }
     } catch (err) {
-      console.error(`FCM send error: ${err}`);
+      result.failed++;
+      const errMsg = `Token ${msg.token.slice(0, 12)}...: ${err}`;
+      result.errors.push(errMsg);
+      console.error(`[FCM] Send error: ${errMsg}`);
     }
   }
 
-  return successCount;
+  console.log(`[FCM] Results — sent: ${result.sent}, failed: ${result.failed}, skipped_invalid: ${result.skipped_invalid}`);
+  return result;
 }

@@ -156,20 +156,11 @@ serve(async (req) => {
           },
         }));
 
-        const pushSent = await sendFcmV2(messages);
-        sentCount += pushSent;
-      }
-    }
+        const pushResult = await sendFcmV2(messages);
+        sentCount += pushResult.sent;
 
-    // Handle case where nothing was sent
-    if (sentCount === 0 && userIds.length === 0) {
-      await supabase
-        .from('broadcast_notifications')
-        .update({ status: 'sent', sent_count: 0, sent_at: new Date().toISOString() })
-        .eq('id', notification_id);
-      return new Response(JSON.stringify({ sent: 0 }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+        console.log(`[Broadcast] Push results:`, JSON.stringify(pushResult));
+      }
     }
 
     // Update notification status
