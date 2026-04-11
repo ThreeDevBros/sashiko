@@ -3,34 +3,45 @@ import { STORAGE_KEYS, APP_CONFIG } from '@/constants';
 import type { Branch } from '@/types';
 
 /**
- * Fetch branch by ID or first active branch
+ * Fetch branch by ID or first active branch.
+ * Throws on network errors so React Query can retry.
  */
 export const fetchBranch = async (branchId?: string): Promise<Branch | null> => {
-  try {
-    if (branchId) {
-      const { data, error } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('is_active', true)
-        .eq('id', branchId)
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
-    } else {
-      const { data, error } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('is_active', true)
-        .limit(1);
-      
-      if (error) throw error;
-      return data?.[0] || null;
-    }
-  } catch (error) {
-    console.error('Error fetching branch:', error);
-    return null;
+  if (branchId) {
+    const { data, error } = await supabase
+      .from('branches')
+      .select('*')
+      .eq('is_active', true)
+      .eq('id', branchId)
+      .maybeSingle();
+    
+    if (error) throw error;
+    return data;
+  } else {
+    const { data, error } = await supabase
+      .from('branches')
+      .select('*')
+      .eq('is_active', true)
+      .limit(1);
+    
+    if (error) throw error;
+    return data?.[0] || null;
   }
+};
+
+/**
+ * Fetch branch by ID, falling back to the first active branch if the ID is stale/invalid.
+ * Throws on network errors so React Query can retry.
+ */
+export const fetchBranchWithFallback = async (savedBranchId?: string | null): Promise<Branch | null> => {
+  if (savedBranchId) {
+    const branch = await fetchBranch(savedBranchId);
+    if (branch) return branch;
+    // Saved ID was stale — clear it and fall back
+    console.warn('[branch] Saved branch ID is stale, falling back to first active branch');
+    localStorage.removeItem(STORAGE_KEYS.SELECTED_BRANCH);
+  }
+  return fetchBranch();
 };
 
 /**
@@ -82,7 +93,6 @@ export const dispatchBranchChanged = (): void => {
  */
 const parseTimeToMinutes = (timeStr: string): number | null => {
   if (!timeStr) return null;
-  // Strip any timezone suffix and take only HH:MM part
   const cleaned = timeStr.replace(/[+-]\d{2}(:\d{2})?$/, '').trim();
   const parts = cleaned.split(':').map(Number);
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
@@ -102,10 +112,9 @@ export const formatBranchTime = (timeStr: string | null): string => {
 
 /**
  * Check if a branch is currently open based on its operating hours.
- * Returns true if the branch is open right now.
  */
 export const isBranchOpen = (opensAt: string | null, closesAt: string | null): boolean => {
-  if (!opensAt || !closesAt) return true; // No hours set = always open
+  if (!opensAt || !closesAt) return true;
   
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -115,10 +124,9 @@ export const isBranchOpen = (opensAt: string | null, closesAt: string | null): b
   
   if (openMinutes === null || closeMinutes === null) {
     console.warn('Could not parse branch hours:', { opensAt, closesAt });
-    return true; // If we can't parse, assume open
+    return true;
   }
   
-  // Handle overnight hours (e.g. opens 18:00, closes 02:00)
   if (closeMinutes <= openMinutes) {
     return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
   }

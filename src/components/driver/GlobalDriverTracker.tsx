@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Global driver GPS tracker that runs on ANY page of the app when the driver
@@ -8,24 +9,21 @@ import { supabase } from '@/integrations/supabase/client';
  * Renders nothing visible — it's a background service component.
  */
 export function GlobalDriverTracker() {
+  const { user, isAuthReady } = useAuth();
   const [isDriver, setIsDriver] = useState(false);
   const [activeOrderIds, setActiveOrderIds] = useState<string[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const userIdRef = useRef<string | null>(null);
 
   const checkDriverStatus = useCallback(async () => {
+    if (!user) {
+      setIsDriver(false);
+      setActiveOrderIds([]);
+      return;
+    }
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsDriver(false);
-        setActiveOrderIds([]);
-        return;
-      }
-
-      userIdRef.current = user.id;
-
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
@@ -51,7 +49,7 @@ export function GlobalDriverTracker() {
     } catch (err) {
       console.error('[GlobalDriverTracker] Error checking driver status:', err);
     }
-  }, []);
+  }, [user]);
 
   const checkProximity = useCallback(async (orderId: string, lat: number, lng: number) => {
     try {
@@ -80,7 +78,7 @@ export function GlobalDriverTracker() {
   }, []);
 
   const sendLocation = useCallback(async () => {
-    if (activeOrderIds.length === 0 || !userIdRef.current) return;
+    if (activeOrderIds.length === 0 || !user) return;
     if (!navigator.geolocation) return;
 
     try {
@@ -98,7 +96,7 @@ export function GlobalDriverTracker() {
       const lng = position.coords.longitude;
 
       const inserts = activeOrderIds.map(orderId => ({
-        driver_id: userIdRef.current!,
+        driver_id: user.id,
         order_id: orderId,
         latitude: lat,
         longitude: lng,
@@ -113,14 +111,13 @@ export function GlobalDriverTracker() {
         return;
       }
 
-      // Check proximity for each active order
       for (const orderId of activeOrderIds) {
         checkProximity(orderId, lat, lng);
       }
     } catch (err) {
       console.error('[GlobalDriverTracker] GPS error:', err);
     }
-  }, [activeOrderIds, checkProximity]);
+  }, [activeOrderIds, checkProximity, user]);
 
   const acquireWakeLock = useCallback(async () => {
     if (!('wakeLock' in navigator)) return;
@@ -144,19 +141,10 @@ export function GlobalDriverTracker() {
     }
   }, []);
 
+  // Don't start anything until auth is ready and we have a user
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && activeOrderIds.length > 0) {
-        acquireWakeLock();
-        sendLocation();
-      }
-    };
+    if (!isAuthReady || !user) return;
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [activeOrderIds.length, acquireWakeLock, sendLocation]);
-
-  useEffect(() => {
     checkDriverStatus();
     checkIntervalRef.current = setInterval(checkDriverStatus, 30000);
 
@@ -171,7 +159,19 @@ export function GlobalDriverTracker() {
       if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
       supabase.removeChannel(channel);
     };
-  }, [checkDriverStatus]);
+  }, [isAuthReady, user, checkDriverStatus]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && activeOrderIds.length > 0) {
+        acquireWakeLock();
+        sendLocation();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [activeOrderIds.length, acquireWakeLock, sendLocation]);
 
   useEffect(() => {
     if (activeOrderIds.length > 0) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,24 +15,23 @@ import { toast } from 'sonner';
  */
 export function PhonePromptDialog() {
   const { t } = useTranslation();
+  const { user, isAuthReady } = useAuth();
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
   const [phoneError, setPhoneError] = useState('');
 
   useEffect(() => {
-    const checkPhoneNeeded = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+    if (!isAuthReady || !user) return;
 
-      const provider = session.user.app_metadata?.provider;
-      // Only prompt for OAuth users (google, apple)
-      if (provider !== 'google' && provider !== 'apple') return;
+    const provider = user.app_metadata?.provider;
+    if (provider !== 'google' && provider !== 'apple') return;
 
+    const checkPhone = async () => {
       const { data: profile } = await supabase
         .from('profiles')
         .select('phone')
-        .eq('id', session.user.id)
+        .eq('id', user.id)
         .single();
 
       if (!profile?.phone || profile.phone.trim() === '') {
@@ -39,15 +39,17 @@ export function PhonePromptDialog() {
       }
     };
 
-    // Check on mount
-    checkPhoneNeeded();
+    // Small delay to ensure profile trigger has run
+    const timer = setTimeout(checkPhone, 1000);
+    return () => clearTimeout(timer);
+  }, [user, isAuthReady]);
 
-    // Also check when auth state changes (e.g. after OAuth redirect)
+  // Also check on SIGNED_IN event for OAuth redirects
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const provider = session.user.app_metadata?.provider;
         if (provider === 'google' || provider === 'apple') {
-          // Small delay to ensure profile trigger has run
           setTimeout(async () => {
             const { data: profile } = await supabase
               .from('profiles')
@@ -83,7 +85,6 @@ export function PhonePromptDialog() {
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user');
 
       const { error } = await supabase
@@ -104,7 +105,6 @@ export function PhonePromptDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => {
-      // Don't allow dismissing without entering phone
       if (!v && !phone.trim()) return;
       setOpen(v);
     }}>

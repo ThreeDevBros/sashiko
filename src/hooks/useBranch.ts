@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
-  fetchBranch, 
+  fetchBranchWithFallback, 
   getSavedBranchId, 
   saveBranchId, 
   calculateEstimatedTime 
@@ -59,18 +59,21 @@ export const useBranch = () => {
     queryKey: BRANCH_QUERY_KEY,
     queryFn: async () => {
       const savedBranchId = getSavedBranchId();
-      let data = await fetchBranch(savedBranchId || undefined);
+      console.log('[useBranch] Resolving branch, saved ID:', savedBranchId);
+      
+      let data = await fetchBranchWithFallback(savedBranchId);
       
       if (!data) {
         throw new Error('No branch data available');
       }
       
+      console.log('[useBranch] Branch resolved:', data.id, data.name);
+      
       // Geocode if needed
       data = await geocodeBranchAddress(data);
       
-      if (!savedBranchId) {
-        saveBranchId(data.id);
-      }
+      // Always persist the valid branch ID
+      saveBranchId(data.id);
       
       const time = await calculateEstimatedTime();
       
