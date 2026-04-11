@@ -111,6 +111,7 @@ export interface FcmMessage {
   title: string;
   body: string;
   data?: Record<string, string>;
+  collapseKey?: string;
 }
 
 export interface FcmSendResult {
@@ -161,6 +162,11 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> 
 
     result.attempted++;
 
+    const apnsHeaders: Record<string, string> = {};
+    if (msg.collapseKey) {
+      apnsHeaders['apns-collapse-id'] = msg.collapseKey;
+    }
+
     const requestBody = JSON.stringify({
       message: {
         token: msg.token,
@@ -169,7 +175,12 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> 
           body: msg.body,
         },
         data: msg.data || {},
+        android: {
+          ...(msg.collapseKey ? { collapse_key: msg.collapseKey } : {}),
+          notification: { sound: 'default' },
+        },
         apns: {
+          headers: apnsHeaders,
           payload: {
             aps: {
               sound: 'default',
