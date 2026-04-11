@@ -3,12 +3,7 @@
 // when the app launches, without modifying Capacitor's AppDelegate.
 
 #import <UIKit/UIKit.h>
-
-// Forward-declare the Swift setup class
-@interface PushNotificationSetup : NSObject
-+ (PushNotificationSetup * _Nonnull)shared;
-- (void)configureWithApplication:(UIApplication * _Nonnull)application;
-@end
+#import "App-Swift.h"
 
 // Use a category on UIApplication to hook into didFinishLaunching
 @interface UIApplication (PushNotificationAutoSetup)
