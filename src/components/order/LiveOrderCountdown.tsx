@@ -35,8 +35,8 @@ export function LiveOrderCountdown({
   deliveryLng,
   guestDeliveryLat,
   guestDeliveryLng,
+  onTransitMinutesCalculated,
 }: LiveOrderCountdownProps) {
-  const onTransitMinutesCalculated = (arguments[0] as any)?.onTransitMinutesCalculated;
   const [now, setNow] = useState(Date.now());
   const [transitMinutes, setTransitMinutes] = useState<number | null>(null);
 
