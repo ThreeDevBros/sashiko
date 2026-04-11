@@ -1,50 +1,95 @@
 
+Goal
 
-# Plan: Fix Live Activity Updates, Simplify Widget Text, Match ETA, Fix Real-time on Resume
+Make the app recover cleanly after backgrounding/returning on iOS, Android, and web so data fetching, auth-protected screens, realtime updates, and navigation remain stable.
 
-## Issues Found
+What I found
 
-1. **Live Activity doesn't auto-update on status change** — `send-order-push` IS called by staff/admin when changing status, and it DOES send APNs updates. The issue is the `contentState` in the APNs payload includes `orderId` as a string but the widget reads it. The real problem: the `send-order-push` function sends the correct Live Activity update, so this should work IF the push token was registered. Need to verify the `live_activity_tokens` table has tokens. The `update-order-eta` cron runs every 2 min for ETA refreshes — this part is correct.
+This looks like a client lifecycle/bootstrap problem more than a backend data problem.
 
-2. **Live Activity still shows a title ("Order Placed", "Confirmed", etc.)** — The Swift widget has TWO text lines: `statusLabel` (bold title like "Preparing") and `statusMessage` (caption like "Our kitchen is preparing your order"). User wants ONLY the message text, no bold title. Need to restructure the widget to show only `statusMessage` as the primary text.
+- `useAppLifecycle` fires resume twice on native because it listens to both `visibilitychange` and Capacitor `appStateChange`. Your logs confirm duplicate resume events:
+  - `[App] Resumed — invalidating all queries` appears twice each time.
+- `App.tsx` currently does a global `queryClient.invalidateQueries()` on every resume. That creates a refetch storm across the whole app.
+- Several protected queries/subscriptions start before auth/role/session state is fully safe again after resume.
+- `AuthContext` still marks auth ready too early for native lifecycle edge cases. That can briefly make protected queries run while the token/session is not fully usable, which makes RLS-backed fetches fail or return empty.
+- Realtime reconnect is only handled in a few places. Most staff/admin/branch/driver subscriptions do not explicitly re-subscribe on resume, so WebSocket-backed updates can silently die after reopening the app.
+- Route/role checks are spread across multiple places and can race during resume, causing wrong redirects or broken page state.
 
-3. **ETA mismatch between Live Activity and /order-tracking** — The server-side ETA is `prep + delivery_transit_minutes` from the DB. But `LiveOrderCountdown` calculates transit via Google Maps Directions API live. If `delivery_transit_minutes` hasn't been saved to DB yet (or is stale), the Live Activity ETA won't match. The `saveTransitMinutes` function only runs once (`transitMinutesSaved.current`). Need to ensure transit minutes are saved early and that the server-side ETA calculation matches the client.
+Plan
 
-4. **Real-time stops working after leaving and reopening app** — The `useAppLifecycle` hook calls `loadOrderDetails()` on resume, which re-fetches data. But the Supabase Realtime channel may disconnect when the app is backgrounded and not automatically reconnect. The realtime subscription in the `useEffect` depends on `orderId` and `order?.status` — if status changes while backgrounded, the channel won't re-subscribe because the dependency didn't change from the component's perspective. Need to force-reconnect the realtime channel on app resume.
+1. Stabilize auth restoration first
+- Refactor `src/contexts/AuthContext.tsx` into a stricter “session restored” flow.
+- Restore session with `getSession()` first, then mark auth ready only after that restore completes.
+- Avoid any awaited async work inside `onAuthStateChange`.
+- Expose a stronger auth-ready signal for the rest of the app to use.
 
-## Changes
+2. Fix duplicate resume handling
+- Update `src/hooks/useAppLifecycle.ts` to dedupe native resume events so foregrounding only triggers once.
+- Add a short guard/throttle so `visibilitychange` + `appStateChange` do not both fire the same refresh cycle.
 
-### 1. Swift widget: Remove title, show only status message
-**File: `setup/swift/OrderTrackingWidgetLiveActivity.swift`**
-- Remove the `statusLabel` bold title text from the lock screen view
-- Make `statusMessage` the primary (and only) text line with `.subheadline.bold` styling
-- In Dynamic Island expanded: replace `statusLabel` with `statusMessage` in the leading region
-- Remove the bottom region (which currently duplicates `statusMessage`)
-- Keep the icon and ETA display as-is
+3. Replace global resume invalidation with a controlled refresh pipeline
+- In `src/App.tsx`, remove the blanket “invalidate everything” behavior.
+- Replace it with staged resume refresh:
+  - refresh auth/session-dependent state first
+  - refresh core bootstrap data (`branding`, `branch`)
+  - refresh only critical shared user data
+- Keep the last good UI visible while background refresh happens instead of destabilizing the whole tree.
 
-### 2. Fix real-time reconnection on app resume
-**File: `src/pages/OrderTracking.tsx`**
-- Add a `resumeCounter` state that increments on each app resume via `useAppLifecycle`
-- Include `resumeCounter` as a dependency of the realtime subscription `useEffect` — this forces the channel to tear down and re-subscribe on every resume
-- This ensures the Supabase Realtime channel reconnects fresh after backgrounding
+4. Gate protected queries and route guards correctly
+- Audit and update auth-dependent logic so it waits for real auth readiness before querying:
+  - `src/App.tsx` route/role checks
+  - `src/hooks/useAdmin.ts`
+  - `src/hooks/usePermissions.ts`
+  - `src/hooks/useSavedCards.ts`
+  - `src/pages/DriverDashboard.tsx`
+  - `src/pages/staff/StaffReservations.tsx`
+  - any other screen querying protected tables on mount
+- Use proper React Query `enabled` guards and avoid `getUser()`/role fetch races during resume.
 
-### 3. Ensure server-side ETA matches client ETA
-**File: `src/pages/OrderTracking.tsx`**
-- Remove the `transitMinutesSaved.current` guard so transit minutes can be re-saved if they change
-- Save transit minutes on every calculation, not just once — use a ref to track last saved value and only update if different
+5. Centralize role/permission loading
+- Stop re-fetching roles ad hoc in multiple places during resume.
+- Introduce a shared cached role/permission source so layouts, guards, and panels all read from the same settled state.
+- This will prevent redirects and access checks from fighting each other when the app reopens.
 
-### 4. Verify Live Activity contentState matches widget expectations
-**Files: `supabase/functions/send-order-push/index.ts`, `supabase/functions/update-order-eta/index.ts`**
-- Both already stringify all values — confirmed correct
-- Update `statusMessage` in `send-order-push` to use simpler user-friendly text matching the new widget design (no emojis, cleaner text since it's the only text shown)
+6. Add app-resume reconnect for realtime everywhere it matters
+- Generalize the same reconnect pattern already used in order tracking.
+- Re-subscribe critical realtime channels on resume for:
+  - `src/hooks/useBranch.ts`
+  - `src/pages/admin/OrderManagement.tsx`
+  - `src/pages/staff/StaffOrders.tsx`
+  - `src/pages/staff/StaffReservations.tsx`
+  - `src/components/driver/GlobalDriverTracker.tsx`
+  - any other critical live dashboards
+- Pair reconnect with an immediate refetch fallback so the page heals even if the socket was dead.
 
-## Files to modify
-1. `setup/swift/OrderTrackingWidgetLiveActivity.swift` — remove title, single message line
-2. `src/pages/OrderTracking.tsx` — fix realtime reconnect on resume, re-save transit minutes
-3. `supabase/functions/send-order-push/index.ts` — cleaner status messages (no title needed)
+7. Make resume-safe UI states for active panels
+- Ensure admin/staff/driver layouts do not render “access denied” or partial broken states while auth/roles are still settling after resume.
+- Keep loading/skeleton states until permissions are truly ready.
 
-## Technical notes
-- The realtime disconnect-on-background is a known Capacitor WebView issue — the WebSocket silently dies and Supabase JS client doesn't always auto-reconnect
-- Forcing channel re-subscription via a counter dependency is the most reliable pattern
-- Transit minutes re-saving ensures the cron job always has accurate data for Live Activity ETA
+8. Verify bootstrap remains resilient after reopening
+- Re-test the startup bootstrap gate in `src/App.tsx` so reopening the app does not recreate the earlier “data doesn’t load properly” failure mode.
+- Preserve cached branding/branch while refetching, and only show failure UI for real persistent failures.
 
+Files likely involved
+
+- `src/contexts/AuthContext.tsx`
+- `src/hooks/useAppLifecycle.ts`
+- `src/App.tsx`
+- `src/hooks/useAdmin.ts`
+- `src/hooks/usePermissions.ts`
+- `src/hooks/useSavedCards.ts`
+- `src/hooks/useBranch.ts`
+- `src/pages/admin/OrderManagement.tsx`
+- `src/pages/staff/StaffOrders.tsx`
+- `src/pages/staff/StaffReservations.tsx`
+- `src/pages/DriverDashboard.tsx`
+- `src/components/driver/GlobalDriverTracker.tsx`
+
+Expected result
+
+After this fix:
+- reopening the app triggers one clean refresh instead of duplicate storms
+- auth-protected data no longer fetches during the broken session window
+- admin/staff/driver/customer screens recover correctly after backgrounding
+- realtime updates reconnect reliably after returning to the app
+- the app remains usable instead of falling into partial empty/broken states
