@@ -12,8 +12,8 @@ const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_
 export const ActiveOrderBanner = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user, isAuthReady } = useAuth();
   const [activeOrder, setActiveOrder] = useState<{ id: string; order_number: string; status: string } | null>(null);
-  const userIdRef = useRef<string | null>(null);
 
   const statusConfig: Record<string, { icon: typeof Clock; label: string; color: string }> = {
     pending: { icon: Clock, label: t('banners.orderPlaced'), color: 'text-amber-500' },
@@ -24,10 +24,9 @@ export const ActiveOrderBanner = () => {
   };
 
   const fetchActiveOrder = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!isAuthReady) return;
 
     if (user) {
-      userIdRef.current = user.id;
       const { data } = await supabase
         .from('orders')
         .select('id, order_number, status')
@@ -41,7 +40,7 @@ export const ActiveOrderBanner = () => {
       return;
     }
 
-    userIdRef.current = null;
+    // Guest flow
     const guestRaw = localStorage.getItem('guest_active_order');
     if (!guestRaw) {
       setActiveOrder(null);
