@@ -125,6 +125,7 @@ export default function OrderTracking() {
   // Start/update/end iOS Live Activity when order loads or status changes
   const liveActivityStarted = useRef(false);
   useEffect(() => {
+    console.log('[LiveActivity] useEffect fired — order:', order?.id, 'status:', order?.status, 'isGuest:', isGuest);
     if (!order || isGuest) return;
     const isActive = !['delivered', 'cancelled'].includes(order.status);
 
