@@ -9,7 +9,7 @@ import FirebaseMessaging
 ///   PushNotificationSetup.shared.configure(application: application)
 ///
 /// Or let it auto-configure via the swizzled load() if preferred.
-final class PushNotificationSetup: NSObject {
+@objc final class PushNotificationSetup: NSObject {
 
     static let shared = PushNotificationSetup()
     private var isConfigured = false
