@@ -8,6 +8,7 @@
         "@capacitor-community/apple-sign-in": "^7.1.0",
         "@capacitor-community/stripe": "~7.0.0",
         "@capacitor/android": "^7.4.3",
+        "@capacitor/app": "^8.1.0",
         "@capacitor/cli": "^7.4.3",
         "@capacitor/core": "^7.4.3",
         "@capacitor/haptics": "^7.0.2",
@@ -293,6 +294,8 @@
     "@capacitor-community/stripe": ["@capacitor-community/stripe@7.0.3", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor-community/stripe/-/stripe-7.0.3.tgz", { "peerDependencies": { "@capacitor/core": ">=7.0.0", "react": "^17.0.0 || ^18.0.0", "stripe-pwa-elements": "^2.1.0" } }, "sha512-i/kwJDFuMpNoYUZH+Tf9ms/9TnxDU31mgyxZ1aFBa6HbbDlKR9V0XxejC8x5UOJht9vRBmseDEIx8jOr3YZfxg=="],
 
     "@capacitor/android": ["@capacitor/android@7.4.3", "", { "peerDependencies": { "@capacitor/core": "^7.4.0" } }, "sha512-VpjvnOcmYGPLgvXRhe3CGLs62Cg7sxOyp77NddCr+Y06qqgnoaj6OGeBVTc2DZlqZ6bSmh15JvFu82pkvmdgfQ=="],
+
+    "@capacitor/app": ["@capacitor/app@8.1.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/app/-/app-8.1.0.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-MlmttTOWHDedr/G4SrhNRxsXMqY+R75S4MM4eIgzsgCzOYhb/MpCkA5Q3nuOCfL1oHm26xjUzqZ5aupbOwdfYg=="],
 
     "@capacitor/cli": ["@capacitor/cli@7.4.3", "", { "dependencies": { "@ionic/cli-framework-output": "^2.2.8", "@ionic/utils-subprocess": "^3.0.1", "@ionic/utils-terminal": "^2.3.5", "commander": "^12.1.0", "debug": "^4.4.0", "env-paths": "^2.2.0", "fs-extra": "^11.2.0", "kleur": "^4.1.5", "native-run": "^2.0.1", "open": "^8.4.0", "plist": "^3.1.0", "prompts": "^2.4.2", "rimraf": "^6.0.1", "semver": "^7.6.3", "tar": "^6.1.11", "tslib": "^2.8.1", "xml2js": "^0.6.2" }, "bin": { "cap": "bin/capacitor", "capacitor": "bin/capacitor" } }, "sha512-SWozpdDgrbQ/ry1nIapugDFvE9z+l22BmU/+fpgL2Zv5487hGdXvCX5+1SluuFBP3IPpx6b4LjsKnBigyJoUWg=="],
 

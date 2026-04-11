@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendFcmV2 } from "../_shared/fcm-v2.ts";
+import { sendLiveActivityUpdate } from "../_shared/apns-live-activity.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,6 +43,17 @@ serve(async (req) => {
     console.log(`[ETA Refresh] Processing ${orders.length} active orders`);
 
     let totalSent = 0;
+    let totalLiveActivitySent = 0;
+
+    const statusToLiveState: Record<string, string> = {
+      pending: 'pending',
+      confirmed: 'confirmed',
+      preparing: 'preparing',
+      ready: 'ready',
+      out_for_delivery: 'onTheWay',
+      delivered: 'delivered',
+      cancelled: 'cancelled',
+    };
 
     for (const order of orders) {
       const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
@@ -60,7 +72,7 @@ serve(async (req) => {
         body += ` — Ready in ~${etaMinutes} min`;
       }
 
-      // Get user's device tokens
+      // --- FCM Push ---
       const { data: tokens } = await supabase
         .from('push_device_tokens')
         .select('token')
@@ -83,11 +95,40 @@ serve(async (req) => {
         const result = await sendFcmV2(messages);
         totalSent += result.sent;
       }
+
+      // --- Live Activity APNs Updates ---
+      const { data: laTokens } = await supabase
+        .from('live_activity_tokens')
+        .select('push_token')
+        .eq('order_id', order.id)
+        .eq('user_id', order.user_id);
+
+      if (laTokens && laTokens.length > 0) {
+        const bundleId = Deno.env.get('IOS_BUNDLE_ID') || 'app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10';
+
+        const updates = laTokens.map((t: any) => ({
+          pushToken: t.push_token,
+          event: 'update' as const,
+          contentState: {
+            status: statusToLiveState[order.last_push_status] || order.last_push_status,
+            orderNumber: orderLabel,
+            orderType: order.order_type,
+            statusMessage: order.last_push_message,
+            etaMinutes,
+            updatedAt: new Date().toISOString(),
+          },
+          staleDate: Math.floor(Date.now() / 1000) + 180,
+          relevanceScore: 75,
+        }));
+
+        const laSent = await sendLiveActivityUpdate(updates, bundleId);
+        totalLiveActivitySent += laSent;
+      }
     }
 
-    console.log(`[ETA Refresh] Total notifications sent: ${totalSent}`);
+    console.log(`[ETA Refresh] FCM sent: ${totalSent}, Live Activities sent: ${totalLiveActivitySent}`);
 
-    return new Response(JSON.stringify({ refreshed: orders.length, sent: totalSent }), {
+    return new Response(JSON.stringify({ refreshed: orders.length, sent: totalSent, liveActivitySent: totalLiveActivitySent }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
