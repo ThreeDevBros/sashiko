@@ -176,8 +176,8 @@ export default function OrderTracking() {
             const newStatus = (payload.new as any).status;
             const oldStatus = order?.status;
             
-            // Show live status notification
-            if (newStatus !== oldStatus && oldStatus) {
+            // Only show toast for terminal statuses (Live Activity handles the rest)
+            if (newStatus !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(newStatus)) {
               showStatusChangeToast(newStatus, order?.order_type || 'delivery', order?.order_number || '');
             }
             
@@ -216,7 +216,7 @@ export default function OrderTracking() {
             .single();
           if (freshOrder) {
             const oldStatus = order?.status;
-            if (freshOrder.status !== oldStatus && oldStatus) {
+            if (freshOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(freshOrder.status)) {
               showStatusChangeToast(freshOrder.status, freshOrder.order_type || 'delivery', freshOrder.order_number || '');
               if (freshOrder.status === 'delivered' && !hasShownCashbackToast.current) {
                 showCashbackEarnedToast(freshOrder.total || 0);
@@ -259,7 +259,7 @@ export default function OrderTracking() {
         if (data?.order) {
           const gOrder = data.order;
           const oldStatus = order?.status;
-          if (gOrder.status !== oldStatus && oldStatus) {
+          if (gOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(gOrder.status)) {
             showStatusChangeToast(gOrder.status, gOrder.order_type || 'delivery', gOrder.order_number || '');
           }
           setOrder(gOrder);
