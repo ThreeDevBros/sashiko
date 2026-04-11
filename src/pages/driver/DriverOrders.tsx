@@ -113,7 +113,6 @@ export default function DriverOrders() {
   const markOutForDelivery = async (orderId: string) => {
     setUpdatingId(orderId);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase
