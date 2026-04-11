@@ -106,6 +106,10 @@ const AppRoutes = () => {
   const isQrMenuRoute = location.pathname.startsWith('/qr-menu');
   const showNav = !isAdminRoute && !isStaffRoute && !isDriverRoute && !isAuthRoute && !isQrMenuRoute;
   
+  // Cache roles to avoid refetching on every route change
+  const [cachedRoles, setCachedRoles] = useState<string[] | null>(null);
+  const lastRoleUserId = useRef<string | null>(null);
+
   useEffect(() => {
     if (!isAuthReady) return;
 
@@ -117,18 +121,25 @@ const AppRoutes = () => {
                                location.pathname.startsWith('/driver');
 
       if (!user) {
+        setCachedRoles(null);
+        lastRoleUserId.current = null;
         if (isProtectedPanel) {
           navigate('/auth', { replace: true });
         }
         return;
       }
 
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
-
-      const roles = roleData?.map(r => r.role) || [];
+      // Only fetch roles if user changed (not on every route change)
+      let roles = cachedRoles;
+      if (lastRoleUserId.current !== user.id || !roles) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id);
+        roles = roleData?.map(r => r.role) || [];
+        setCachedRoles(roles);
+        lastRoleUserId.current = user.id;
+      }
       
       if (!isRouteAllowedForRoles(location.pathname, roles)) {
         const correctRoute = getRoleBasedRoute(roles);

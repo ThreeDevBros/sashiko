@@ -70,8 +70,9 @@ function buildContentState(data: LiveActivityData): Record<string, string> {
   };
 }
 
-// Track listener registration to avoid duplicates
+// Track the current active order ID for the push token listener
 let pushTokenListenerRegistered = false;
+let currentActiveOrderId: string | null = null;
 
 /**
  * Start a Live Activity for an order and register the push token
@@ -85,23 +86,30 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
       return null;
     }
 
-    // Register push token listener once
+    // Always update the current order ID so the listener persists the token for the right order
+    currentActiveOrderId = data.orderId;
+
+    // Register push token listener once — reads currentActiveOrderId dynamically (no stale closure)
     if (!pushTokenListenerRegistered && plugin.addListener) {
       pushTokenListenerRegistered = true;
       plugin.addListener('liveActivityPushToken', async (event: any) => {
-        console.log('[LiveActivity] Push token received:', event.token);
+        const orderId = currentActiveOrderId;
+        console.log('[LiveActivity] Push token received for order:', orderId, 'token:', event.token?.substring(0, 20) + '...');
+        if (!orderId) return;
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const userId = session?.user?.id;
+          if (userId) {
             await supabase.from('live_activity_tokens').upsert(
               {
-                user_id: user.id,
-                order_id: data.orderId,
+                user_id: userId,
+                order_id: orderId,
                 push_token: event.token,
                 platform: 'ios',
               },
               { onConflict: 'user_id,order_id' }
             );
+            console.log('[LiveActivity] Token persisted for order:', orderId);
           }
         } catch (err) {
           console.error('[LiveActivity] Failed to register push token:', err);

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface StaffBranchOption {
   id: string;
@@ -26,12 +27,13 @@ const StaffBranchContext = createContext<StaffBranchContextType>({
 export const useStaffBranch = () => useContext(StaffBranchContext);
 
 export const StaffBranchProvider = ({ children }: { children: ReactNode }) => {
+  const { user, isAuthReady } = useAuth();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
 
   const { data: branches = [], isLoading } = useQuery({
-    queryKey: ['staff-all-branches'],
+    queryKey: ['staff-all-branches', user?.id],
+    enabled: isAuthReady && !!user,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
       
       // Try staff_branches first
