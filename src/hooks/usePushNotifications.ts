@@ -16,8 +16,21 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
 
     let cleaned = false;
 
+    // ── Validate FCM token format ──
+    const isValidFcmToken = (token: string): boolean => {
+      if (!token || token.length < 20) return false;
+      // APNs device tokens are 64-char hex — skip those
+      if (/^[0-9a-fA-F]{64}$/.test(token)) return false;
+      return true;
+    };
+
     // ── Save / link token through backend to avoid guest RLS issues ──
     const registerToken = async (tokenValue: string) => {
+      if (!isValidFcmToken(tokenValue)) {
+        console.log(`[Push] Skipping invalid/APNs-format token: ${tokenValue.slice(0, 16)}...`);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('register-push-device', {
         body: {
           token: tokenValue,
