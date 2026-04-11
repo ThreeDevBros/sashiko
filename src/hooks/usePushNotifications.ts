@@ -16,27 +16,19 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
 
     let cleaned = false;
 
-    // ── Save / link token in database ──────────────────────────────
-    const saveTokenToDb = async (tokenValue: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const row: Record<string, unknown> = {
-        token: tokenValue,
-        platform: Capacitor.getPlatform(),
-        updated_at: new Date().toISOString(),
-      };
-      if (user) {
-        row.user_id = user.id;
-      }
-
-      const { error } = await (supabase.from('push_device_tokens') as any).upsert(row, {
-        onConflict: 'token',
+    // ── Save / link token through backend to avoid guest RLS issues ──
+    const registerToken = async (tokenValue: string) => {
+      const { data, error } = await supabase.functions.invoke('register-push-device', {
+        body: {
+          token: tokenValue,
+          platform: Capacitor.getPlatform(),
+        },
       });
 
       if (error) {
         console.error('[Push] Failed to save token:', error.message);
       } else {
-        console.log('[Push] Token saved to database', user ? '(authenticated)' : '(guest)');
+        console.log('[Push] Token saved to database', data?.linked_to_user ? '(authenticated)' : '(guest)');
       }
     };
 
@@ -55,7 +47,7 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
       const token = await readFcmToken();
       if (token) {
         console.log(`[Push] FCM token from Preferences: ${token.slice(0, 20)}...`);
-        await saveTokenToDb(token);
+        await registerToken(token);
       } else {
         console.log('[Push] No FCM token in Preferences yet — will retry on auth change');
       }
@@ -72,11 +64,18 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
 
       console.log('[Push] Registering for push notifications...');
 
-      // Fallback: if Capacitor plugin does fire (e.g. Android), capture it
+      // On Android the registration callback is the FCM token.
+      // On iOS this callback is the APNS token, which cannot be used with FCM v2.
       PushNotifications.addListener('registration', async (token) => {
         if (cleaned) return;
-        console.log(`[Push] registration event (fallback): ${token.value.slice(0, 20)}...`);
-        await saveTokenToDb(token.value);
+
+        if (Capacitor.getPlatform() === 'ios') {
+          console.log('[Push] Ignoring iOS APNS registration token — waiting for FCM token from Preferences');
+          return;
+        }
+
+        console.log(`[Push] registration event: ${token.value.slice(0, 20)}...`);
+        await registerToken(token.value);
       });
 
       PushNotifications.addListener('registrationError', (error) => {
