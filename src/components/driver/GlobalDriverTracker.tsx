@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 
 /**
  * Global driver GPS tracker that runs on ANY page of the app when the driver
@@ -141,6 +142,12 @@ export function GlobalDriverTracker() {
     }
   }, []);
 
+  // Resume counter for realtime reconnect
+  const [resumeCounter, setResumeCounter] = useState(0);
+  useAppLifecycle(() => {
+    setResumeCounter(prev => prev + 1);
+  });
+
   // Don't start anything until auth is ready and we have a user
   useEffect(() => {
     if (!isAuthReady || !user) return;
@@ -149,7 +156,7 @@ export function GlobalDriverTracker() {
     checkIntervalRef.current = setInterval(checkDriverStatus, 30000);
 
     const channel = supabase
-      .channel('global-driver-tracker')
+      .channel(`global-driver-tracker-${resumeCounter}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         checkDriverStatus();
       })
@@ -159,7 +166,7 @@ export function GlobalDriverTracker() {
       if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
       supabase.removeChannel(channel);
     };
-  }, [isAuthReady, user, checkDriverStatus]);
+  }, [isAuthReady, user, checkDriverStatus, resumeCounter]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
