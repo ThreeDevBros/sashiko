@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useHaptics } from '@/hooks/useHaptics';
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -52,6 +53,7 @@ export const NewOrderPopup = () => {
   const queryClient = useQueryClient();
   const [newOrderPopup, setNewOrderPopup] = useState<any | null>(null);
   const { selectedBranchId: staffBranchId } = useStaffBranch();
+  const { heavy: triggerHeavyHaptic } = useHaptics();
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [estimatedMinutes, setEstimatedMinutes] = useState('30');
   const [showDeclineDialog, setShowDeclineDialog] = useState(false);
@@ -65,6 +67,7 @@ export const NewOrderPopup = () => {
   useEffect(() => {
     if (newOrderPopup?.status === 'pending') {
       playOrderAlert();
+      triggerHeavyHaptic();
       alertIntervalRef.current = setInterval(() => {
         playOrderAlert();
       }, 2000);

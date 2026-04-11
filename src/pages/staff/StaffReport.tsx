@@ -8,7 +8,7 @@ import { ShoppingCart, DollarSign, TrendingUp, UtensilsCrossed } from 'lucide-re
 import { formatCurrency } from '@/lib/currency';
 import { useStaffBranch } from '@/contexts/StaffBranchContext';
 
-export default function StaffReport() {
+function StaffReportContent() {
   const today = new Date();
   const todayStart = startOfDay(today).toISOString();
   const todayEnd = endOfDay(today).toISOString();
@@ -64,8 +64,7 @@ export default function StaffReport() {
   const readyCount = todayOrders?.filter(o => o.status === 'ready').length || 0;
 
   return (
-    <StaffLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Daily Report</h1>
           <p className="text-muted-foreground text-sm">{format(today, 'EEEE, MMMM d, yyyy')}</p>
@@ -201,7 +200,14 @@ export default function StaffReport() {
             )}
           </CardContent>
         </Card>
-      </div>
+    </div>
+  );
+}
+
+export default function StaffReport() {
+  return (
+    <StaffLayout>
+      <StaffReportContent />
     </StaffLayout>
   );
 }

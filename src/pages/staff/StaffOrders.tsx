@@ -86,7 +86,7 @@ const getNextStatus = (status: string, orderType: string): { next: string; label
 
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'] as const;
 
-export default function StaffOrders() {
+function StaffOrdersContent() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [newOrderPopup, setNewOrderPopup] = useState<any | null>(null);
@@ -349,7 +349,7 @@ export default function StaffOrders() {
   };
 
   return (
-    <StaffLayout>
+    <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -809,6 +809,14 @@ export default function StaffOrders() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  );
+}
+
+export default function StaffOrders() {
+  return (
+    <StaffLayout>
+      <StaffOrdersContent />
     </StaffLayout>
   );
 }
