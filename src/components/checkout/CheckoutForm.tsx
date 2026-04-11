@@ -366,6 +366,21 @@ export const CheckoutForm = ({
           }
         } = await supabase.auth.getUser();
 
+        // For authenticated users, fetch profile data instead of relying on user_metadata
+        let authGuestInfo = null;
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, phone')
+            .eq('id', user.id)
+            .maybeSingle();
+          authGuestInfo = {
+            name: profile?.full_name || user.user_metadata?.full_name || '',
+            email: user.email || '',
+            phone: profile?.phone || user.user_metadata?.phone || '',
+          };
+        }
+
         // Create order via edge function
         const {
           data,
@@ -382,15 +397,11 @@ export const CheckoutForm = ({
               quantity: item.quantity,
               special_instructions: item.special_instructions || undefined,
             })),
-            guest_info: user ? {
-              name: user.user_metadata?.full_name || '',
-              email: user.email || '',
-              phone: user.user_metadata?.phone || '',
-            } : guestInfo ? {
+            guest_info: authGuestInfo || (guestInfo ? {
               name: guestInfo.name,
               email: guestInfo.email,
               phone: guestInfo.phone
-            } : null,
+            } : null),
             guest_address: orderType === 'delivery' ? (guestAddress || selectedAddress?.address_line1 || null) : null,
             guest_delivery_lat: orderType === 'delivery' ? (guestDeliveryLat || null) : null,
             guest_delivery_lng: orderType === 'delivery' ? (guestDeliveryLng || null) : null,
@@ -403,7 +414,17 @@ export const CheckoutForm = ({
         });
         if (error) {
           console.error('Order creation error:', error);
-          throw error;
+          // Parse the actual error message from edge function response
+          let errorMessage = 'Order creation failed. Please try again.';
+          try {
+            if (error.context && typeof error.context.json === 'function') {
+              const body = await error.context.json();
+              errorMessage = body?.error || errorMessage;
+            } else if (error.message) {
+              errorMessage = error.message;
+            }
+          } catch (_) {}
+          throw new Error(errorMessage);
         }
         console.log('Cash order created:', data);
         toast({

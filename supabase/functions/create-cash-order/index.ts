@@ -8,9 +8,9 @@ const corsHeaders = {
 };
 
 const guestInfoSchema = z.object({
-  name: z.string().trim().min(2, 'Full name must be at least 2 characters').max(100),
-  email: z.string().trim().email('Invalid email address').max(255),
-  phone: z.string().trim().min(1, 'Phone is required').max(20),
+  name: z.string().trim().max(100).optional().default(''),
+  email: z.string().trim().max(255).optional().default(''),
+  phone: z.string().trim().max(20).optional().default(''),
 });
 
 const cartItemSchema = z.object({
@@ -145,15 +145,26 @@ serve(async (req) => {
       };
     }
 
-    // Guest checkout validation
-    if (!user && !guest_info) {
-      return new Response(
-        JSON.stringify({ error: 'Guest information is required for checkout.' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
-      );
+    // Guest checkout validation — strict checks only for unauthenticated users
+    if (!user) {
+      if (!guest_info || !guest_info.name || guest_info.name.length < 2) {
+        return new Response(
+          JSON.stringify({ error: 'Full name is required (at least 2 characters).' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+      if (!guest_info.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest_info.email)) {
+        return new Response(
+          JSON.stringify({ error: 'A valid email address is required.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+      if (!guest_info.phone || guest_info.phone.length < 1) {
+        return new Response(
+          JSON.stringify({ error: 'Phone number is required.' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
     }
 
     // Items already validated by schema
