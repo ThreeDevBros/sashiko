@@ -172,15 +172,16 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
       },
     });
 
-    // Clean up token from DB
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+    // Clean up token from DB — use getSession (cached) instead of getUser (network call)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
       await supabase
         .from('live_activity_tokens')
         .delete()
-        .eq('user_id', user.id)
+        .eq('user_id', session.user.id)
         .eq('order_id', orderId);
     }
+    currentActiveOrderId = null;
     console.log('[LiveActivity] Activity ended');
   } catch (err) {
     console.error('[LiveActivity] Failed to end Live Activity:', err);
