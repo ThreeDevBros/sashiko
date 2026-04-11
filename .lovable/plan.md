@@ -1,70 +1,64 @@
 
 
-# Plan: Polish Live Activity, Trim Push Notifications, Improve UX
+# Plan: Fix Native iOS App Loading Reliability
 
-## Summary
-Make the Live Activity beautiful and user-friendly (no order ID, friendly status text, ETA), ensure it updates in real-time, and reduce push notifications to only the final "Enjoy your food" delivery notification.
+## Root Cause
 
-## Changes
+The app fails to load data on native iOS due to **three compounding issues**:
 
-### 1. Update Swift Live Activity Widget — prettier layout, no order ID
-**File: `setup/swift/OrderTrackingWidgetLiveActivity.swift`**
+1. **No retry/resilience on QueryClient**: `new QueryClient()` is created with zero configuration — no retries, no network mode, no refetch on reconnect. On flaky mobile connections, a single failed fetch = permanently failed state.
 
-- Remove the "Order #XXX" text from both the Lock Screen view and the Dynamic Island
-- Show only the user-friendly `statusMessage` as the primary text
-- Show the ETA prominently (e.g. "~12 min" or "Arriving soon")
-- Add a small progress-style feel: status icon + friendly message + ETA
-- Lock Screen layout: icon | status message | ETA minutes
-- Dynamic Island expanded: status message on bottom, ETA on trailing
-- Dynamic Island compact: icon leading, ETA trailing
-- Better status messages mapped in Swift for fallback (though JS sends the message)
+2. **12-second safety timeout dismisses loading screen even when all data failed**: The loading screen hides after 12s regardless of whether branding/branch data actually loaded. The user sees an empty shell with default/template values.
 
-### 2. Update JS content state with friendlier messages
-**File: `src/pages/OrderTracking.tsx`**
+3. **`useBranch` swallows errors silently**: When `fetchBranch()` fails, it catches the error, sets `branch = null`, `loading = false`, and the app proceeds as if there's simply no branch — showing the default/guest state.
 
-- Update `getStatusMessage()` to return shorter, punchier messages suitable for the Lock Screen:
-  - pending → "Waiting for confirmation"
-  - confirmed → "Order confirmed!"
-  - preparing → "Preparing your food 👨‍🍳"
-  - ready (delivery) → "Ready — waiting for driver"
-  - ready (pickup) → "Ready for pickup!"
-  - out_for_delivery → "On its way to you!"
-  - delivered → "Delivered — enjoy!"
+## Solution
 
-### 3. Remove intermediate push notifications, keep only delivery completion
-**File: `supabase/functions/send-order-push/index.ts`**
+### 1. Configure QueryClient with mobile-grade resilience
+**File: `src/App.tsx`**
 
-- Only send FCM push notifications for `delivered` and `cancelled` statuses
-- Keep Live Activity updates for ALL status changes (so the widget stays current)
-- This means the edge function still processes all statuses for Live Activity, but skips FCM for non-terminal statuses
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+      networkMode: 'always',        // Don't pause queries on "offline" detection (unreliable on native)
+      refetchOnReconnect: 'always',  // Re-fetch everything when connection restores
+      staleTime: 2 * 60 * 1000,
+    },
+  },
+});
+```
 
-**Files: `src/pages/admin/OrderManagement.tsx` and `src/pages/staff/StaffOrders.tsx`**
+### 2. Replace safety timeout with a smarter gate
+**File: `src/App.tsx`**
 
-- No changes needed — they already call `send-order-push` for all statuses, and the edge function will now filter internally
+Instead of a blind 12-second timeout that shows broken UI, change the logic:
+- Keep the loading screen until core data (`branding` + `branch`) has **succeeded at least once** OR the query has **errored after all retries**.
+- If everything errored, show a **"Connection failed — Tap to retry"** screen instead of showing the empty app.
+- Remove the hard 12-second cap (the retry strategy with 3 retries already caps at ~15s worst-case).
 
-### 4. Remove in-app toast notifications for intermediate statuses
-**File: `src/pages/OrderTracking.tsx`**
+### 3. Convert `useBranch` to use React Query
+**File: `src/hooks/useBranch.ts`**
 
-- Remove `showStatusChangeToast()` calls for all statuses except `delivered` and `cancelled`
-- The Live Activity on iOS handles real-time visual feedback now
-- Keep the cashback earned toast on delivery
-- Keep the delivered/cancelled toasts as they are terminal events
+Currently uses raw `useState`/`useEffect` with no retry. Convert to `useQuery` so it benefits from the global retry config. Keep the real-time subscription for live updates.
 
-### 5. Ensure Live Activity updates on every status change
-**File: `src/pages/OrderTracking.tsx`**
+### 4. Add app-resume data refresh
+**File: `src/App.tsx`**
 
-- The existing `useEffect` on `[order?.id, order?.status, isGuest]` already calls `updateOrderLiveActivity` — this is correct
-- Add `order?.estimated_ready_at` to the dependency array so ETA changes also trigger updates
+Use `useAppLifecycle` to invalidate all queries when the native app returns from background, ensuring data is always fresh.
 
-## Technical Details
+## Files to change
 
-- The Swift widget reads `statusMessage` and `etaMinutes` from `contentState.values` — no code path changes needed for data flow
-- Server-side Live Activity push updates (APNs) will continue for all statuses via `send-order-push`
-- FCM push will be gated to only `delivered`/`cancelled` in the edge function
-- The `showStatusChangeToast` function stays but is only called for terminal statuses
+1. **`src/App.tsx`** — Configure QueryClient, replace timeout with error-aware gate, add resume invalidation, add retry/error UI
+2. **`src/hooks/useBranch.ts`** — Convert to `useQuery` for retry resilience
+3. **`src/components/LoadingScreen.tsx`** — Add optional "retry" mode with tap-to-retry button for connection failures
 
-## Files to modify
-1. `setup/swift/OrderTrackingWidgetLiveActivity.swift` — remove order ID, cleaner layout
-2. `src/pages/OrderTracking.tsx` — friendlier messages, remove intermediate toasts, add ETA to LA deps
-3. `supabase/functions/send-order-push/index.ts` — skip FCM for non-terminal statuses
+## Technical details
+
+- `networkMode: 'always'` is critical — React Query's default online detection uses `navigator.onLine` which is unreliable inside Capacitor WebViews and can permanently pause queries
+- 3 retries with exponential backoff (1s, 2s, 4s) covers typical mobile network hiccups without excessive delay
+- The loading screen will show a retry button only after all retries exhausted, not on first failure
+- `refetchOnReconnect: 'always'` ensures that if the WebSocket/network recovers, stale data is refreshed automatically
 
