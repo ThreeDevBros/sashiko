@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "cap:ios": "npx cap sync ios && sed -i '' 's/objectVersion = 70;/objectVersion = 77;/' ios/App/App.xcodeproj/project.pbxproj && cd ios/App && pod install --repo-update && cd ../.. && npx cap open ios"
+    "cap:ios": "npm run build && npx cap sync ios; sed -i '' 's/objectVersion = 70;/objectVersion = 77;/' ios/App/App.xcodeproj/project.pbxproj && cd ios/App && pod install --repo-update && cd ../.. && npx cap open ios"
   },
   "dependencies": {
     "@capacitor-community/apple-sign-in": "^7.1.0",
