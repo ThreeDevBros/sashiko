@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { StaffLayout } from '@/components/staff/StaffLayout';
@@ -107,6 +108,12 @@ export default function StaffReservations() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const hasFittedRef = useRef(false);
+
+  // Resume counter to force realtime reconnect after backgrounding
+  const [resumeCounter, setResumeCounter] = useState(0);
+  useAppLifecycle(() => {
+    setResumeCounter(prev => prev + 1);
+  });
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>(() => roundToNearestHour(new Date()));
