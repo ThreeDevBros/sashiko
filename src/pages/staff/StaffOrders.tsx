@@ -378,7 +378,16 @@ export default function StaffOrders() {
         </div>
 
         {/* Orders Table */}
-        {isLoading ? (
+        {ordersError ? (
+          <div className="text-center py-12 space-y-2">
+            <AlertTriangle className="h-8 w-8 text-destructive mx-auto" />
+            <p className="text-sm text-destructive">Failed to load orders</p>
+            <p className="text-xs text-muted-foreground">{(ordersError as Error).message}</p>
+            <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['staff-orders', staffBranchId] })}>
+              Retry
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="text-center py-12 text-muted-foreground text-sm">Loading orders...</div>
         ) : filteredOrders && filteredOrders.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border">
