@@ -1,63 +1,61 @@
 
+Goal
 
-# Plan: Remake Live Activity Widget & Fix Server-Side Update Reliability
+Fix the last 2 Live Activity issues on iOS:
+1. stop the Live Activity from falling into the loading/stale state after a status change
+2. make the expanded Live Activity ETA exactly match the ETA shown on `/order-tracking/:id`
 
-## Issues
+What I found
 
-1. **Compact Dynamic Island** — currently shows a status icon (left) and countdown like "30m" (right). User wants the **app icon** on the left and the **estimated delivery clock time** (e.g. "14:35") on the right.
-2. **Expanded / Lock Screen** — currently shows only `statusMessage`. User wants the **status text with a status icon** and the **time remaining** (countdown).
-3. **Order ID still visible** — `orderId` is referenced in `widgetURL` path and was previously shown. Remove all order-ID text from display (keep in URL for deep linking only).
-4. **"Stuck on loading" after first update** — APNs logs show persistent `BadDeviceToken` on both production and sandbox environments. Every server-side push fails, so after the initial local update, the `staleDate` (120s) expires and the widget enters a stale/loading state. Root cause: the push token may be getting invalidated when the Live Activity is recreated or the app reopens, but the old token remains in the database.
+- The loading problem is still in the server push path, not the widget layout. Backend logs still show `BadDeviceToken` warnings during Live Activity updates. That means some status-change pushes are still targeting an invalid or outdated token.
+- The token registration is still a bit fragile: `src/lib/nativeLiveActivity.ts` saves the push token using a mutable `currentActiveOrderId` instead of the `activityId` returned by the native plugin event. That can attach a token to the wrong order after reopen/restart flows.
+- The ETA mismatch is real in code:
+  - Live Activity uses `estimated_ready_at + delivery_transit_minutes`
+  - `/order-tracking/:id` uses `LiveOrderCountdown`, which recalculates with live Google Maps data and special-case UI rules
+- So right now the page ETA and Live Activity ETA are not driven by the same source.
 
-## Changes
+Plan
 
-### 1. Redesign the Swift widget
-**File: `setup/swift/OrderTrackingWidgetLiveActivity.swift`**
+1. Make token registration exact and durable
+- Refactor `src/lib/nativeLiveActivity.ts` to map native `activityId -> orderId` and persist tokens using the event’s `activityId`, not the mutable global order variable.
+- Keep cleanup of old tokens, but tighten it so only the current valid token survives for that user/order.
+- Update `setup/swift/LiveActivityPlugin.swift` only if needed to expose the activity/order mapping more explicitly.
 
-- **Compact Leading**: Replace status icon with the app icon using `Image("AppIcon")` (the asset catalog's app icon, or a dedicated small icon asset).
-- **Compact Trailing**: Show the estimated delivery time as a clock time `HH:mm` instead of a countdown. Read a new `estimatedDeliveryTime` string from contentState (e.g. "14:35").
-- **Expanded Leading**: Show status icon + status message text (e.g. "Preparing your food").
-- **Expanded Trailing**: Show time remaining as countdown ("~25 min").
-- **Lock Screen / Banner**: Same layout — status icon + status message on the left, time remaining on the right.
-- **Minimal**: Keep app icon.
-- Remove all references to `orderId` from displayed text. Keep it in `widgetURL` for deep linking.
+2. Harden the status-change push path
+- Update `supabase/functions/_shared/apns-live-activity.ts` to log final per-token outcome clearly, not just the first environment warning.
+- Tighten failure handling in:
+  - `supabase/functions/send-order-push/index.ts`
+  - `supabase/functions/update-order-eta/index.ts`
+- If a token is definitively bad, prune it immediately so later cron/status updates stop targeting dead tokens.
 
-### 2. Add `estimatedDeliveryTime` to contentState
-**Files: `src/lib/nativeLiveActivity.ts`, `supabase/functions/send-order-push/index.ts`, `supabase/functions/update-order-eta/index.ts`**
+3. Unify ETA logic into one source of truth
+- Refactor the customer-facing ETA logic so `/order-tracking/:id` uses the same formula as the Live Activity:
+  - prep remaining from `estimated_ready_at`
+  - plus persisted `delivery_transit_minutes`
+- Remove the separate display-only rules in `LiveOrderCountdown` that currently create a different ETA path.
 
-- Compute the absolute delivery time as `now + etaMinutes` and format it as `HH:mm`.
-- Add `estimatedDeliveryTime` as a new string field in the contentState sent both client-side and server-side.
-- All values remain strings for Swift `[String: String]` Codable compatibility.
+4. Make the page display match the Live Activity exactly
+- Update:
+  - `src/components/order/LiveOrderCountdown.tsx`
+  - `src/pages/OrderTracking.tsx`
+- The page should display the same remaining minutes the backend pushes to the Live Activity, so the user never sees two different ETAs.
 
-### 3. Fix "stuck on loading" — token refresh on every activity start
-**File: `src/lib/nativeLiveActivity.ts`**
+5. Keep Google Maps only for refreshing transit data
+- Continue using Google Maps to calculate/save `delivery_transit_minutes` when needed.
+- But do not let that live recalculation create a second ETA shown to the user once the persisted ETA exists.
 
-- The push token listener fires when ActivityKit provides a new token, but if the activity is ended and restarted (e.g. app reopened, new order), the old DB token becomes stale.
-- Before starting a new activity, delete any existing `live_activity_tokens` for the user+order to avoid stale tokens.
-- After starting, ensure the new push token overwrites via upsert.
+Files likely involved
 
-### 4. Fix `staleDate` — increase or remove
-**Files: `supabase/functions/send-order-push/index.ts`, `supabase/functions/update-order-eta/index.ts`**
+- `src/lib/nativeLiveActivity.ts`
+- `setup/swift/LiveActivityPlugin.swift`
+- `src/components/order/LiveOrderCountdown.tsx`
+- `src/pages/OrderTracking.tsx`
+- `supabase/functions/_shared/apns-live-activity.ts`
+- `supabase/functions/send-order-push/index.ts`
+- `supabase/functions/update-order-eta/index.ts`
 
-- The current `staleDate` of 120-180 seconds is too aggressive. If the cron runs every 2 minutes but APNs delivery occasionally fails, the widget goes stale between updates.
-- Increase `staleDate` to 600 seconds (10 minutes) to give ample buffer for the 2-minute cron cycle.
+Expected result
 
-### 5. Improve APNs error handling
-**File: `supabase/functions/_shared/apns-live-activity.ts`**
-
-- When both environments return `BadDeviceToken`, delete the invalid token from `live_activity_tokens` to prevent repeated failures and allow re-registration.
-- Pass `supabase` client or a cleanup callback into `sendLiveActivityUpdate` so it can prune dead tokens.
-
-## Files to modify
-1. `setup/swift/OrderTrackingWidgetLiveActivity.swift` — full redesign
-2. `src/lib/nativeLiveActivity.ts` — add `estimatedDeliveryTime`, clean up stale tokens
-3. `supabase/functions/send-order-push/index.ts` — add `estimatedDeliveryTime`, increase staleDate
-4. `supabase/functions/update-order-eta/index.ts` — add `estimatedDeliveryTime`, increase staleDate
-5. `supabase/functions/_shared/apns-live-activity.ts` — prune dead tokens on BadDeviceToken
-
-## Technical notes
-- The app icon in the compact Dynamic Island requires an image asset named "AppIcon" (or a small dedicated icon) in the widget extension's asset catalog. The developer will need to add this in Xcode.
-- `estimatedDeliveryTime` is computed as `Date.now() + etaMinutes * 60000`, formatted to `HH:mm` in the user's timezone. Server-side uses UTC but the Swift widget will display it using the device's local timezone via `DateFormatter`.
-- Alternatively, the Swift widget can compute the clock time itself from `etaMinutes` — this avoids timezone issues entirely. The widget would do `Date().addingTimeInterval(Double(mins) * 60)` and format locally.
-- The persistent `BadDeviceToken` errors strongly suggest the stored push tokens are from a previous Live Activity session that was ended/invalidated. Cleaning them up and ensuring fresh registration on every activity start should resolve the "stuck on loading" issue.
-
+- After a staff/admin status change, the Live Activity keeps updating instead of dropping into loading/stale state.
+- The expanded Live Activity ETA and the `/order-tracking/:id` ETA are the same number at all times.
+- Background cron refreshes and immediate status-change pushes both use the same valid token and the same ETA model.
