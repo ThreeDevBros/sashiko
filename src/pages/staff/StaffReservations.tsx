@@ -180,7 +180,7 @@ export default function StaffReservations() {
     if (!branchContext?.branchId) return;
 
     const channel = supabase
-      .channel(`staff-reservations-${branchContext.branchId}`)
+      .channel(`staff-reservations-${branchContext.branchId}-${resumeCounter}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations' }, (payload) => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
@@ -199,7 +199,7 @@ export default function StaffReservations() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
-  }, [branchContext?.branchId, queryClient]);
+  }, [branchContext?.branchId, queryClient, resumeCounter]);
 
   const { data: reservations = [] } = useQuery({
     queryKey: ['staff-reservations-for-date', branchContext?.branchId, dateStr],
