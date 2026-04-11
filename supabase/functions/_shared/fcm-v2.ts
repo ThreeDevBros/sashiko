@@ -112,6 +112,7 @@ export interface FcmMessage {
   body: string;
   data?: Record<string, string>;
   collapseKey?: string;
+  ongoing?: boolean; // Android: non-dismissable notification
 }
 
 export interface FcmSendResult {
@@ -180,7 +181,10 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> 
         android: {
           priority: 'high',
           ...(msg.collapseKey ? { collapse_key: msg.collapseKey } : {}),
-          notification: { sound: 'default' },
+          notification: {
+            sound: 'default',
+            ...(msg.ongoing !== undefined ? { sticky: msg.ongoing } : {}),
+          },
         },
         apns: {
           headers: apnsHeaders,
