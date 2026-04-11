@@ -83,8 +83,9 @@ export const ActiveOrderBanner = () => {
   });
 
   useEffect(() => {
+    if (!isAuthReady) return;
     fetchActiveOrder();
-    const interval = setInterval(fetchActiveOrder, 15000); // Poll every 15s as fallback
+    const interval = setInterval(fetchActiveOrder, 15000);
 
     const channel = supabase
       .channel('active-order-home')
@@ -97,7 +98,7 @@ export const ActiveOrderBanner = () => {
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isAuthReady, user?.id]);
 
   const config = activeOrder ? statusConfig[activeOrder.status] : null;
   const StatusIcon = config?.icon || Clock;
