@@ -70,7 +70,9 @@ export function LiveOrderCountdown({
           (result, routeStatus) => {
             if (cancelled) return;
             if (routeStatus === 'OK' && result?.routes[0]?.legs[0]) {
-              setTransitMinutes(Math.ceil((result.routes[0].legs[0].duration?.value || 0) / 60));
+              const mins = Math.ceil((result.routes[0].legs[0].duration?.value || 0) / 60);
+              setTransitMinutes(mins);
+              onTransitMinutesCalculated?.(mins);
             }
           }
         );
