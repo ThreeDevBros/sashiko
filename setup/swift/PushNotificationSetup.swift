@@ -19,7 +19,7 @@ import FirebaseMessaging
     }
 
     /// Call this from AppDelegate.didFinishLaunchingWithOptions or a Capacitor plugin.
-    func configure(application: UIApplication) {
+    @objc func configure(application: UIApplication) {
         guard !isConfigured else { return }
         isConfigured = true
 
