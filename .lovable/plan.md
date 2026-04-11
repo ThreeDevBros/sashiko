@@ -40,8 +40,6 @@ final class PushNotificationSetup: NSObject, MessagingDelegate, UNUserNotificati
 
     static let shared = PushNotificationSetup()
 
-    private let supabaseUrl = "https://cqzprtgcptqusmospdys.supabase.co"
-    private let supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxenBydGdjcHRxdXNtb3NwZHlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4MDA1NzUsImV4cCI6MjA5MDM3NjU3NX0.RvFLuvD-T9afp8r_EZ1vp0_2HvIPSFoJ5CRhwtHC5vk"
     private let prefsKey = "CapacitorStorage.fcm_push_token"
 
     private override init() { super.init() }
@@ -59,7 +57,6 @@ final class PushNotificationSetup: NSObject, MessagingDelegate, UNUserNotificati
         guard let token = fcmToken, !token.isEmpty else { return }
         print("[PushSetup] FCM token: \(token.prefix(20))...")
         UserDefaults.standard.set(token, forKey: prefsKey)
-        upsertTokenToSupabase(token: token)
     }
 
     func userNotificationCenter(
@@ -85,31 +82,6 @@ final class PushNotificationSetup: NSObject, MessagingDelegate, UNUserNotificati
             name: .capacitorDidFailToRegisterForRemoteNotifications,
             object: error
         )
-    }
-
-    private func upsertTokenToSupabase(token: String) {
-        guard let url = URL(string: "\(supabaseUrl)/rest/v1/push_device_tokens?on_conflict=token") else { return }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("return=minimal,resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(supabaseAnonKey)", forHTTPHeaderField: "Authorization")
-        let body: [String: Any] = [
-            "token": token,
-            "platform": "ios",
-            "updated_at": ISO8601DateFormatter().string(from: Date())
-        ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        URLSession.shared.dataTask(with: request) { _, response, error in
-            if let error = error {
-                print("[PushSetup] Supabase upsert error: \(error.localizedDescription)")
-                return
-            }
-            if let http = response as? HTTPURLResponse {
-                print("[PushSetup] Supabase upsert HTTP \(http.statusCode)")
-            }
-        }.resume()
     }
 }
 ```
