@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
 import { Card } from "@/components/ui/card";
@@ -96,6 +97,7 @@ const Checkout = () => {
   const [stripeReady, setStripeReady] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const { user, isAuthReady } = useAuth();
   const [gettingLocation, setGettingLocation] = useState(false);
   const locationAttemptedRef = useRef(false);
   const isPlacingOrderRef = useRef(false);
@@ -294,11 +296,10 @@ const Checkout = () => {
   const grandTotal = totalBeforeCashback - cashbackDiscount;
   const currency = branding?.currency || 'USD';
 
-  // Load user's cashback balance
+  // Load user's cashback balance — wait for auth
   useEffect(() => {
+    if (!isAuthReady || !user) return;
     const loadCashback = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const { data: profile } = await supabase
         .from('profiles')
         .select('cashback_balance')
@@ -307,66 +308,63 @@ const Checkout = () => {
       if (profile) setCashbackBalance((profile as any).cashback_balance || 0);
     };
     loadCashback();
-  }, []);
+  }, [isAuthReady, user?.id]);
 
   // Guard: don't redirect away after successful checkout
   const isNavigatingAway = useRef(false);
 
-  // Check auth and load unified delivery address
+  // Check auth and load unified delivery address — wait for auth readiness
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsGuest(!user);
-      setAuthChecked(true);
+    if (!isAuthReady) return;
+
+    setIsGuest(!user);
+    setAuthChecked(true);
+    
+    if (!locationAttemptedRef.current) {
+      locationAttemptedRef.current = true;
       
-      if (!locationAttemptedRef.current) {
-        locationAttemptedRef.current = true;
-        
-        const savedDeliveryAddress = localStorage.getItem(STORAGE_KEYS.DELIVERY_ADDRESS);
-        
-        // Load device location data
-        const savedDeviceData = localStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION_DATA);
-        if (savedDeviceData) {
-          try {
-            const parsed = JSON.parse(savedDeviceData);
-            if (parsed.latitude && parsed.longitude) {
-              setDeviceLocationData(parsed);
-            }
-          } catch {}
-        }
-
-        // Load selected location data (search/pin)
-        const savedSelectedData = localStorage.getItem(STORAGE_KEYS.SELECTED_LOCATION_DATA);
-        if (savedSelectedData) {
-          try {
-            const parsed = JSON.parse(savedSelectedData);
-            if (parsed.latitude && parsed.longitude && parsed.address) {
-              setSelectedLocationData(parsed);
-            }
-          } catch {}
-        }
-        
-        if (savedDeliveryAddress === 'current-location') {
-          setSelectedAddressId('current-location');
-          setLocationSource('device');
-        } else if (savedDeliveryAddress === 'selected-location') {
-          setSelectedAddressId('selected-location');
-          setLocationSource('search');
-        } else if (savedDeliveryAddress) {
-          setSelectedAddressId(savedDeliveryAddress);
-          setLocationSource('saved');
-        }
+      const savedDeliveryAddress = localStorage.getItem(STORAGE_KEYS.DELIVERY_ADDRESS);
+      
+      // Load device location data
+      const savedDeviceData = localStorage.getItem(STORAGE_KEYS.CURRENT_LOCATION_DATA);
+      if (savedDeviceData) {
+        try {
+          const parsed = JSON.parse(savedDeviceData);
+          if (parsed.latitude && parsed.longitude) {
+            setDeviceLocationData(parsed);
+          }
+        } catch {}
       }
-    };
-    checkAuth();
-  }, []);
 
-  // Load addresses
+      // Load selected location data (search/pin)
+      const savedSelectedData = localStorage.getItem(STORAGE_KEYS.SELECTED_LOCATION_DATA);
+      if (savedSelectedData) {
+        try {
+          const parsed = JSON.parse(savedSelectedData);
+          if (parsed.latitude && parsed.longitude && parsed.address) {
+            setSelectedLocationData(parsed);
+          }
+        } catch {}
+      }
+      
+      if (savedDeliveryAddress === 'current-location') {
+        setSelectedAddressId('current-location');
+        setLocationSource('device');
+      } else if (savedDeliveryAddress === 'selected-location') {
+        setSelectedAddressId('selected-location');
+        setLocationSource('search');
+      } else if (savedDeliveryAddress) {
+        setSelectedAddressId(savedDeliveryAddress);
+        setLocationSource('saved');
+      }
+    }
+  }, [isAuthReady, user?.id]);
+
+  // Load addresses — wait for auth
   useEffect(() => {
+    if (!isAuthReady || !user) return;
     const loadAddresses = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
         const { data, error } = await supabase
           .from('user_addresses')
           .select('*')
@@ -417,7 +415,7 @@ const Checkout = () => {
     window.addEventListener('addressChanged', handleAddressChange);
     if (orderType === 'delivery') loadAddresses();
     return () => window.removeEventListener('addressChanged', handleAddressChange);
-  }, [orderType]);
+  }, [orderType, isAuthReady, user?.id]);
 
   // Create payment intent - only when card payment is selected
   useEffect(() => {

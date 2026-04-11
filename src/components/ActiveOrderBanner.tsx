@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bike, ChefHat, Clock, ArrowRight } from 'lucide-react';
 import { useAppLifecycle } from '@/hooks/useAppLifecycle';
@@ -11,8 +12,8 @@ const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_
 export const ActiveOrderBanner = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user, isAuthReady } = useAuth();
   const [activeOrder, setActiveOrder] = useState<{ id: string; order_number: string; status: string } | null>(null);
-  const userIdRef = useRef<string | null>(null);
 
   const statusConfig: Record<string, { icon: typeof Clock; label: string; color: string }> = {
     pending: { icon: Clock, label: t('banners.orderPlaced'), color: 'text-amber-500' },
@@ -23,10 +24,9 @@ export const ActiveOrderBanner = () => {
   };
 
   const fetchActiveOrder = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!isAuthReady) return;
 
     if (user) {
-      userIdRef.current = user.id;
       const { data } = await supabase
         .from('orders')
         .select('id, order_number, status')
@@ -40,7 +40,7 @@ export const ActiveOrderBanner = () => {
       return;
     }
 
-    userIdRef.current = null;
+    // Guest flow
     const guestRaw = localStorage.getItem('guest_active_order');
     if (!guestRaw) {
       setActiveOrder(null);
@@ -83,8 +83,9 @@ export const ActiveOrderBanner = () => {
   });
 
   useEffect(() => {
+    if (!isAuthReady) return;
     fetchActiveOrder();
-    const interval = setInterval(fetchActiveOrder, 15000); // Poll every 15s as fallback
+    const interval = setInterval(fetchActiveOrder, 15000);
 
     const channel = supabase
       .channel('active-order-home')
@@ -97,7 +98,7 @@ export const ActiveOrderBanner = () => {
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isAuthReady, user?.id]);
 
   const config = activeOrder ? statusConfig[activeOrder.status] : null;
   const StatusIcon = config?.icon || Clock;

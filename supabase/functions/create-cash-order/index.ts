@@ -76,6 +76,19 @@ serve(async (req) => {
       );
     }
 
+    // If auth header was provided but user couldn't be resolved, reject to prevent
+    // signed-in orders from silently becoming guest orders
+    if (authHeader && !user) {
+      console.error('Auth header present but user could not be resolved — session may have expired');
+      return new Response(
+        JSON.stringify({ error: 'Authentication session expired. Please sign in again.' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      );
+    }
+
     let { order_type, delivery_address_id, branch_id, guest_info, guest_address, guest_delivery_lat, guest_delivery_lng, items, cashback_used, special_instructions, estimated_delivery_time, delivery_fee: clientDeliveryFee, tax: clientTax } = validationResult.data;
 
     console.log('Creating cash order for:', user ? `user ${user.id}` : `guest ${guest_info?.email}`);
