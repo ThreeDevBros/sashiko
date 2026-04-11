@@ -115,8 +115,8 @@ serve(async (req) => {
       if (tokens && tokens.length > 0) {
         const messages = tokens.map((t: any) => ({
           token: t.token,
-          title: `Order ${orderLabel}`,
-          body: 'Your driver is arriving! 🚗',
+          title: 'Your driver is almost there! 📍',
+          body: `Order ${orderLabel} — Your driver is just steps away`,
           collapseKey: `order_${order_id}`,
           data: {
             type: 'driver_arriving',
