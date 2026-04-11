@@ -91,15 +91,24 @@ serve(async (req) => {
     const isTerminalStatus = ['delivered', 'cancelled'].includes(new_status);
     const title = isTerminalStatus ? `Order ${orderLabel}` : `Order ${orderLabel} Update`;
 
-    // Append ETA if available
+    // Build body with ETA
     let body = messageTemplate;
-    if (order.estimated_ready_at) {
+    if (order.estimated_ready_at && !isTerminalStatus) {
       const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
       const etaMinutes = Math.max(0, Math.ceil(diffMs / 60000));
-      if (etaMinutes > 0 && !['delivered', 'cancelled'].includes(new_status)) {
+      if (etaMinutes > 0) {
         body += ` — Ready in ~${etaMinutes} min`;
       }
     }
+
+    // Store last push state for ETA-only refreshes
+    await supabase
+      .from('orders')
+      .update({
+        last_push_status: new_status,
+        last_push_message: messageTemplate,
+      })
+      .eq('id', order_id);
 
     // --- FCM Push Notifications (collapsible per order) ---
     const { data: tokens } = await supabase
@@ -114,6 +123,7 @@ serve(async (req) => {
         title,
         body,
         collapseKey: `order_${order_id}`,
+        ongoing: !isTerminalStatus, // Keep notification pinned until order completes
         data: {
           type: 'order_status',
           order_id,

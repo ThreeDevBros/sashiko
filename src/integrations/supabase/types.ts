@@ -843,6 +843,8 @@ export type Database = {
           guest_name: string | null
           guest_phone: string | null
           id: string
+          last_push_message: string | null
+          last_push_status: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
           special_instructions: string | null
@@ -872,6 +874,8 @@ export type Database = {
           guest_name?: string | null
           guest_phone?: string | null
           id?: string
+          last_push_message?: string | null
+          last_push_status?: string | null
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
           special_instructions?: string | null
@@ -901,6 +905,8 @@ export type Database = {
           guest_name?: string | null
           guest_phone?: string | null
           id?: string
+          last_push_message?: string | null
+          last_push_status?: string | null
           order_number?: string
           order_type?: Database["public"]["Enums"]["order_type"]
           special_instructions?: string | null
