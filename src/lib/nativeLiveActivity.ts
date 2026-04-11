@@ -1,5 +1,5 @@
 // Capacitor bridge for iOS Live Activities (ActivityKit)
-// This file provides helpers to start/stop Live Activities
+// This file provides helpers to start/stop/update Live Activities
 // and register their push tokens with the backend.
 
 import { supabase } from '@/integrations/supabase/client';
@@ -76,6 +76,31 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
   } catch (err) {
     console.error('Failed to start Live Activity:', err);
     return null;
+  }
+}
+
+/**
+ * Update a Live Activity's content state locally (status + ETA)
+ * without restarting it. Also pushes the update to the native widget.
+ */
+export async function updateOrderLiveActivity(data: LiveActivityData): Promise<void> {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.getPlatform() !== 'ios') return;
+
+    const plugin = (Capacitor as any).Plugins?.LiveActivityPlugin;
+    if (!plugin?.updateActivity) return;
+
+    await plugin.updateActivity({
+      orderId: data.orderId,
+      orderNumber: data.orderNumber,
+      orderType: data.orderType,
+      status: data.status,
+      statusMessage: data.statusMessage,
+      etaMinutes: data.etaMinutes,
+    });
+  } catch (err) {
+    console.error('Failed to update Live Activity:', err);
   }
 }
 
