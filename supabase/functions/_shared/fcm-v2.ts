@@ -162,7 +162,9 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> 
 
     result.attempted++;
 
-    const apnsHeaders: Record<string, string> = {};
+    const apnsHeaders: Record<string, string> = {
+      'apns-priority': '10',
+    };
     if (msg.collapseKey) {
       apnsHeaders['apns-collapse-id'] = msg.collapseKey;
     }
@@ -176,6 +178,7 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> 
         },
         data: msg.data || {},
         android: {
+          priority: 'high',
           ...(msg.collapseKey ? { collapse_key: msg.collapseKey } : {}),
           notification: { sound: 'default' },
         },
@@ -185,6 +188,11 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> 
             aps: {
               sound: 'default',
               badge: 1,
+              'mutable-content': 1,
+              'interruption-level': 'time-sensitive',
+              'relevance-score': 1.0,
+              category: 'ORDER_STATUS',
+              ...(msg.collapseKey ? { 'thread-id': msg.collapseKey } : {}),
             },
           },
         },

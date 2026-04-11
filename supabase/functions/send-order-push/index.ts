@@ -62,7 +62,16 @@ serve(async (req) => {
 
     const messageTemplate = statusMessages[new_status] || `Order status updated to ${new_status}`;
     const title = `Order ${orderLabel}`;
-    const body = messageTemplate;
+
+    // Append ETA if available
+    let body = messageTemplate;
+    if (order.estimated_ready_at) {
+      const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
+      const etaMinutes = Math.max(0, Math.ceil(diffMs / 60000));
+      if (etaMinutes > 0 && !['delivered', 'cancelled'].includes(new_status)) {
+        body += ` — Ready in ~${etaMinutes} min`;
+      }
+    }
 
     // --- FCM Push Notifications (collapsible per order) ---
     const { data: tokens } = await supabase
