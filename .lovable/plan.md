@@ -1,40 +1,44 @@
 
+Plan: Fix staff orders visibility and new-order alerts
 
-# Plan: Fix Staff Panel Orders Not Displaying
+What’s actually broken
+1. Staff pages are reading `useStaffBranch()` before the provider exists. In `StaffOrders`, `StaffOrderHistory`, and `StaffReport`, the hook runs before `<StaffLayout>` mounts its `StaffBranchProvider`, so those pages get the default context (`selectedBranchId = null`). Result: the staff orders query is disabled, `pendingOrderIds` stays empty, and no alert/vibration logic runs.
+2. The backend is missing staff-facing `orders` policies. Current policies only cover admin and end users. Without a branch-scoped staff `SELECT` policy, staff queries can silently return no rows, and realtime order inserts won’t reach staff clients. There is also no staff `UPDATE` policy for accepting/preparing orders.
 
-## Root Cause Analysis
+Implementation
+1. Fix the provider misuse in staff pages
+- Refactor `StaffOrders`, `StaffOrderHistory`, and `StaffReport` so `useStaffBranch()` is only called inside a child component rendered within `<StaffLayout>`.
+- Keep branch-scoped query keys and `.eq('branch_id', staffBranchId)` filters exactly as they are once the context is valid.
 
-After extensive investigation, I identified **two issues** that together cause the staff orders page to appear broken:
+2. Add proper branch-scoped backend access for staff orders
+- Create a migration adding `orders` RLS policies so authenticated staff/manager/branch_manager users can:
+  - `SELECT` orders only for branches assigned to them in `staff_branches`
+  - `UPDATE` orders only for branches assigned to them
+- Preserve admin access and keep branch isolation strict.
 
-### Issue 1: `useHaptics` creates unstable function references
-The `useHaptics` hook returns **new function references on every render** (no `useCallback`). This cascades through `useOrderAlerts`:
-- `heavy` changes every render → `triggerVibration` changes → `startAlerts` changes → the alert effect re-runs on **every single render**
-- This produces the flood of `🔕 Stopping order alerts` logs (dozens per second)
-- The constant effect cleanup/re-run cycle can cause janky rendering and block the orders table from painting
+3. Restore popup + vibration behavior for new orders
+- After the branch context fix and RLS fix, realtime inserts should start reaching staff again.
+- Strengthen `NewOrderPopup` so it also triggers haptics when a pending order popup opens, instead of relying only on the orders list hook.
+- Keep the popup filtered by `payload.new.branch_id === staffBranchId`.
 
-### Issue 2: Silent query error handling
-The orders query in `StaffOrders` uses `useQuery` but never surfaces errors. If the query fails (e.g., a PostgREST relationship error with the `profiles:user_id` or `order_items` join), the page silently shows "No orders found" instead of any error message.
+4. Tighten staff diagnostics
+- Keep/improve explicit error states in `StaffOrders` so policy/query failures don’t look like “No orders found”.
+- Add focused logging around staff branch selection and order subscription flow to make future failures obvious.
 
-## Changes
+Files to change
+- `src/pages/staff/StaffOrders.tsx`
+- `src/pages/staff/StaffOrderHistory.tsx`
+- `src/pages/staff/StaffReport.tsx`
+- `src/components/staff/NewOrderPopup.tsx`
+- new migration in `supabase/migrations/` for staff order RLS
 
-### 1. Fix `src/hooks/useHaptics.ts`
-- Wrap all returned functions in `useCallback` with empty dependency arrays so they maintain stable references across renders
-- This stops the cascade of effect re-runs in `useOrderAlerts`
+Expected result
+- Orders appear again in `/staff`
+- New pending orders trigger realtime popup reliably
+- Staff devices get vibration/haptic feedback again
+- Staff can act on orders in their assigned branch only
 
-### 2. Fix `src/hooks/useOrderAlerts.ts`
-- Stabilize the `pendingOrderIds` dependency by using a ref-based comparison instead of relying on array identity
-- Remove `startAlerts` and `stopAlerts` from the effect dependency array (use refs instead) to prevent effect re-runs from callback identity changes
-
-### 3. Add error handling to `src/pages/staff/StaffOrders.tsx`
-- Destructure `error` from the `useQuery` result
-- Show an error message with retry button when the query fails, instead of silently showing "No orders found"
-- Add `console.error` for the query failure
-
-## Files to Change
-
-| File | Change |
-|------|--------|
-| `src/hooks/useHaptics.ts` | Wrap all functions in `useCallback` |
-| `src/hooks/useOrderAlerts.ts` | Use refs for callbacks to prevent effect re-runs |
-| `src/pages/staff/StaffOrders.tsx` | Add error state handling to orders query |
-
+Technical note
+Recommended RLS pattern:
+- Use branch-scoped policies based on `staff_branches` (or `get_staff_branch_id` where appropriate), not public access.
+- Example logic: allow staff roles only when `branch_id` belongs to one of the authenticated user’s assignments.
