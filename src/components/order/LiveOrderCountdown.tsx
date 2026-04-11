@@ -1,20 +1,21 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Clock, ChefHat, Truck, CheckCircle2, Timer } from 'lucide-react';
-import { loadGoogleMaps } from '@/lib/googleMaps';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface LiveOrderCountdownProps {
   orderType: 'delivery' | 'pickup' | 'dine_in';
   status: string;
   estimatedReadyAt: string | null;
+  deliveryTransitMinutes?: number | null;
+  onTransitMinutesCalculated?: (minutes: number) => void;
+  // Keep these props for backward compat but they are no longer used for ETA display
   branchLat?: number;
   branchLng?: number;
   deliveryLat?: number;
   deliveryLng?: number;
   guestDeliveryLat?: number | null;
   guestDeliveryLng?: number | null;
-  onTransitMinutesCalculated?: (minutes: number) => void;
 }
 
 const STATUS_META: Record<string, { icon: typeof Clock; label: string; color: string; bgColor: string }> = {
@@ -29,16 +30,9 @@ export function LiveOrderCountdown({
   orderType,
   status,
   estimatedReadyAt,
-  branchLat,
-  branchLng,
-  deliveryLat,
-  deliveryLng,
-  guestDeliveryLat,
-  guestDeliveryLng,
-  onTransitMinutesCalculated,
+  deliveryTransitMinutes,
 }: LiveOrderCountdownProps) {
   const [now, setNow] = useState(Date.now());
-  const [transitMinutes, setTransitMinutes] = useState<number | null>(null);
 
   // Tick every 60 seconds
   useEffect(() => {
@@ -46,67 +40,32 @@ export function LiveOrderCountdown({
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch transit time for delivery orders
-  useEffect(() => {
-    if (orderType !== 'delivery') return;
-    if (!branchLat || !branchLng) return;
-    const destLat = deliveryLat || guestDeliveryLat;
-    const destLng = deliveryLng || guestDeliveryLng;
-    if (!destLat || !destLng) return;
+  const transitMinutes = deliveryTransitMinutes ?? null;
 
-    let cancelled = false;
-
-    const fetch = async () => {
-      try {
-        await loadGoogleMaps(['maps', 'routes']);
-        if (cancelled) return;
-        const svc = new google.maps.DirectionsService();
-        svc.route(
-          {
-            origin: { lat: branchLat, lng: branchLng },
-            destination: { lat: destLat, lng: destLng },
-            travelMode: google.maps.TravelMode.DRIVING,
-          },
-          (result, routeStatus) => {
-            if (cancelled) return;
-            if (routeStatus === 'OK' && result?.routes[0]?.legs[0]) {
-              const mins = Math.ceil((result.routes[0].legs[0].duration?.value || 0) / 60);
-              setTransitMinutes(mins);
-              onTransitMinutesCalculated?.(mins);
-            }
-          }
-        );
-      } catch {}
-    };
-    fetch();
-    return () => { cancelled = true; };
-  }, [orderType, branchLat, branchLng, deliveryLat, deliveryLng, guestDeliveryLat, guestDeliveryLng]);
-
-  // Calculate remaining minutes
+  // Calculate remaining minutes — same formula as server-side edge functions
   const remainingMinutes = useMemo(() => {
     if (['delivered', 'cancelled'].includes(status)) return null;
-
-    if (status === 'pending') return null; // unknown until confirmed
-
+    if (status === 'pending') return null;
     if (status === 'ready' && orderType === 'pickup') return 0;
 
-    // Prep remaining
+    // Prep remaining from estimated_ready_at
     let prepRemaining = 0;
     if (estimatedReadyAt && !['ready', 'out_for_delivery'].includes(status)) {
       const diffMs = new Date(estimatedReadyAt).getTime() - now;
       prepRemaining = Math.max(0, Math.ceil(diffMs / 60_000));
-    } else if (!estimatedReadyAt && !['ready', 'out_for_delivery'].includes(status)) {
-      prepRemaining = status === 'confirmed' ? 20 : 15;
     }
 
+    // For out_for_delivery, only transit time matters
     if (status === 'out_for_delivery') {
       return transitMinutes ?? null;
     }
 
+    // For ready + delivery, transit time only
     if (status === 'ready' && orderType === 'delivery') {
-      return transitMinutes != null ? transitMinutes + 5 : null;
+      return transitMinutes ?? null;
     }
 
+    // For confirmed/preparing: prep + transit (delivery) or prep only
     if (orderType === 'delivery' && transitMinutes != null) {
       return prepRemaining + transitMinutes;
     }

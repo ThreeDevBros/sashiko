@@ -60,9 +60,10 @@ function buildContentState(data: LiveActivityData): Record<string, string> {
   };
 }
 
-// Track the current active order ID for the push token listener
+// Map activityId (from native plugin event) -> orderId
+// This replaces the old mutable currentActiveOrderId approach
+const activityIdToOrderId: Map<string, string> = new Map();
 let pushTokenListenerRegistered = false;
-let currentActiveOrderId: string | null = null;
 
 /**
  * Start a Live Activity for an order and register the push token.
@@ -73,8 +74,6 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
     console.log('[LiveActivity] startOrderLiveActivity called for order:', data.orderId);
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return null;
-
-    currentActiveOrderId = data.orderId;
 
     // Clean up stale tokens for this user+order before starting a new activity
     try {
@@ -91,27 +90,40 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
       console.warn('[LiveActivity] Token cleanup failed (non-fatal):', cleanupErr);
     }
 
-    // Register push token listener once — reads currentActiveOrderId dynamically
+    // Register push token listener once — uses activityIdToOrderId map for exact matching
     if (!pushTokenListenerRegistered && plugin.addListener) {
       pushTokenListenerRegistered = true;
       plugin.addListener('liveActivityPushToken', async (event: any) => {
-        const orderId = currentActiveOrderId;
-        console.log('[LiveActivity] Push token received for order:', orderId, 'token:', event.token?.substring(0, 20) + '...');
-        if (!orderId) return;
+        // Use the activityId from the event to find the correct orderId
+        const activityId = event.activityId;
+        const orderId = activityId ? activityIdToOrderId.get(activityId) : null;
+        console.log('[LiveActivity] Push token received — activityId:', activityId, 'orderId:', orderId, 'token:', event.token?.substring(0, 20) + '...');
+        if (!orderId) {
+          console.warn('[LiveActivity] No orderId found for activityId:', activityId);
+          return;
+        }
         try {
           const { data: { session } } = await supabase.auth.getSession();
           const userId = session?.user?.id;
           if (userId) {
-            await supabase.from('live_activity_tokens').upsert(
-              {
-                user_id: userId,
-                order_id: orderId,
-                push_token: event.token,
-                platform: 'ios',
-              },
-              { onConflict: 'user_id,order_id' }
-            );
-            console.log('[LiveActivity] Token persisted for order:', orderId);
+            // Delete any existing tokens for this user+order first, then insert fresh
+            await supabase
+              .from('live_activity_tokens')
+              .delete()
+              .eq('user_id', userId)
+              .eq('order_id', orderId);
+
+            const { error } = await supabase.from('live_activity_tokens').insert({
+              user_id: userId,
+              order_id: orderId,
+              push_token: event.token,
+              platform: 'ios',
+            });
+            if (error) {
+              console.error('[LiveActivity] Token insert error:', error);
+            } else {
+              console.log('[LiveActivity] Token persisted for order:', orderId);
+            }
           }
         } catch (err) {
           console.error('[LiveActivity] Failed to register push token:', err);
@@ -126,6 +138,12 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
       id: data.orderId,
       contentState,
     });
+
+    // Map the native activityId to our orderId for token registration
+    if (result.activityId) {
+      activityIdToOrderId.set(result.activityId, data.orderId);
+      console.log('[LiveActivity] Mapped activityId:', result.activityId, '-> orderId:', data.orderId);
+    }
 
     console.log('[LiveActivity] Activity started, activityId:', result.activityId);
     return result.activityId;
@@ -179,7 +197,15 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
         .eq('user_id', session.user.id)
         .eq('order_id', orderId);
     }
-    currentActiveOrderId = null;
+
+    // Clean up activityId mapping
+    for (const [actId, oId] of activityIdToOrderId.entries()) {
+      if (oId === orderId) {
+        activityIdToOrderId.delete(actId);
+        break;
+      }
+    }
+
     console.log('[LiveActivity] Activity ended');
   } catch (err) {
     console.error('[LiveActivity] Failed to end Live Activity:', err);

@@ -150,11 +150,11 @@ export async function sendLiveActivityUpdate(
   const deadTokens: string[] = [];
 
   for (const update of updates) {
+    const tokenPrefix = update.pushToken.substring(0, 16);
     try {
       const apnsPayload = buildApnsPayload(update);
       const environments = getApnsEnvironmentCandidates();
       let delivered = false;
-      let lastFailure: { environment: ApnsEnvironment; status: number; body: string } | null = null;
       let allBadDevice = true;
 
       for (let index = 0; index < environments.length; index++) {
@@ -175,36 +175,32 @@ export async function sendLiveActivityUpdate(
           successCount++;
           delivered = true;
           allBadDevice = false;
+          console.log(`[APNs] ✓ Live Activity push delivered via ${environment} (token: ${tokenPrefix}…)`);
           break;
         }
 
         const errBody = await res.text();
-        lastFailure = { environment, status: res.status, body: errBody };
-
         const isBadDevice = res.status === 400 && errBody.includes('BadDeviceToken');
         if (!isBadDevice) allBadDevice = false;
+
+        console.warn(`[APNs] ✗ ${environment} ${res.status}: ${errBody} (token: ${tokenPrefix}…)`);
 
         const shouldRetryAlternateEnvironment =
           isBadDevice && index < environments.length - 1;
 
-        if (shouldRetryAlternateEnvironment) {
-          console.warn(`APNs Live Activity push failed in ${environment}, retrying alternate: ${errBody}`);
-        } else {
+        if (!shouldRetryAlternateEnvironment) {
           break;
         }
       }
 
-      if (!delivered && lastFailure) {
-        console.error(
-          `APNs Live Activity push failed [${lastFailure.environment}]: ${lastFailure.status} ${lastFailure.body}`
-        );
-        // If all environments returned BadDeviceToken, mark for cleanup
+      if (!delivered) {
         if (allBadDevice) {
+          console.error(`[APNs] Token definitively bad across all environments (token: ${tokenPrefix}…) — marking for pruning`);
           deadTokens.push(update.pushToken);
         }
       }
     } catch (err) {
-      console.error('APNs Live Activity send error:', err);
+      console.error(`[APNs] Live Activity send error (token: ${tokenPrefix}…):`, err);
     }
   }
 
