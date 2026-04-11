@@ -3,7 +3,13 @@
 // when the app launches, without modifying Capacitor's AppDelegate.
 
 #import <UIKit/UIKit.h>
-#import "App-Swift.h"
+
+// Forward-declare the Swift class (avoids importing App-Swift.h which
+// causes a duplicate AppDelegate interface definition).
+@interface PushNotificationSetup : NSObject
++ (PushNotificationSetup * _Nonnull)shared;
+- (void)configureWithApplication:(UIApplication * _Nonnull)application;
+@end
 
 // Use a category on UIApplication to hook into didFinishLaunching
 @interface UIApplication (PushNotificationAutoSetup)
@@ -12,7 +18,6 @@
 @implementation UIApplication (PushNotificationAutoSetup)
 
 + (void)load {
-    // Register for the didFinishLaunching notification
     [[NSNotificationCenter defaultCenter]
         addObserverForName:UIApplicationDidFinishLaunchingNotification
         object:nil
