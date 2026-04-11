@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { SettingsSection, SettingsRow, SettingsLink } from '@/components/ui/settings-section';
 import { FloatingBranchWidget } from '@/components/FloatingBranchWidget';
 
+import { useAuth } from '@/contexts/AuthContext';
 import { useAdmin } from '@/hooks/useAdmin';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatCurrency } from '@/lib/currency';
@@ -26,6 +27,7 @@ export default function Profile() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user: authUser, isAuthReady } = useAuth();
   const { isAdmin } = useAdmin();
   const { hasStaffRole, userRoles } = usePermissions();
   const { branding } = useBranding();
@@ -34,7 +36,7 @@ export default function Profile() {
   const hasNonDriverStaffRole = userRoles.includes('staff') || userRoles.includes('manager') || userRoles.includes('branch_manager');
   const showAdminPanel = isAdmin || hasStaffRole;
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [cashbackBalance, setCashbackBalance] = useState<number>(0);
@@ -57,23 +59,24 @@ export default function Profile() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
 
-  useEffect(() => { checkUser(); }, []);
+  useEffect(() => {
+    if (!isAuthReady) return;
+    if (!authUser) { setLoading(false); return; }
+    setUser(authUser);
+    const loadProfile = async () => {
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
+      if (profile) {
+        setFullName(profile.full_name || '');
+        setSavedName(profile.full_name || '');
+        setPhone(profile.phone || '');
+        setSavedPhone(profile.phone || '');
+        setCashbackBalance((profile as any).cashback_balance || 0);
+      }
+      setLoading(false);
+    };
+    loadProfile();
+  }, [authUser, isAuthReady]);
   useEffect(() => { if (user?.id) fetchAddresses(); }, [user?.id]);
-
-  const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setLoading(false); return; }
-    setUser(session.user);
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-    if (profile) {
-      setFullName(profile.full_name || '');
-      setSavedName(profile.full_name || '');
-      setPhone(profile.phone || '');
-      setSavedPhone(profile.phone || '');
-      setCashbackBalance((profile as any).cashback_balance || 0);
-    }
-    setLoading(false);
-  };
 
   const fetchAddresses = async () => {
     try {

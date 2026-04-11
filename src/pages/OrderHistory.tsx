@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ const OrderHistory = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { branding } = useBranding();
+  const { user, isAuthReady } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -35,13 +37,12 @@ const OrderHistory = () => {
   const completedStatuses = ['delivered', 'cancelled'];
 
   useEffect(() => {
+    if (!isAuthReady) return;
     fetchOrders();
-  }, []);
+  }, [isAuthReady]);
 
   const fetchOrders = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
       if (user) {
         const { data, error } = await supabase
           .from("orders")
