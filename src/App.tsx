@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider, useIsFetching, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useBranding } from "./hooks/useBranding";
@@ -11,7 +11,6 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PageTransitionProvider } from "./contexts/PageTransitionContext";
 import { AnimatedPage } from "./components/AnimatedPage";
 import LoadingScreen from "./components/LoadingScreen";
-import { TopNav } from "./components/TopNav";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { GlobalDriverTracker } from "./components/driver/GlobalDriverTracker";
 import { PhonePromptDialog } from "./components/PhonePromptDialog";
@@ -20,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useAppLifecycle } from "./hooks/useAppLifecycle";
+import { prefetchSavedCards } from './hooks/useSavedCards';
 import Index from "./pages/Index";
 import Order from "./pages/Order";
 import Cart from "./pages/Cart";
@@ -59,8 +59,6 @@ import StaffReservations from "./pages/staff/StaffReservations";
 import StaffOrderHistory from "./pages/staff/StaffOrderHistory";
 import StaffReport from "./pages/staff/StaffReport";
 
-import { prefetchSavedCards } from './hooks/useSavedCards';
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -72,9 +70,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-// Prefetch saved cards at app startup so checkout doesn't flash
-prefetchSavedCards(queryClient);
 
 const AppRoutes = () => {
   const location = useLocation();
@@ -88,7 +83,6 @@ const AppRoutes = () => {
   const isQrMenuRoute = location.pathname.startsWith('/qr-menu');
   const showNav = !isAdminRoute && !isStaffRoute && !isDriverRoute && !isAuthRoute && !isQrMenuRoute;
   
-  // Role-based route protection — wait for auth to be ready
   useEffect(() => {
     if (!isAuthReady) return;
 
@@ -122,13 +116,11 @@ const AppRoutes = () => {
     checkRoleAccess();
   }, [location.pathname, navigate, isAuthRoute, isQrMenuRoute, isAuthReady, user]);
 
-  // Check if first time visitor and redirect to auth (only on true first visit, not on every reload)
   useEffect(() => {
     if (!isAuthReady) return;
     const hasVisited = localStorage.getItem('hasVisited');
     const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding');
     
-    // Don't redirect away from critical post-checkout flows
     const isProtectedRoute = location.pathname.startsWith('/order-tracking') || 
                               location.pathname.startsWith('/checkout');
     
@@ -141,7 +133,6 @@ const AppRoutes = () => {
   return (
     <>
       <div className="flex w-full min-h-screen">
-        {/* Main Content */}
         <div className="flex-1 w-full" style={{ overflowX: 'clip' }}>
           
           <AnimatePresence mode="wait">
@@ -196,21 +187,31 @@ const AppRoutes = () => {
 const AppContent = () => {
   const { branding, isLoading: brandingLoading, isError: brandingError } = useBranding();
   const { branch, loading: branchLoading, error: branchError } = useBranch();
-  const { isAuthReady } = useAuth();
+  const { isAuthReady, user } = useAuth();
   const qc = useQueryClient();
   
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [connectionFailed, setConnectionFailed] = useState(false);
+  const [bootstrapComplete, setBootstrapComplete] = useState(false);
+
+  // Prefetch saved cards only after auth is ready and user exists
+  useEffect(() => {
+    if (isAuthReady && user) {
+      prefetchSavedCards(qc);
+    }
+  }, [isAuthReady, user, qc]);
 
   // Invalidate all queries on app resume from background
   useAppLifecycle(useCallback(() => {
-    console.log('App resumed — invalidating all queries');
+    console.log('[App] Resumed — invalidating all queries');
     qc.invalidateQueries();
   }, [qc]));
   
-  // Auto-detect location on every app launch and update current location
+  // Auto-detect location on every app launch (deferred until bootstrap is complete)
   useEffect(() => {
+    if (!bootstrapComplete) return;
+    
     const detectLocation = async () => {
       if (!navigator.geolocation) return;
       
@@ -223,7 +224,7 @@ const AppContent = () => {
         });
         
         const { latitude, longitude } = position.coords;
-        console.log('App launch - Location detected:', latitude, longitude);
+        console.log('[App] Location detected:', latitude, longitude);
         
         const { data } = await supabase.functions.invoke('geocode-location', {
           body: { latitude, longitude }
@@ -241,14 +242,13 @@ const AppContent = () => {
         }
         
         window.dispatchEvent(new Event('addressChanged'));
-        console.log('App launch - Current location updated to:', address);
       } catch (error) {
-        console.log('App launch - Location detection failed:', error);
+        console.log('[App] Location detection failed:', error);
       }
     };
     
     detectLocation();
-  }, []);
+  }, [bootstrapComplete]);
 
   // Minimum display time on first session load
   useEffect(() => {
@@ -262,32 +262,34 @@ const AppContent = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Dismiss once core data is ready (or show error if both failed after retries)
+  // Bootstrap gate: wait for auth + core data
   useEffect(() => {
-    const coreDataLoaded = !brandingLoading && !branchLoading;
+    if (!isAuthReady) return; // Auth not restored yet — keep waiting
+    if (!minTimeElapsed) return; // Still in splash min time
+    
+    const coreDataSettled = !brandingLoading && !branchLoading;
+    if (!coreDataSettled) return; // Core queries still in flight / retrying
+    
     const bothErrored = brandingError && branchError;
     
-    if (coreDataLoaded && minTimeElapsed && isAuthReady) {
-      if (bothErrored && !branding && !branch) {
-        // Both queries exhausted retries and we have no data at all
-        setConnectionFailed(true);
-        setShowLoadingScreen(false);
-      } else {
-        // At least some data loaded successfully
-        setConnectionFailed(false);
-        setShowLoadingScreen(false);
-      }
+    if (bothErrored && !branding && !branch) {
+      console.error('[App] Bootstrap failed — both branding and branch errored');
+      setConnectionFailed(true);
+      setShowLoadingScreen(false);
+    } else {
+      console.log('[App] Bootstrap complete — branding:', !!branding, 'branch:', !!branch);
+      setConnectionFailed(false);
+      setShowLoadingScreen(false);
+      setBootstrapComplete(true);
     }
-  }, [brandingLoading, branchLoading, brandingError, branchError, branding, branch, isAuthReady, minTimeElapsed]);
+  }, [isAuthReady, brandingLoading, branchLoading, brandingError, branchError, branding, branch, minTimeElapsed]);
 
   const handleRetry = useCallback(() => {
     setConnectionFailed(false);
     setShowLoadingScreen(true);
+    setMinTimeElapsed(false);
     qc.invalidateQueries();
-    // Give queries time to start
-    setTimeout(() => {
-      setMinTimeElapsed(true);
-    }, 1200);
+    setTimeout(() => setMinTimeElapsed(true), 1200);
   }, [qc]);
   
   // Connection failed screen
@@ -313,19 +315,21 @@ const AppContent = () => {
 
   return (
     <>
-      {/* Always render app so queries start immediately */}
-      <div style={{ visibility: showLoadingScreen ? 'hidden' : 'visible' }}>
-        <Toaster />
-        <Sonner />
-        <GlobalDriverTracker />
-        <PhonePromptDialog />
-        <BrowserRouter>
-          <ScrollToTop />
-          <PageTransitionProvider>
-            <AppRoutes />
-          </PageTransitionProvider>
-        </BrowserRouter>
-      </div>
+      {/* Only render app tree after bootstrap is complete to prevent race conditions */}
+      {bootstrapComplete && (
+        <div>
+          <Toaster />
+          <Sonner />
+          <GlobalDriverTracker />
+          <PhonePromptDialog />
+          <BrowserRouter>
+            <ScrollToTop />
+            <PageTransitionProvider>
+              <AppRoutes />
+            </PageTransitionProvider>
+          </BrowserRouter>
+        </div>
+      )}
       {showLoadingScreen && <LoadingScreen show={true} />}
     </>
   );
