@@ -8,14 +8,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const statusMessages: Record<string, string> = {
-  confirmed: 'Your order has been confirmed!',
-  preparing: 'Your order is being prepared',
-  ready: 'Your order is ready for pickup!',
-  out_for_delivery: 'Your order is on its way!',
-  delivered: 'Your order has been delivered',
-  cancelled: 'Your order has been cancelled',
-};
+function getStatusMessage(status: string, orderType: string): string {
+  const messages: Record<string, Record<string, string>> = {
+    confirmed: {
+      delivery: 'Great news! Your order has been confirmed 🎉',
+      pickup: 'Great news! Your order has been confirmed 🎉',
+      dine_in: 'Great news! Your order has been confirmed 🎉',
+    },
+    preparing: {
+      delivery: 'Our kitchen is preparing your order 👨‍🍳',
+      pickup: 'Our kitchen is preparing your order 👨‍🍳',
+      dine_in: 'Our kitchen is preparing your order 👨‍🍳',
+    },
+    ready: {
+      delivery: 'Your order is ready and waiting for a driver 🚗',
+      pickup: 'Your order is ready for pickup! Head over whenever you\'re ready 🙌',
+      dine_in: 'Your order is ready! Enjoy your meal 🍽️',
+    },
+    out_for_delivery: {
+      delivery: 'Your order is on its way to you! 🚗',
+      pickup: 'Your order is on its way!',
+      dine_in: 'Your order is on its way!',
+    },
+    delivered: {
+      delivery: 'Your order has been delivered — enjoy! 😋',
+      pickup: 'Your order has been picked up — enjoy! 😋',
+      dine_in: 'Your order is complete — thank you! 😋',
+    },
+    cancelled: {
+      delivery: 'Your order has been cancelled',
+      pickup: 'Your order has been cancelled',
+      dine_in: 'Your order has been cancelled',
+    },
+  };
+  return messages[status]?.[orderType] || messages[status]?.delivery || `Order status updated to ${status}`;
+}
 
 const statusToLiveState: Record<string, string> = {
   pending: 'pending',
