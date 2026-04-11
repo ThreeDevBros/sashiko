@@ -89,7 +89,12 @@ export const ActiveOrderBanner = () => {
 
     const channel = supabase
       .channel('active-order-home')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        ...(user ? { filter: `user_id=eq.${user.id}` } : {}),
+      }, () => {
         fetchActiveOrder();
       })
       .subscribe();

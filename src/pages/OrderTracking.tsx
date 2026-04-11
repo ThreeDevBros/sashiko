@@ -125,6 +125,22 @@ export default function OrderTracking() {
     return Math.max(0, Math.ceil(diffMs / 60000));
   }, []);
 
+  // Save delivery transit minutes to DB for server-side Live Activity ETA
+  const transitMinutesSaved = useRef(false);
+  const saveTransitMinutes = useCallback(async (minutes: number) => {
+    if (!orderId || transitMinutesSaved.current || !user) return;
+    transitMinutesSaved.current = true;
+    try {
+      await supabase
+        .from('orders')
+        .update({ delivery_transit_minutes: minutes } as any)
+        .eq('id', orderId);
+      console.log('[OrderTracking] Saved delivery_transit_minutes:', minutes);
+    } catch (err) {
+      console.error('[OrderTracking] Failed to save transit minutes:', err);
+    }
+  }, [orderId, user]);
+
   // Start/update/end iOS Live Activity when order loads or status changes
   const liveActivityStarted = useRef(false);
   useEffect(() => {
@@ -134,7 +150,6 @@ export default function OrderTracking() {
 
     const laData = {
       orderId: order.id,
-      orderNumber: order.order_number,
       orderType: order.order_type,
       status: order.status,
       statusMessage: getStatusMessage(),
@@ -686,6 +701,7 @@ export default function OrderTracking() {
           deliveryLng={address?.longitude}
           guestDeliveryLat={order.guest_delivery_lat}
           guestDeliveryLng={order.guest_delivery_lng}
+          onTransitMinutesCalculated={saveTransitMinutes}
         />
 
         {/* Map Section - unified for all order types */}

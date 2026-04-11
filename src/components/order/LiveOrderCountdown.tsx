@@ -14,6 +14,7 @@ interface LiveOrderCountdownProps {
   deliveryLng?: number;
   guestDeliveryLat?: number | null;
   guestDeliveryLng?: number | null;
+  onTransitMinutesCalculated?: (minutes: number) => void;
 }
 
 const STATUS_META: Record<string, { icon: typeof Clock; label: string; color: string; bgColor: string }> = {
@@ -34,6 +35,7 @@ export function LiveOrderCountdown({
   deliveryLng,
   guestDeliveryLat,
   guestDeliveryLng,
+  onTransitMinutesCalculated,
 }: LiveOrderCountdownProps) {
   const [now, setNow] = useState(Date.now());
   const [transitMinutes, setTransitMinutes] = useState<number | null>(null);
@@ -68,7 +70,9 @@ export function LiveOrderCountdown({
           (result, routeStatus) => {
             if (cancelled) return;
             if (routeStatus === 'OK' && result?.routes[0]?.legs[0]) {
-              setTransitMinutes(Math.ceil((result.routes[0].legs[0].duration?.value || 0) / 60));
+              const mins = Math.ceil((result.routes[0].legs[0].duration?.value || 0) / 60);
+              setTransitMinutes(mins);
+              onTransitMinutesCalculated?.(mins);
             }
           }
         );

@@ -20,7 +20,7 @@ serve(async (req) => {
     // Get all active orders with ETA
     const { data: orders, error } = await supabase
       .from('orders')
-      .select('id, user_id, order_type, estimated_ready_at, last_push_status, last_push_message')
+      .select('id, user_id, order_type, estimated_ready_at, last_push_status, last_push_message, delivery_transit_minutes')
       .not('status', 'in', '("delivered","cancelled","pending")')
       .not('estimated_ready_at', 'is', null)
       .not('user_id', 'is', null);
@@ -54,9 +54,11 @@ serve(async (req) => {
 
     for (const order of orders) {
       const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
-      const etaMinutes = Math.max(0, Math.ceil(diffMs / 60000));
+      const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
+      const transitMinutes = (order.order_type === 'delivery' && order.delivery_transit_minutes) ? order.delivery_transit_minutes : 0;
+      const etaMinutes = prepMinutes + transitMinutes;
 
-      // --- Live Activity APNs Updates only ---
+      // --- Live Activity APNs Updates only (all values as strings) ---
       const { data: laTokens } = await supabase
         .from('live_activity_tokens')
         .select('push_token')
@@ -71,9 +73,10 @@ serve(async (req) => {
           event: 'update' as const,
           contentState: {
             status: statusToLiveState[order.last_push_status] || order.last_push_status,
+            orderId: order.id,
             orderType: order.order_type,
             statusMessage: order.last_push_message || '',
-            etaMinutes,
+            etaMinutes: String(etaMinutes),
             updatedAt: new Date().toISOString(),
           },
           staleDate: Math.floor(Date.now() / 1000) + 180,

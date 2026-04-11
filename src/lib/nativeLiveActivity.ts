@@ -6,7 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface LiveActivityData {
   orderId: string;
-  orderNumber: string;
   orderType: 'delivery' | 'pickup' | 'dine_in';
   status: string;
   statusMessage: string;
@@ -57,12 +56,13 @@ export async function areLiveActivitiesSupported(): Promise<boolean> {
 }
 
 /**
- * Build the content state object sent to the widget
+ * Build the content state object sent to the widget.
+ * All values MUST be strings to match Swift's [String: String] Codable type.
  */
 function buildContentState(data: LiveActivityData): Record<string, string> {
   return {
     status: data.status,
-    orderNumber: data.orderNumber,
+    orderId: data.orderId,
     orderType: data.orderType,
     statusMessage: data.statusMessage,
     etaMinutes: data.etaMinutes != null ? String(data.etaMinutes) : '',
@@ -157,6 +157,7 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
       id: orderId,
       contentState: {
         status: 'delivered',
+        orderId: orderId,
         statusMessage: 'Order complete',
         etaMinutes: '0',
         updatedAt: new Date().toISOString(),
