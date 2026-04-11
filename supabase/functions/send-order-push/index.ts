@@ -73,7 +73,7 @@ serve(async (req) => {
 
     const { data: order, error: orderErr } = await supabase
       .from('orders')
-      .select('user_id, display_number, order_number, order_type, estimated_ready_at')
+      .select('user_id, display_number, order_number, order_type, estimated_ready_at, delivery_transit_minutes')
       .eq('id', order_id)
       .single();
 
@@ -91,14 +91,19 @@ serve(async (req) => {
     const isTerminalStatus = ['delivered', 'cancelled'].includes(new_status);
     const title = isTerminalStatus ? `Order ${orderLabel}` : `Order ${orderLabel} Update`;
 
-    // Build body with ETA
-    let body = messageTemplate;
+    // Compute ETA = prep time remaining + delivery transit time
+    let etaMinutes: number | null = null;
     if (order.estimated_ready_at && !isTerminalStatus) {
       const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
-      const etaMinutes = Math.max(0, Math.ceil(diffMs / 60000));
-      if (etaMinutes > 0) {
-        body += ` — Ready in ~${etaMinutes} min`;
-      }
+      const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
+      const transitMinutes = (order.order_type === 'delivery' && order.delivery_transit_minutes) ? order.delivery_transit_minutes : 0;
+      etaMinutes = prepMinutes + transitMinutes;
+    }
+
+    // Build body with ETA
+    let body = messageTemplate;
+    if (etaMinutes != null && etaMinutes > 0) {
+      body += ` — ~${etaMinutes} min`;
     }
 
     // Store last push state for ETA-only refreshes
@@ -135,7 +140,7 @@ serve(async (req) => {
       }
     }
 
-    // --- Live Activity Updates ---
+    // --- Live Activity Updates (all values must be strings for Swift Codable) ---
     let liveActivitySent = 0;
     const { data: laTokens } = await supabase
       .from('live_activity_tokens')
@@ -147,20 +152,15 @@ serve(async (req) => {
       const bundleId = Deno.env.get('IOS_BUNDLE_ID') || 'app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10';
       const isTerminal = ['delivered', 'cancelled'].includes(new_status);
 
-      let etaMinutes: number | null = null;
-      if (order.estimated_ready_at) {
-        const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
-        etaMinutes = Math.max(0, Math.ceil(diffMs / 60000));
-      }
-
       const updates = laTokens.map((t: any) => ({
         pushToken: t.push_token,
         event: isTerminal ? 'end' as const : 'update' as const,
         contentState: {
           status: statusToLiveState[new_status] || new_status,
+          orderId: order_id,
           orderType: order.order_type,
           statusMessage: messageTemplate,
-          etaMinutes,
+          etaMinutes: etaMinutes != null ? String(etaMinutes) : '',
           updatedAt: new Date().toISOString(),
         },
         staleDate: Math.floor(Date.now() / 1000) + 120,

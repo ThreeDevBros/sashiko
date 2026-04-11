@@ -11,6 +11,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
             let status = context.state.values["status"] ?? "pending"
             let statusMessage = context.state.values["statusMessage"] ?? "Processing…"
             let etaText = context.state.values["etaMinutes"] ?? ""
+            let orderId = context.state.values["orderId"] ?? ""
 
             // Lock Screen / Banner view
             HStack(spacing: 14) {
@@ -52,11 +53,13 @@ struct OrderTrackingWidgetLiveActivity: Widget {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .activityBackgroundTint(.clear)
+            .widgetURL(URL(string: "sashiko://order-tracking/\(orderId)"))
 
         } dynamicIsland: { context in
             let status = context.state.values["status"] ?? "pending"
             let statusMessage = context.state.values["statusMessage"] ?? ""
             let etaText = context.state.values["etaMinutes"] ?? ""
+            let orderId = context.state.values["orderId"] ?? ""
 
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -100,10 +103,11 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                 Image(systemName: statusIcon(status))
                     .foregroundColor(statusColor(status))
             }
+            .widgetURL(URL(string: "sashiko://order-tracking/\(orderId)"))
         }
     }
 
-    /// Short label shown as the bold title line (replaces order ID)
+    /// Short label shown as the bold title line
     private func statusLabel(_ status: String) -> String {
         switch status {
         case "pending":          return "Order Placed"
@@ -111,6 +115,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
         case "preparing":        return "Preparing"
         case "ready":            return "Ready"
         case "out_for_delivery": return "On Its Way"
+        case "onTheWay":         return "On Its Way"
         case "delivered":        return "Delivered"
         case "cancelled":        return "Cancelled"
         default:                 return "Order Update"
@@ -124,6 +129,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
         case "preparing":        return "frying.pan"
         case "ready":            return "bag.fill"
         case "out_for_delivery": return "car.fill"
+        case "onTheWay":         return "car.fill"
         case "delivered":        return "checkmark.seal.fill"
         case "cancelled":        return "xmark.circle.fill"
         default:                 return "circle"
@@ -137,6 +143,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
         case "preparing":        return .orange
         case "ready":            return .green
         case "out_for_delivery": return .blue
+        case "onTheWay":         return .blue
         case "delivered":        return .green
         case "cancelled":        return .red
         default:                 return .gray
