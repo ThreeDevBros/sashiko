@@ -1,102 +1,85 @@
 
-What the latest evidence says
+What the latest logs show
 
-- Yes, I can now tell where the issue is much more clearly.
-- The failure is no longer on the iPhone side for token capture/storage.
-- The failure is also no longer on the Google OAuth token exchange step.
+- The backend is authenticating correctly with Firebase now.
+- The push token sent from the iPhone is reaching the backend and being used.
+- The failure is still happening at Apple delivery time, not at app registration time and not at Google OAuth time.
 
-What is working
-- iOS app gets an FCM token:
-  - your native log shows `[PushSetup] FCM token: fe0JfpN8...`
-- Web layer reads that token:
-  - `[Push] FCM token from Preferences: fe0JfpN8...`
-- Backend stores it successfully:
-  - `[Push] Token saved to database (guest)`
-  - `[Push] Token saved to database (authenticated)`
-- Backend gets an OAuth access token successfully:
-  - edge logs show `[FCM] OAuth2 token obtained successfully, expires_in: 3599s`
+Evidence from the logs
+- `OAuth2 response: token_type="Bearer"... access_token exists=true`
+- `Auth header: len=1031...`
+- FCM endpoint is correct for project `sashiko-asian-fusion-75c70`
+- The real error is:
+  - `THIRD_PARTY_AUTH_ERROR`
+  - `ApnsError`
+  - `reason: "InvalidProviderToken"`
 
-What is failing
-- The actual request from the backend to Firebase Cloud Messaging fails for every token:
-  - `401 Request is missing required authentication credential`
-- This happens after the helper says it has an access token, which means the bug is in how the shared FCM sender is constructing or using that token during the final `fetch()` to FCM.
+What that means
+- Firebase accepted your service account auth.
+- Firebase then tried to hand the notification off to Apple.
+- Apple rejected Firebase’s APNs credentials for this iOS app.
+- So the remaining blocker is outside this codebase: Apple/Firebase app configuration mismatch.
 
-Why this points to the shared backend helper
-- The same shared file `supabase/functions/_shared/fcm-v2.ts` is used by:
-  - `send-broadcast-notification`
-  - `send-order-push`
-- In that helper:
-  - it successfully creates a JWT
-  - successfully exchanges it for an OAuth token
-  - then calls `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`
-  - but Google still says the request has no valid auth credential
-- That narrows it to one of these backend-side causes:
-  1. the returned OAuth response is not being validated enough before use
-  2. the Authorization header value is malformed at send time
-  3. the token response shape is unexpected and `data.access_token` is not what we think
-  4. less likely: the function instance is using stale code/secret state and needs a clean redeploy of all functions that import the shared helper
+Most likely causes now
+1. The APNs auth key uploaded in Firebase belongs to a different Apple Developer team than the app.
+2. The Team ID entered in Firebase does not match the team that owns the bundle ID.
+3. The iOS app in Firebase is registered under a different bundle ID than the native app build.
+4. The native app is using a different Firebase app/config file than the Firebase project whose server key is being used.
+5. Less likely: stale Firebase Apple config needs to be removed and re-added cleanly.
 
-What is not the blocker right now
-- Not device registration
-- Not guest/auth linking
-- Not the iOS logs you pasted
-- Not APNs token vs FCM token confusion anymore
-- Not invalid token format filtering
+Important code findings
+- Native app id in this repo is `com.sashiko.app` (`capacitor.config.ts`).
+- There is no iOS folder checked into this project, so I cannot verify the actual Xcode bundle id or the `GoogleService-Info.plist` currently inside your native iOS project from here.
+- Broadcast sending code is using the shared FCM helper correctly; nothing in the current logs points to a bug in `send-broadcast-notification` or `fcm-v2.ts`.
 
-Recommended next implementation
-1. Harden the shared FCM helper
-- Add strict validation after token exchange:
-  - verify `token_type === "Bearer"`
-  - verify `access_token` exists and is non-empty
-  - log safe metadata only: token_type, expires_in, access token length/prefix
-- Build the Authorization header from a trimmed token value.
-- Log the exact FCM request metadata before send:
-  - project id
-  - whether auth header is present
-  - token length/prefix
-  - endpoint being called
-- Log the full FCM error body, not the truncated 200-char slice.
+Plan to resolve it
+1. Verify bundle ID alignment end-to-end
+- Confirm the iOS app’s Xcode bundle identifier is exactly `com.sashiko.app`.
+- Confirm the Apple App ID in Apple Developer is also `com.sashiko.app`.
+- Confirm the iOS app entry in Firebase is registered with the exact same bundle ID.
 
-2. Redeploy every function that imports the shared helper
-- Redeploy:
-  - `send-broadcast-notification`
-  - `send-order-push`
-- This matters because the shared `_shared/fcm-v2.ts` change needs all importing functions refreshed.
+2. Verify Firebase iOS app config file
+- In the native iOS project, confirm the installed `GoogleService-Info.plist` belongs to the same Firebase project shown in the logs:
+  - project id should match `sashiko-asian-fusion-75c70`
+- If there is any doubt, download a fresh plist from that Firebase iOS app entry and replace the existing one in Xcode.
 
-3. Run a fresh broadcast test and inspect new logs
-- We should confirm whether the access token is:
-  - missing
-  - empty
-  - wrong token type
-  - malformed at header construction
-- If Firebase then returns a different error such as sender/project mismatch or APNs config issues, that will be the real next blocker.
+3. Recreate Apple credentials in Firebase cleanly
+- In Firebase Cloud Messaging, remove the current APNs auth key configuration.
+- Re-upload the fresh `.p8` key.
+- Re-enter the exact Key ID and Team ID from Apple Developer.
+- Wait a few minutes for propagation before testing again.
 
-4. Optional fallback if the HTTP v2 helper still behaves oddly
-- Replace the manual JWT/OAuth implementation with Google-auth library based signing inside the function, or a known-good fetch pattern with URLSearchParams/body encoding and stricter response parsing.
-- Only do this if the improved diagnostics still show an inexplicable 401 despite a valid bearer token.
+4. Verify Apple-side ownership
+- Make sure the `.p8` key was created in the same Apple Developer account/team that owns `com.sashiko.app`.
+- Make sure Push Notifications capability is enabled for that App ID in Apple Developer.
 
-Expected outcome
-- Most likely outcome: the new diagnostics will expose that the token being passed to `Authorization: Bearer ...` is empty/malformed or not the actual access token string.
-- Second most likely outcome: after redeploying both functions, the 401 changes to a more specific Firebase/APNs error, which means auth was fixed and we can then solve the next real provider configuration issue.
+5. If it still fails, add one final diagnostic pass in code
+- In default mode I can add temporary logging to expose:
+  - which Firebase project/app config the native app reports
+  - whether the device is definitely connected to the same Firebase project as the backend
+- This would help prove whether the mismatch is Firebase app config vs Apple auth config.
 
-Technical details
+What I need from you next
+- Check these three values in your native iOS project and compare them:
+  1. Xcode bundle identifier
+  2. Firebase iOS app bundle identifier
+  3. Apple Developer App ID bundle identifier
+- Also confirm the `GoogleService-Info.plist` in Xcode belongs to Firebase project `sashiko-asian-fusion-75c70`.
+
+Technical summary
 ```text
-Current chain:
-iPhone -> valid FCM token -> DB saved -> edge function -> OAuth token OK -> FCM send 401
+Working:
+iPhone FCM token -> saved in backend -> backend gets Bearer token -> FCM request sent
 
-So the break is here:
-OAuth token received
-   |
-   v
-Authorization header / final FCM request
-   |
-   v
-FCM rejects request with 401
+Failing:
+FCM -> APNs handoff
+
+Exact provider error:
+THIRD_PARTY_AUTH_ERROR / InvalidProviderToken
+
+Conclusion:
+This is no longer a backend auth/code problem.
+It is an Apple credentials or Firebase iOS app configuration mismatch.
 ```
 
-Files involved
-- `supabase/functions/_shared/fcm-v2.ts`
-- `supabase/functions/send-broadcast-notification/index.ts`
-- `supabase/functions/send-order-push/index.ts`
-
-If approved, I’ll implement the diagnostics hardening in the shared helper, redeploy both push-related backend functions, and use the new logs to identify the exact final auth failure.
+If you want, the next implementation step after this verification is for me to add a small native/web diagnostic surface so we can confirm the active Firebase app/project and eliminate plist/bundle mismatches with certainty.
