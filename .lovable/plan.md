@@ -1,85 +1,63 @@
 
-Goal
 
-Fix the native iOS background/foreground behavior without adding background fetch. The main issue is not “missing background execution” for the app UI — it is unstable session restore, over-eager refetching, and a fragile Live Activity token/update flow.
+# Plan: Remake Live Activity Widget & Fix Server-Side Update Reliability
 
-What I found
+## Issues
 
-- No, background fetch is not the right primary fix for the broken app experience after reopening. The app already has resume hooks and server-driven Live Activity updates; the instability is happening when the WebView comes back to the foreground.
-- Live Activity updates while the app is closed should already be handled server-side by `send-order-push` and `update-order-eta`. If that still fails, the likely weak point is token registration/persistence rather than needing background fetch.
-- `src/App.tsx` still does resume-time invalidation of shared bootstrap queries. Combined with many components that independently refetch on resume, this can still create a refetch storm.
-- Several places still call `supabase.auth.getUser()` inside query functions and polling loops instead of using settled auth context. After iOS resume, that pattern is fragile and can temporarily behave like the user is signed out.
-- Role/permission/branch loading is still duplicated across hooks (`useAdmin`, `usePermissions`, `useRoleRedirect`, `StaffBranchContext`, pages). Those independent fetches can race after resume and leave the app in inconsistent states.
-- Some realtime subscriptions reconnect, but many data sources still rely on ad hoc fetch logic rather than a centralized “resume-safe” refresh strategy.
-- In `src/lib/nativeLiveActivity.ts`, push token registration is tied to a one-time listener and captures the original `data.orderId`. That is risky if multiple Live Activities are started over time and can associate tokens with the wrong order or fail to persist them reliably.
-- In `src/pages/OrderTracking.tsx`, Live Activity ETA on the client still uses only `estimated_ready_at` in `computeEtaMinutes`, while the server uses `estimated_ready_at + delivery_transit_minutes`. That mismatch can make the in-app page and background Live Activity drift.
+1. **Compact Dynamic Island** — currently shows a status icon (left) and countdown like "30m" (right). User wants the **app icon** on the left and the **estimated delivery clock time** (e.g. "14:35") on the right.
+2. **Expanded / Lock Screen** — currently shows only `statusMessage`. User wants the **status text with a status icon** and the **time remaining** (countdown).
+3. **Order ID still visible** — `orderId` is referenced in `widgetURL` path and was previously shown. Remove all order-ID text from display (keep in URL for deep linking only).
+4. **"Stuck on loading" after first update** — APNs logs show persistent `BadDeviceToken` on both production and sandbox environments. Every server-side push fails, so after the initial local update, the `staleDate` (120s) expires and the widget enters a stale/loading state. Root cause: the push token may be getting invalidated when the Live Activity is recreated or the app reopens, but the old token remains in the database.
 
-Plan
+## Changes
 
-1. Harden the resume pipeline
-- Refactor `App.tsx` so resume does not broadly invalidate shared state unless necessary.
-- Add a single resume coordinator that:
-  - refreshes session first
-  - waits for auth restoration to settle
-  - then triggers only targeted refreshes for visible/critical data
-- Keep last known good UI mounted while refresh happens.
+### 1. Redesign the Swift widget
+**File: `setup/swift/OrderTrackingWidgetLiveActivity.swift`**
 
-2. Centralize auth-safe identity/role state
-- Create one shared source of truth for:
-  - current user
-  - roles
-  - permissions
-  - staff branch assignments
-- Make `useAdmin`, `usePermissions`, `useRoleRedirect`, and `StaffBranchContext` consume that shared state instead of each calling the backend separately on mount/resume.
+- **Compact Leading**: Replace status icon with the app icon using `Image("AppIcon")` (the asset catalog's app icon, or a dedicated small icon asset).
+- **Compact Trailing**: Show the estimated delivery time as a clock time `HH:mm` instead of a countdown. Read a new `estimatedDeliveryTime` string from contentState (e.g. "14:35").
+- **Expanded Leading**: Show status icon + status message text (e.g. "Preparing your food").
+- **Expanded Trailing**: Show time remaining as countdown ("~25 min").
+- **Lock Screen / Banner**: Same layout — status icon + status message on the left, time remaining on the right.
+- **Minimal**: Keep app icon.
+- Remove all references to `orderId` from displayed text. Keep it in `widgetURL` for deep linking.
 
-3. Remove fragile `getUser()` calls from runtime-critical paths
-- Replace `supabase.auth.getUser()` inside query functions, intervals, and resume handlers with `useAuth()`-backed state where possible.
-- Audit especially:
-  - `useSavedCards`
-  - `OrderTracking`
-  - `StaffReservations`
-  - `StaffBranchContext`
-  - driver pages/components
-  - banner components
+### 2. Add `estimatedDeliveryTime` to contentState
+**Files: `src/lib/nativeLiveActivity.ts`, `supabase/functions/send-order-push/index.ts`, `supabase/functions/update-order-eta/index.ts`**
 
-4. Make realtime recovery consistent
-- Apply one standard reconnect pattern to all critical views:
-  - explicit resume-triggered resubscribe
-  - immediate refetch fallback after resubscribe
-  - stable unique channel names
-- Cover customer, staff, driver, and admin flows consistently.
+- Compute the absolute delivery time as `now + etaMinutes` and format it as `HH:mm`.
+- Add `estimatedDeliveryTime` as a new string field in the contentState sent both client-side and server-side.
+- All values remain strings for Swift `[String: String]` Codable compatibility.
 
-5. Fix Live Activity token reliability
-- Refactor `src/lib/nativeLiveActivity.ts` so the push-token listener does not capture stale order data.
-- Persist/update the token with the current activity/order explicitly.
-- Add safer cleanup/re-registration behavior so a token survives app reopen cycles and later server-side updates still target the active Live Activity.
+### 3. Fix "stuck on loading" — token refresh on every activity start
+**File: `src/lib/nativeLiveActivity.ts`**
 
-6. Make ETA identical everywhere
-- Update `OrderTracking.tsx` client ETA logic to use the same final ETA model as the server:
-  - prep time
-  - plus saved delivery transit minutes for delivery orders
-- Ensure the value shown on `/order-tracking` matches what is sent to the Live Activity.
+- The push token listener fires when ActivityKit provides a new token, but if the activity is ended and restarted (e.g. app reopened, new order), the old DB token becomes stale.
+- Before starting a new activity, delete any existing `live_activity_tokens` for the user+order to avoid stale tokens.
+- After starting, ensure the new push token overwrites via upsert.
 
-7. Reduce resume-time bootstrap failures
-- Keep branding/branch/customer-visible cached data available during reconnect instead of letting the app fall into broken intermediate states.
-- Add proper `enabled` guards and loading states for protected queries until auth + identity state are fully restored.
+### 4. Fix `staleDate` — increase or remove
+**Files: `supabase/functions/send-order-push/index.ts`, `supabase/functions/update-order-eta/index.ts`**
 
-8. Verify server-side Live Activity update path
-- Inspect the token storage/update flow and edge-function logs for:
-  - missing `live_activity_tokens`
-  - token/order mismatches
-  - failed APNs pushes after status changes
-- If needed, tighten the order-status update flow so every staff/admin status change reliably triggers the server-side Live Activity update path.
+- The current `staleDate` of 120-180 seconds is too aggressive. If the cron runs every 2 minutes but APNs delivery occasionally fails, the widget goes stale between updates.
+- Increase `staleDate` to 600 seconds (10 minutes) to give ample buffer for the 2-minute cron cycle.
 
-Expected result
+### 5. Improve APNs error handling
+**File: `supabase/functions/_shared/apns-live-activity.ts`**
 
-- Reopening the native iOS app no longer breaks fetching, roles, banners, tracking, or dashboards.
-- Live Activity continues updating while the app stays closed, without needing background fetch.
-- `/order-tracking` ETA matches the Live Activity ETA exactly.
-- Resume no longer causes auth/query races or partial app failure states.
+- When both environments return `BadDeviceToken`, delete the invalid token from `live_activity_tokens` to prevent repeated failures and allow re-registration.
+- Pass `supabase` client or a cleanup callback into `sendLiveActivityUpdate` so it can prune dead tokens.
 
-Technical notes
+## Files to modify
+1. `setup/swift/OrderTrackingWidgetLiveActivity.swift` — full redesign
+2. `src/lib/nativeLiveActivity.ts` — add `estimatedDeliveryTime`, clean up stale tokens
+3. `supabase/functions/send-order-push/index.ts` — add `estimatedDeliveryTime`, increase staleDate
+4. `supabase/functions/update-order-eta/index.ts` — add `estimatedDeliveryTime`, increase staleDate
+5. `supabase/functions/_shared/apns-live-activity.ts` — prune dead tokens on BadDeviceToken
 
-- Background fetch would only be useful if you wanted the app itself to wake periodically and do work in the background. That is not the right fix for this problem.
-- For Live Activities, the correct architecture is server-driven push updates while the app is closed, plus a stable client token-registration path.
-- The highest-risk code areas are currently duplicated auth-dependent fetches and the Live Activity token listener closure in `src/lib/nativeLiveActivity.ts`.
+## Technical notes
+- The app icon in the compact Dynamic Island requires an image asset named "AppIcon" (or a small dedicated icon) in the widget extension's asset catalog. The developer will need to add this in Xcode.
+- `estimatedDeliveryTime` is computed as `Date.now() + etaMinutes * 60000`, formatted to `HH:mm` in the user's timezone. Server-side uses UTC but the Swift widget will display it using the device's local timezone via `DateFormatter`.
+- Alternatively, the Swift widget can compute the clock time itself from `etaMinutes` — this avoids timezone issues entirely. The widget would do `Date().addingTimeInterval(Double(mins) * 60)` and format locally.
+- The persistent `BadDeviceToken` errors strongly suggest the stored push tokens are from a previous Live Activity session that was ended/invalidated. Cleaning them up and ensuring fresh registration on every activity start should resolve the "stuck on loading" issue.
+
