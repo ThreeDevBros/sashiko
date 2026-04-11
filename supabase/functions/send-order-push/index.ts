@@ -115,7 +115,7 @@ serve(async (req) => {
       })
       .eq('id', order_id);
 
-    // --- FCM Push Notifications — only for terminal statuses (delivered/cancelled) ---
+    // --- FCM Push Notifications — only for terminal statuses ---
     let fcmResult = { sent: 0, failed: 0, attempted: 0, skipped_invalid: 0, errors: [] as string[] };
     if (isTerminalStatus) {
       const { data: tokens } = await supabase
@@ -140,7 +140,7 @@ serve(async (req) => {
       }
     }
 
-    // --- Live Activity Updates (all values must be strings for Swift Codable) ---
+    // --- Live Activity Updates (all values must be strings) ---
     let liveActivitySent = 0;
     const { data: laTokens } = await supabase
       .from('live_activity_tokens')
@@ -163,7 +163,8 @@ serve(async (req) => {
           etaMinutes: etaMinutes != null ? String(etaMinutes) : '',
           updatedAt: new Date().toISOString(),
         },
-        staleDate: Math.floor(Date.now() / 1000) + 120,
+        // 10-minute stale window to survive cron gaps
+        staleDate: Math.floor(Date.now() / 1000) + 600,
         ...(isTerminal && { dismissalDate: Math.floor(Date.now() / 1000) + 300 }),
         relevanceScore: isTerminal ? 0 : 75,
       }));

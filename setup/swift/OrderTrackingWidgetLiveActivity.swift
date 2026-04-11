@@ -5,6 +5,9 @@ import SwiftUI
 /// Live Activity widget for order tracking.
 /// This file goes into the OrderTrackingWidget extension target.
 /// Make sure GenericAttributes.swift is shared with this target.
+///
+/// NOTE: Add a small app icon image named "AppIconSmall" (or reuse "AppIcon")
+/// in the widget extension's asset catalog for the compact leading slot.
 struct OrderTrackingWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: GenericAttributes.self) { context in
@@ -13,7 +16,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
             let etaText = context.state.values["etaMinutes"] ?? ""
             let orderId = context.state.values["orderId"] ?? ""
 
-            // Lock Screen / Banner view — single message line, no title
+            // Lock Screen / Banner view
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
@@ -57,6 +60,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
             let orderId = context.state.values["orderId"] ?? ""
 
             return DynamicIsland {
+                // Expanded — shown on long press
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
                         Image(systemName: statusIcon(status))
@@ -79,22 +83,32 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                     EmptyView()
                 }
             } compactLeading: {
-                Image(systemName: statusIcon(status))
-                    .foregroundColor(statusColor(status))
+                // App icon in compact leading
+                Image("AppIconSmall")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
             } compactTrailing: {
+                // Estimated delivery clock time (HH:mm) in compact trailing
                 if !etaText.isEmpty, let mins = Int(etaText), mins > 0 {
-                    Text("\(mins)m")
+                    let deliveryTime = Date().addingTimeInterval(Double(mins) * 60)
+                    Text(deliveryTime, style: .time)
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(statusColor(status))
+                        .monospacedDigit()
                 } else {
                     Image(systemName: "circle.fill")
                         .font(.system(size: 6))
                         .foregroundColor(statusColor(status))
                 }
             } minimal: {
-                Image(systemName: statusIcon(status))
-                    .foregroundColor(statusColor(status))
+                Image("AppIconSmall")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 20, height: 20)
+                    .clipShape(Circle())
             }
             .widgetURL(URL(string: "sashiko://order-tracking/\(orderId)"))
         }
