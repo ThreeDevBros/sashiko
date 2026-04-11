@@ -1,18 +1,31 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * Hook that detects app resume (from background) on both native Capacitor and web.
  * Calls `onResume` whenever the app becomes active again.
+ * 
+ * Deduplicates events: on native, both `visibilitychange` and Capacitor `appStateChange`
+ * fire — this hook ensures only one resume callback fires per wake cycle.
  */
 export function useAppLifecycle(onResume: () => void) {
   const onResumeRef = useRef(onResume);
   onResumeRef.current = onResume;
 
   useEffect(() => {
-    // Web fallback: visibility change
+    let lastResumeTime = 0;
+    const THROTTLE_MS = 1500; // ignore duplicate resume within 1.5s
+
+    const fireResume = () => {
+      const now = Date.now();
+      if (now - lastResumeTime < THROTTLE_MS) return;
+      lastResumeTime = now;
+      onResumeRef.current();
+    };
+
+    // Web: visibility change
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        onResumeRef.current();
+        fireResume();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -25,7 +38,7 @@ export function useAppLifecycle(onResume: () => void) {
         const { App } = await import('@capacitor/app');
         const listener = await App.addListener('appStateChange', (state) => {
           if (state.isActive) {
-            onResumeRef.current();
+            fireResume();
           }
         });
         removeNativeListener = () => listener.remove();

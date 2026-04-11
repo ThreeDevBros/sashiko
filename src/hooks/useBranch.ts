@@ -1,4 +1,5 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   fetchBranchWithFallback, 
@@ -84,6 +85,12 @@ export const useBranch = () => {
     refetchOnWindowFocus: false,
   });
 
+  // Resume counter to force realtime reconnect after backgrounding
+  const [resumeCounter, setResumeCounter] = useState(0);
+  useAppLifecycle(() => {
+    setResumeCounter(prev => prev + 1);
+  });
+
   // Listen for branch changes (user switching branches)
   useEffect(() => {
     const handleBranchChange = () => {
@@ -93,13 +100,13 @@ export const useBranch = () => {
     return () => window.removeEventListener('branchChanged', handleBranchChange);
   }, [queryClient]);
 
-  // Real-time subscription for branch updates (pause status, etc.)
+  // Real-time subscription for branch updates (pause status, etc.) — reconnects on resume
   const branchId = branchData?.branch?.id;
   useEffect(() => {
     if (!branchId) return;
 
     const channel = supabase
-      .channel(`branch-realtime-${branchId}-${instanceId.current}`)
+      .channel(`branch-realtime-${branchId}-${instanceId.current}-${resumeCounter}`)
       .on(
         'postgres_changes',
         {
@@ -120,7 +127,7 @@ export const useBranch = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [branchId, queryClient]);
+  }, [branchId, queryClient, resumeCounter]);
 
   // Update estimated time every minute
   useEffect(() => {

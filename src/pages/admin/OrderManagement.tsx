@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Search, CalendarIcon, X, MessageSquareText, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import {
   Table,
   TableBody,
@@ -89,10 +90,17 @@ export default function OrderManagement() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [expandedDesktopOrderId, setExpandedDesktopOrderId] = useState<string | null>(null);
 
-  // Real-time subscription for orders
+  // Resume counter to force realtime reconnect after backgrounding
+  const [resumeCounter, setResumeCounter] = useState(0);
+  useAppLifecycle(() => {
+    setResumeCounter(prev => prev + 1);
+    queryClient.invalidateQueries({ queryKey: ['orders-admin'] });
+  });
+
+  // Real-time subscription for orders (reconnects on resume)
   useEffect(() => {
     const channel = supabase
-      .channel('admin-orders-realtime')
+      .channel(`admin-orders-realtime-${resumeCounter}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
@@ -109,7 +117,7 @@ export default function OrderManagement() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [queryClient, toast]);
+  }, [queryClient, toast, resumeCounter]);
 
   const { data: orders } = useQuery({
     queryKey: ['orders-admin'],

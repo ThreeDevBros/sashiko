@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { StaffLayout } from '@/components/staff/StaffLayout';
@@ -144,17 +145,24 @@ function StaffOrdersContent() {
     }
   }, []);
 
-  // Real-time subscription for order updates (popup handled globally by NewOrderPopup)
+  // Resume counter to force realtime reconnect after backgrounding
+  const [resumeCounter, setResumeCounter] = useState(0);
+  useAppLifecycle(() => {
+    setResumeCounter(prev => prev + 1);
+    queryClient.invalidateQueries({ queryKey: ['staff-orders', staffBranchId] });
+  });
+
+  // Real-time subscription for order updates (reconnects on resume)
   useEffect(() => {
     const channel = supabase
-      .channel('staff-orders-realtime')
+      .channel(`staff-orders-realtime-${resumeCounter}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
         queryClient.invalidateQueries({ queryKey: ['staff-orders', staffBranchId] });
         queryClient.invalidateQueries({ queryKey: ['staff-pending-count'] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [queryClient, staffBranchId]);
+  }, [queryClient, staffBranchId, resumeCounter]);
 
   // Auto-progression
   useEffect(() => {
