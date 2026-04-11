@@ -269,21 +269,21 @@ export const CheckoutForm = ({
 
       // Handle selected/searched location (not a real DB address)
       if (selectedAddressId === 'selected-location') {
-        if (selectedLocationData && branch?.latitude && branch?.longitude) {
+        if (currentLocationData && branch?.latitude && branch?.longitude) {
           const distance = calculateDistance(
             branch.latitude,
             branch.longitude,
-            selectedLocationData.latitude,
-            selectedLocationData.longitude
+            currentLocationData.latitude,
+            currentLocationData.longitude
           );
           setDistanceToAddress(distance);
           setSelectedAddress({
             id: 'selected-location',
             label: 'Selected Location',
-            address_line1: selectedLocationData.address,
+            address_line1: currentLocationData.address,
             city: '',
-            latitude: selectedLocationData.latitude,
-            longitude: selectedLocationData.longitude
+            latitude: currentLocationData.latitude,
+            longitude: currentLocationData.longitude
           });
         }
         return;
