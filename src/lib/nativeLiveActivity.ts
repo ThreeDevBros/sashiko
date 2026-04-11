@@ -19,15 +19,10 @@ async function getLiveActivityPlugin(): Promise<any | null> {
   try {
     const { Capacitor } = await import('@capacitor/core');
     const platform = Capacitor.getPlatform();
-    console.log('[LiveActivity] Platform:', platform);
-    if (platform !== 'ios') {
-      console.log('[LiveActivity] Not iOS — skipping');
-      return null;
-    }
+    if (platform !== 'ios') return null;
     const plugin = (Capacitor as any).Plugins?.LiveActivity;
-    console.log('[LiveActivity] Plugin found:', !!plugin);
     if (!plugin) {
-      console.warn('[LiveActivity] Plugin not registered. Available plugins:', Object.keys((Capacitor as any).Plugins || {}));
+      console.warn('[LiveActivity] Plugin not registered.');
     }
     return plugin || null;
   } catch (err) {
@@ -42,15 +37,10 @@ async function getLiveActivityPlugin(): Promise<any | null> {
 export async function areLiveActivitiesSupported(): Promise<boolean> {
   try {
     const plugin = await getLiveActivityPlugin();
-    if (!plugin) {
-      console.log('[LiveActivity] areLiveActivitiesSupported: no plugin');
-      return false;
-    }
+    if (!plugin) return false;
     const result = await plugin.isAvailable();
-    console.log('[LiveActivity] isAvailable result:', result);
     return result.value === true;
-  } catch (err) {
-    console.error('[LiveActivity] isAvailable error:', err);
+  } catch {
     return false;
   }
 }
@@ -75,21 +65,33 @@ let pushTokenListenerRegistered = false;
 let currentActiveOrderId: string | null = null;
 
 /**
- * Start a Live Activity for an order and register the push token
+ * Start a Live Activity for an order and register the push token.
+ * Cleans up any stale tokens for this user+order before starting.
  */
 export async function startOrderLiveActivity(data: LiveActivityData): Promise<string | null> {
   try {
     console.log('[LiveActivity] startOrderLiveActivity called for order:', data.orderId);
     const plugin = await getLiveActivityPlugin();
-    if (!plugin) {
-      console.log('[LiveActivity] Cannot start — no plugin');
-      return null;
-    }
+    if (!plugin) return null;
 
-    // Always update the current order ID so the listener persists the token for the right order
     currentActiveOrderId = data.orderId;
 
-    // Register push token listener once — reads currentActiveOrderId dynamically (no stale closure)
+    // Clean up stale tokens for this user+order before starting a new activity
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await supabase
+          .from('live_activity_tokens')
+          .delete()
+          .eq('user_id', session.user.id)
+          .eq('order_id', data.orderId);
+        console.log('[LiveActivity] Cleaned up stale tokens for order:', data.orderId);
+      }
+    } catch (cleanupErr) {
+      console.warn('[LiveActivity] Token cleanup failed (non-fatal):', cleanupErr);
+    }
+
+    // Register push token listener once — reads currentActiveOrderId dynamically
     if (!pushTokenListenerRegistered && plugin.addListener) {
       pushTokenListenerRegistered = true;
       plugin.addListener('liveActivityPushToken', async (event: any) => {
@@ -141,12 +143,10 @@ export async function updateOrderLiveActivity(data: LiveActivityData): Promise<v
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return;
 
-    console.log('[LiveActivity] Updating activity for order:', data.orderId);
     await plugin.updateActivity({
       id: data.orderId,
       contentState: buildContentState(data),
     });
-    console.log('[LiveActivity] Activity updated');
   } catch (err) {
     console.error('[LiveActivity] Failed to update Live Activity:', err);
   }
@@ -160,7 +160,6 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return;
 
-    console.log('[LiveActivity] Ending activity for order:', orderId);
     await plugin.endActivity({
       id: orderId,
       contentState: {
@@ -172,7 +171,6 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
       },
     });
 
-    // Clean up token from DB — use getSession (cached) instead of getUser (network call)
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       await supabase

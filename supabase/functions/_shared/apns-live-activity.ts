@@ -1,6 +1,8 @@
 // APNs helper for sending Live Activity push updates
 // Uses .p8 auth key (same as push notifications)
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 let cachedApnsToken: { token: string; expiresAt: number } | null = null;
 type ApnsEnvironment = 'development' | 'production';
 let cachedApnsEnvironment: ApnsEnvironment | null = null;
@@ -62,7 +64,6 @@ async function getApnsToken(): Promise<string> {
   const payloadB64 = base64UrlEncode(encoder.encode(JSON.stringify(payload)));
   const signingInput = `${headerB64}.${payloadB64}`;
 
-  // Import ES256 private key
   const pemContents = privateKeyPem
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
@@ -83,25 +84,24 @@ async function getApnsToken(): Promise<string> {
     encoder.encode(signingInput)
   );
 
-  // Convert DER signature to raw r||s format for JWT
   const sigBytes = new Uint8Array(signatureRaw);
   const signatureB64 = base64UrlEncode(sigBytes);
 
   const jwt = `${signingInput}.${signatureB64}`;
-  cachedApnsToken = { token: jwt, expiresAt: Date.now() + 50 * 60 * 1000 }; // ~50 min
+  cachedApnsToken = { token: jwt, expiresAt: Date.now() + 50 * 60 * 1000 };
   return jwt;
 }
 
 export interface LiveActivityUpdate {
-  pushToken: string; // APNs push-to-update token from ActivityKit
-  contentState: Record<string, unknown>; // The updated content state
-  event?: 'update' | 'end'; // 'update' or 'end' the activity
+  pushToken: string;
+  contentState: Record<string, unknown>;
+  event?: 'update' | 'end';
   alertTitle?: string;
   alertBody?: string;
   sound?: string;
-  staleDate?: number; // Unix timestamp when data becomes stale
-  dismissalDate?: number; // Unix timestamp to auto-dismiss (for 'end')
-  relevanceScore?: number; // 0-100
+  staleDate?: number;
+  dismissalDate?: number;
+  relevanceScore?: number;
 }
 
 function buildApnsPayload(update: LiveActivityUpdate): Record<string, unknown> {
@@ -124,6 +124,16 @@ function buildApnsPayload(update: LiveActivityUpdate): Record<string, unknown> {
   };
 }
 
+/**
+ * Get a Supabase service-role client for token cleanup
+ */
+function getServiceClient() {
+  const url = Deno.env.get('SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
+
 export async function sendLiveActivityUpdate(
   updates: LiveActivityUpdate[],
   bundleId: string
@@ -137,6 +147,7 @@ export async function sendLiveActivityUpdate(
   }
 
   let successCount = 0;
+  const deadTokens: string[] = [];
 
   for (const update of updates) {
     try {
@@ -144,6 +155,7 @@ export async function sendLiveActivityUpdate(
       const environments = getApnsEnvironmentCandidates();
       let delivered = false;
       let lastFailure: { environment: ApnsEnvironment; status: number; body: string } | null = null;
+      let allBadDevice = true;
 
       for (let index = 0; index < environments.length; index++) {
         const environment = environments[index];
@@ -162,19 +174,21 @@ export async function sendLiveActivityUpdate(
           cachedApnsEnvironment = environment;
           successCount++;
           delivered = true;
+          allBadDevice = false;
           break;
         }
 
         const errBody = await res.text();
         lastFailure = { environment, status: res.status, body: errBody };
 
+        const isBadDevice = res.status === 400 && errBody.includes('BadDeviceToken');
+        if (!isBadDevice) allBadDevice = false;
+
         const shouldRetryAlternateEnvironment =
-          res.status === 400 &&
-          errBody.includes('BadDeviceToken') &&
-          index < environments.length - 1;
+          isBadDevice && index < environments.length - 1;
 
         if (shouldRetryAlternateEnvironment) {
-          console.warn(`APNs Live Activity push failed in ${environment}, retrying alternate environment: ${errBody}`);
+          console.warn(`APNs Live Activity push failed in ${environment}, retrying alternate: ${errBody}`);
         } else {
           break;
         }
@@ -184,9 +198,28 @@ export async function sendLiveActivityUpdate(
         console.error(
           `APNs Live Activity push failed [${lastFailure.environment}]: ${lastFailure.status} ${lastFailure.body}`
         );
+        // If all environments returned BadDeviceToken, mark for cleanup
+        if (allBadDevice) {
+          deadTokens.push(update.pushToken);
+        }
       }
     } catch (err) {
       console.error('APNs Live Activity send error:', err);
+    }
+  }
+
+  // Prune dead tokens from the database to prevent repeated failures
+  if (deadTokens.length > 0) {
+    try {
+      const sb = getServiceClient();
+      if (sb) {
+        for (const dt of deadTokens) {
+          await sb.from('live_activity_tokens').delete().eq('push_token', dt);
+        }
+        console.log(`[APNs] Pruned ${deadTokens.length} dead push token(s)`);
+      }
+    } catch (err) {
+      console.warn('[APNs] Failed to prune dead tokens:', err);
     }
   }
 

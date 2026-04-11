@@ -17,7 +17,6 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get all active orders with ETA
     const { data: orders, error } = await supabase
       .from('orders')
       .select('id, user_id, order_type, estimated_ready_at, last_push_status, last_push_message, delivery_transit_minutes')
@@ -58,7 +57,6 @@ serve(async (req) => {
       const transitMinutes = (order.order_type === 'delivery' && order.delivery_transit_minutes) ? order.delivery_transit_minutes : 0;
       const etaMinutes = prepMinutes + transitMinutes;
 
-      // --- Live Activity APNs Updates only (all values as strings) ---
       const { data: laTokens } = await supabase
         .from('live_activity_tokens')
         .select('push_token')
@@ -79,7 +77,8 @@ serve(async (req) => {
             etaMinutes: String(etaMinutes),
             updatedAt: new Date().toISOString(),
           },
-          staleDate: Math.floor(Date.now() / 1000) + 180,
+          // 10-minute stale window
+          staleDate: Math.floor(Date.now() / 1000) + 600,
           relevanceScore: 75,
         }));
 
