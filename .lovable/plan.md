@@ -1,51 +1,35 @@
 
 
-# Plan: Enhanced iOS Order Notifications
+# Plan: Enhance All Notification Text with Order-Type Awareness
 
-## Issues Found
-
-1. **404 on notification tap** — The push handler navigates to `/order/${data.order_id}` but the actual route is `/order-tracking/${orderId}`. No `/order/:id` route exists.
-2. **No ETA in notification body** — The `estimated_ready_at` is already fetched from the database but never included in the notification text.
-3. **Not time-sensitive** — iOS supports `interruption-level: time-sensitive` in the APNs payload which makes notifications always appear prominently at the top of the lock screen and break through Focus modes.
-4. **Small notification size** — Adding `mutable-content: 1` and a notification `category` enables the system to show an expanded notification layout on iOS.
+## Problem
+The `statusMessages` in `send-order-push` are static and don't account for `order_type`. A delivery order marked "ready" shows "Your order is ready for pickup!" which is wrong. The proximity notification also needs polish.
 
 ## Changes
 
-### 1. Fix navigation path (client-side)
-**`src/hooks/usePushNotifications.ts`**
-- Change both navigation calls from `/order/${data.order_id}` to `/order-tracking/${data.order_id}`
-- Line 109: foreground toast action
-- Line 121: background tap handler
+### 1. `supabase/functions/send-order-push/index.ts`
+Replace the static `statusMessages` map with a function that takes `order_type` (delivery, pickup, dine_in) and returns context-appropriate, engaging text:
 
-### 2. Add ETA to notification body (backend)
-**`supabase/functions/send-order-push/index.ts`**
-- After building the status message, append the ETA when `estimated_ready_at` exists
-- Example: "Your order is being prepared — Ready in ~12 min"
+| Status | Delivery | Pickup | Dine-in |
+|--------|----------|--------|---------|
+| confirmed | Great news! Your order has been confirmed 🎉 | Great news! Your order has been confirmed 🎉 | Great news! Your order has been confirmed 🎉 |
+| preparing | Our kitchen is preparing your order 👨‍🍳 | Our kitchen is preparing your order 👨‍🍳 | Our kitchen is preparing your order 👨‍🍳 |
+| ready | Your order is ready and waiting for a driver 🚗 | Your order is ready for pickup! Head over whenever you're ready 🙌 | Your order is ready! Enjoy your meal 🍽️ |
+| out_for_delivery | Your order is on its way to you! 🚗 | *(not used)* | *(not used)* |
+| delivered | Your order has been delivered — enjoy! 😋 | Your order has been picked up — enjoy! 😋 | Your order is complete — thank you! 😋 |
+| cancelled | Your order has been cancelled | Your order has been cancelled | Your order has been cancelled |
 
-### 3. Make notifications time-sensitive (backend)
-**`supabase/functions/_shared/fcm-v2.ts`**
-- Add `interruption-level: time-sensitive` to the APNs `aps` payload
-- Add `relevance-score: 1.0` so iOS prioritizes it
-- Add `mutable-content: 1` to enable rich/expanded notification display
-- Add `category: ORDER_STATUS` to allow iOS to use expanded notification templates
-- Add `thread-id` using the collapse key so iOS groups notifications per order
+Also update the title format from plain "Order #001" to "Order #001 Update" for mid-flow statuses to feel more dynamic.
 
-### 4. Add priority headers (backend)
-**`supabase/functions/_shared/fcm-v2.ts`**
-- Set `apns-priority: 10` (immediate delivery) in APNs headers
-- Set `android.priority: high` for Android equivalent
+### 2. `supabase/functions/check-driver-proximity/index.ts`
+Change the proximity notification:
+- Title: `Your driver is almost there! 📍`  
+- Body: `Order {label} — Your driver is just steps away`
 
-## Files to Change
+### 3. Files to change
 
 | File | Change |
 |------|--------|
-| `src/hooks/usePushNotifications.ts` | Fix navigation path to `/order-tracking/` |
-| `supabase/functions/_shared/fcm-v2.ts` | Add time-sensitive, mutable-content, category, thread-id, high priority |
-| `supabase/functions/send-order-push/index.ts` | Append ETA to notification body text |
-
-## Technical Notes
-
-- **Time-sensitive notifications** require the `com.apple.developer.usernotifications.time-sensitive` entitlement in the native iOS app. If this entitlement is not already configured in Xcode, the flag will be silently ignored by iOS (no error, just treated as normal priority). You may need to enable this capability in Xcode under Signing & Capabilities.
-- **mutable-content** enables iOS Notification Service Extensions to modify the notification before display (e.g., attach images or expand content).
-- The `category` field (`ORDER_STATUS`) can later be used with native UNNotificationCategory to add custom action buttons.
+| `supabase/functions/send-order-push/index.ts` | Replace static `statusMessages` with order-type-aware function, update title |
+| `supabase/functions/check-driver-proximity/index.ts` | Enhance proximity notification text |
 
