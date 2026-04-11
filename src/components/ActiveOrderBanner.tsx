@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bike, ChefHat, Clock, ArrowRight } from 'lucide-react';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'] as const;
 
@@ -11,6 +12,7 @@ export const ActiveOrderBanner = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeOrder, setActiveOrder] = useState<{ id: string; order_number: string; status: string } | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
   const statusConfig: Record<string, { icon: typeof Clock; label: string; color: string }> = {
     pending: { icon: Clock, label: t('banners.orderPlaced'), color: 'text-amber-500' },
@@ -20,64 +22,70 @@ export const ActiveOrderBanner = () => {
     out_for_delivery: { icon: Bike, label: t('orderStatus.onTheWay'), color: 'text-primary' },
   };
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchActiveOrder = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
 
-    const fetchActiveOrder = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      userIdRef.current = user.id;
+      const { data } = await supabase
+        .from('orders')
+        .select('id, order_number, status')
+        .eq('user_id', user.id)
+        .in('status', ACTIVE_STATUSES)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (user) {
-        const { data } = await supabase
-          .from('orders')
-          .select('id, order_number, status')
-          .eq('user_id', user.id)
-          .in('status', ACTIVE_STATUSES)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      setActiveOrder(data);
+      return;
+    }
 
-        if (!cancelled) setActiveOrder(data);
+    userIdRef.current = null;
+    const guestRaw = localStorage.getItem('guest_active_order');
+    if (!guestRaw) {
+      setActiveOrder(null);
+      return;
+    }
+
+    try {
+      const { id, email } = JSON.parse(guestRaw);
+      if (!id || !email) {
+        setActiveOrder(null);
         return;
       }
 
-      const guestRaw = localStorage.getItem('guest_active_order');
-      if (!guestRaw) {
-        if (!cancelled) setActiveOrder(null);
-        return;
-      }
+      const { data, error } = await supabase.functions.invoke('get-guest-order', {
+        body: { order_id: id, email },
+      });
 
-      try {
-        const { id, email } = JSON.parse(guestRaw);
-        if (!id || !email) {
-          if (!cancelled) setActiveOrder(null);
-          return;
-        }
-
-        const { data, error } = await supabase.functions.invoke('get-guest-order', {
-          body: { order_id: id, email },
-        });
-
-        if (error || !data?.order) {
-          localStorage.removeItem('guest_active_order');
-          if (!cancelled) setActiveOrder(null);
-          return;
-        }
-
-        const order = data.order;
-        if (ACTIVE_STATUSES.includes(order.status)) {
-          if (!cancelled) setActiveOrder({ id: order.id, order_number: order.order_number, status: order.status });
-        } else {
-          localStorage.removeItem('guest_active_order');
-          if (!cancelled) setActiveOrder(null);
-        }
-      } catch {
+      if (error || !data?.order) {
         localStorage.removeItem('guest_active_order');
-        if (!cancelled) setActiveOrder(null);
+        setActiveOrder(null);
+        return;
       }
-    };
 
+      const order = data.order;
+      if (ACTIVE_STATUSES.includes(order.status)) {
+        setActiveOrder({ id: order.id, order_number: order.order_number, status: order.status });
+      } else {
+        localStorage.removeItem('guest_active_order');
+        setActiveOrder(null);
+      }
+    } catch {
+      localStorage.removeItem('guest_active_order');
+      setActiveOrder(null);
+    }
+  };
+
+  // Refetch on app resume (native) / tab focus (web)
+  useAppLifecycle(() => {
     fetchActiveOrder();
-    const interval = setInterval(fetchActiveOrder, 30000);
+  });
+
+  useEffect(() => {
+    fetchActiveOrder();
+    const interval = setInterval(fetchActiveOrder, 15000); // Poll every 15s as fallback
+
     const channel = supabase
       .channel('active-order-home')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
@@ -86,7 +94,6 @@ export const ActiveOrderBanner = () => {
       .subscribe();
 
     return () => {
-      cancelled = true;
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
