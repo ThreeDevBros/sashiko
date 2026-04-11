@@ -225,11 +225,16 @@ const AppContent = () => {
     }
   }, [isAuthReady, user, qc]);
 
-  // Invalidate all queries on app resume from background
-  useAppLifecycle(useCallback(() => {
-    console.log('[App] Resumed — invalidating all queries');
-    qc.invalidateQueries();
-  }, [qc]));
+  // On app resume: refresh auth first, then selectively invalidate core data
+  useAppLifecycle(useCallback(async () => {
+    console.log('[App] Resumed — refreshing session then core data');
+    // 1. Restore auth session first (ensures token is valid for RLS)
+    const { refreshSession } = await import('@/contexts/AuthContext').then(m => ({ refreshSession }));
+    await refreshSession();
+    // 2. Only invalidate core bootstrap queries — pages handle their own via resumeCounter
+    qc.invalidateQueries({ queryKey: ['branch-data'] });
+    qc.invalidateQueries({ queryKey: ['branding'] });
+  }, [qc, refreshSession]));
   
   // Auto-detect location on every app launch (deferred until bootstrap is complete)
   useEffect(() => {
