@@ -1,5 +1,5 @@
 // Capacitor bridge for iOS Live Activities (ActivityKit)
-// Uses the `capacitor-live-activity` plugin for the native bridge.
+// Uses a custom native LiveActivityPlugin registered as "LiveActivity".
 // Registers push-to-update tokens with the backend for server-driven updates.
 
 import { supabase } from '@/integrations/supabase/client';
@@ -14,15 +14,27 @@ interface LiveActivityData {
 }
 
 /**
+ * Get the native LiveActivity plugin via Capacitor's plugin registry
+ */
+async function getLiveActivityPlugin(): Promise<any | null> {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.getPlatform() !== 'ios') return null;
+    const plugin = (Capacitor as any).Plugins?.LiveActivity;
+    return plugin || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Check if Live Activities are supported (iOS 16.2+)
  */
 export async function areLiveActivitiesSupported(): Promise<boolean> {
   try {
-    const { Capacitor } = await import('@capacitor/core');
-    if (Capacitor.getPlatform() !== 'ios') return false;
-
-    const { LiveActivity } = await import('capacitor-live-activity');
-    const result = await LiveActivity.isAvailable();
+    const plugin = await getLiveActivityPlugin();
+    if (!plugin) return false;
+    const result = await plugin.isAvailable();
     return result.value === true;
   } catch {
     return false;
@@ -43,44 +55,43 @@ function buildContentState(data: LiveActivityData): Record<string, string> {
   };
 }
 
+// Track listener registration to avoid duplicates
+let pushTokenListenerRegistered = false;
+
 /**
  * Start a Live Activity for an order and register the push token
  */
 export async function startOrderLiveActivity(data: LiveActivityData): Promise<string | null> {
   try {
-    const { Capacitor } = await import('@capacitor/core');
-    if (Capacitor.getPlatform() !== 'ios') return null;
+    const plugin = await getLiveActivityPlugin();
+    if (!plugin) return null;
 
-    const { LiveActivity } = await import('capacitor-live-activity');
-
-    // Listen for the push token
-    LiveActivity.addListener('liveActivityPushToken', async (event) => {
-      console.log('[LiveActivity] Push token received:', event.token);
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('live_activity_tokens').upsert(
-            {
-              user_id: user.id,
-              order_id: data.orderId,
-              push_token: event.token,
-              platform: 'ios',
-            },
-            { onConflict: 'user_id,order_id' }
-          );
+    // Register push token listener once
+    if (!pushTokenListenerRegistered && plugin.addListener) {
+      pushTokenListenerRegistered = true;
+      plugin.addListener('liveActivityPushToken', async (event: any) => {
+        console.log('[LiveActivity] Push token received:', event.token);
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('live_activity_tokens').upsert(
+              {
+                user_id: user.id,
+                order_id: data.orderId,
+                push_token: event.token,
+                platform: 'ios',
+              },
+              { onConflict: 'user_id,order_id' }
+            );
+          }
+        } catch (err) {
+          console.error('[LiveActivity] Failed to register push token:', err);
         }
-      } catch (err) {
-        console.error('[LiveActivity] Failed to register push token:', err);
-      }
-    });
+      });
+    }
 
-    // Start with push support so we get a push-to-update token
-    const result = await LiveActivity.startActivityWithPush({
+    const result = await plugin.startActivityWithPush({
       id: data.orderId,
-      attributes: {
-        orderNumber: data.orderNumber,
-        orderType: data.orderType,
-      },
       contentState: buildContentState(data),
     });
 
@@ -96,12 +107,10 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
  */
 export async function updateOrderLiveActivity(data: LiveActivityData): Promise<void> {
   try {
-    const { Capacitor } = await import('@capacitor/core');
-    if (Capacitor.getPlatform() !== 'ios') return;
+    const plugin = await getLiveActivityPlugin();
+    if (!plugin) return;
 
-    const { LiveActivity } = await import('capacitor-live-activity');
-
-    await LiveActivity.updateActivity({
+    await plugin.updateActivity({
       id: data.orderId,
       contentState: buildContentState(data),
     });
@@ -115,12 +124,10 @@ export async function updateOrderLiveActivity(data: LiveActivityData): Promise<v
  */
 export async function endOrderLiveActivity(orderId: string): Promise<void> {
   try {
-    const { Capacitor } = await import('@capacitor/core');
-    if (Capacitor.getPlatform() !== 'ios') return;
+    const plugin = await getLiveActivityPlugin();
+    if (!plugin) return;
 
-    const { LiveActivity } = await import('capacitor-live-activity');
-
-    await LiveActivity.endActivity({
+    await plugin.endActivity({
       id: orderId,
       contentState: {
         status: 'delivered',
