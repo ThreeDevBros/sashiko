@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider, useIsFetching } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useBranding } from "./hooks/useBranding";
@@ -19,6 +19,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
 import { usePushNotifications } from "./hooks/usePushNotifications";
+import { useAppLifecycle } from "./hooks/useAppLifecycle";
 import Index from "./pages/Index";
 import Order from "./pages/Order";
 import Cart from "./pages/Cart";
@@ -60,7 +61,17 @@ import StaffReport from "./pages/staff/StaffReport";
 
 import { prefetchSavedCards } from './hooks/useSavedCards';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+      networkMode: 'always',
+      refetchOnReconnect: 'always',
+      staleTime: 2 * 60 * 1000,
+    },
+  },
+});
 
 // Prefetch saved cards at app startup so checkout doesn't flash
 prefetchSavedCards(queryClient);
@@ -183,13 +194,20 @@ const AppRoutes = () => {
 };
 
 const AppContent = () => {
-  const { branding, isLoading: brandingLoading } = useBranding();
-  const { branch, loading: branchLoading } = useBranch();
+  const { branding, isLoading: brandingLoading, isError: brandingError } = useBranding();
+  const { branch, loading: branchLoading, error: branchError } = useBranch();
   const { isAuthReady } = useAuth();
-  const isFetching = useIsFetching();
+  const qc = useQueryClient();
   
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [connectionFailed, setConnectionFailed] = useState(false);
+
+  // Invalidate all queries on app resume from background
+  useAppLifecycle(useCallback(() => {
+    console.log('App resumed — invalidating all queries');
+    qc.invalidateQueries();
+  }, [qc]));
   
   // Auto-detect location on every app launch and update current location
   useEffect(() => {
@@ -244,20 +262,55 @@ const AppContent = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Max timeout safety valve — extended for slow native connections
+  // Dismiss once core data is ready (or show error if both failed after retries)
   useEffect(() => {
-    if (!showLoadingScreen) return;
-    const timer = setTimeout(() => setShowLoadingScreen(false), 12000);
-    return () => clearTimeout(timer);
-  }, [showLoadingScreen]);
-
-  // Dismiss once ALL queries settled, core data ready, auth ready, and min time elapsed
-  useEffect(() => {
-    if (!brandingLoading && !branchLoading && isAuthReady && isFetching === 0 && minTimeElapsed) {
-      setShowLoadingScreen(false);
+    const coreDataLoaded = !brandingLoading && !branchLoading;
+    const bothErrored = brandingError && branchError;
+    
+    if (coreDataLoaded && minTimeElapsed && isAuthReady) {
+      if (bothErrored && !branding && !branch) {
+        // Both queries exhausted retries and we have no data at all
+        setConnectionFailed(true);
+        setShowLoadingScreen(false);
+      } else {
+        // At least some data loaded successfully
+        setConnectionFailed(false);
+        setShowLoadingScreen(false);
+      }
     }
-  }, [brandingLoading, branchLoading, isAuthReady, isFetching, minTimeElapsed]);
+  }, [brandingLoading, branchLoading, brandingError, branchError, branding, branch, isAuthReady, minTimeElapsed]);
+
+  const handleRetry = useCallback(() => {
+    setConnectionFailed(false);
+    setShowLoadingScreen(true);
+    qc.invalidateQueries();
+    // Give queries time to start
+    setTimeout(() => {
+      setMinTimeElapsed(true);
+    }, 1200);
+  }, [qc]);
   
+  // Connection failed screen
+  if (connectionFailed && !showLoadingScreen) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background px-6">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="text-5xl mb-2">📡</div>
+          <h2 className="text-xl font-semibold text-foreground">Connection failed</h2>
+          <p className="text-muted-foreground text-sm">
+            We couldn't reach the server. Please check your internet connection and try again.
+          </p>
+          <button
+            onClick={handleRetry}
+            className="mt-4 px-8 py-3 rounded-xl bg-primary text-primary-foreground font-medium text-base active:scale-95 transition-transform"
+          >
+            Tap to retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Always render app so queries start immediately */}
