@@ -51,22 +51,29 @@ let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getAccessToken(serviceAccount: { client_email: string; private_key: string }): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
+    console.log('[FCM] Using cached access token');
     return cachedToken.token;
   }
 
+  console.log(`[FCM] Requesting new OAuth2 token for ${serviceAccount.client_email}`);
   const jwt = await createJWT(serviceAccount);
+  console.log(`[FCM] JWT created, exchanging for access token...`);
+  
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
   });
 
+  const bodyText = await res.text();
+  
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OAuth2 token exchange failed: ${errText}`);
+    console.error(`[FCM] OAuth2 token exchange failed (${res.status}): ${bodyText}`);
+    throw new Error(`OAuth2 token exchange failed (${res.status}): ${bodyText}`);
   }
 
-  const data = await res.json();
+  const data = JSON.parse(bodyText);
+  console.log(`[FCM] OAuth2 token obtained successfully, expires_in: ${data.expires_in}s`);
   cachedToken = {
     token: data.access_token,
     expiresAt: Date.now() + (data.expires_in * 1000),
