@@ -9,9 +9,9 @@ import FirebaseMessaging
 ///   PushNotificationSetup.shared.configure(application: application)
 ///
 /// Or let it auto-configure via the swizzled load() if preferred.
-final class PushNotificationSetup: NSObject {
+@objc final class PushNotificationSetup: NSObject {
 
-    static let shared = PushNotificationSetup()
+    @objc static let shared = PushNotificationSetup()
     private var isConfigured = false
 
     private override init() {
@@ -19,7 +19,7 @@ final class PushNotificationSetup: NSObject {
     }
 
     /// Call this from AppDelegate.didFinishLaunchingWithOptions or a Capacitor plugin.
-    func configure(application: UIApplication) {
+    @objc func configure(application: UIApplication) {
         guard !isConfigured else { return }
         isConfigured = true
 
