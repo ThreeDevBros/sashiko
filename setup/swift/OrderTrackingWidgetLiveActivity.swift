@@ -13,7 +13,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
             let etaText = context.state.values["etaMinutes"] ?? ""
             let orderId = context.state.values["orderId"] ?? ""
 
-            // Lock Screen / Banner view
+            // Lock Screen / Banner view — single message line, no title
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
@@ -24,16 +24,11 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                         .foregroundColor(statusColor(status))
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(statusLabel(status))
-                        .font(.subheadline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    Text(statusMessage)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
+                Text(statusMessage)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
 
                 Spacer()
 
@@ -66,9 +61,10 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                     HStack(spacing: 6) {
                         Image(systemName: statusIcon(status))
                             .foregroundColor(statusColor(status))
-                        Text(statusLabel(status))
-                            .font(.headline)
-                            .fontWeight(.bold)
+                        Text(statusMessage)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .lineLimit(2)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -80,10 +76,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(statusMessage)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                    EmptyView()
                 }
             } compactLeading: {
                 Image(systemName: statusIcon(status))
@@ -104,21 +97,6 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                     .foregroundColor(statusColor(status))
             }
             .widgetURL(URL(string: "sashiko://order-tracking/\(orderId)"))
-        }
-    }
-
-    /// Short label shown as the bold title line
-    private func statusLabel(_ status: String) -> String {
-        switch status {
-        case "pending":          return "Order Placed"
-        case "confirmed":        return "Confirmed"
-        case "preparing":        return "Preparing"
-        case "ready":            return "Ready"
-        case "out_for_delivery": return "On Its Way"
-        case "onTheWay":         return "On Its Way"
-        case "delivered":        return "Delivered"
-        case "cancelled":        return "Cancelled"
-        default:                 return "Order Update"
         }
     }
 

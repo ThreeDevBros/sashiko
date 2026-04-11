@@ -11,29 +11,29 @@ const corsHeaders = {
 function getStatusMessage(status: string, orderType: string): string {
   const messages: Record<string, Record<string, string>> = {
     confirmed: {
-      delivery: 'Great news! Your order has been confirmed 🎉',
-      pickup: 'Great news! Your order has been confirmed 🎉',
-      dine_in: 'Great news! Your order has been confirmed 🎉',
+      delivery: 'Your order has been confirmed',
+      pickup: 'Your order has been confirmed',
+      dine_in: 'Your order has been confirmed',
     },
     preparing: {
-      delivery: 'Our kitchen is preparing your order 👨‍🍳',
-      pickup: 'Our kitchen is preparing your order 👨‍🍳',
-      dine_in: 'Our kitchen is preparing your order 👨‍🍳',
+      delivery: 'Preparing your food',
+      pickup: 'Preparing your food',
+      dine_in: 'Preparing your food',
     },
     ready: {
-      delivery: 'Your order is ready and waiting for a driver 🚗',
-      pickup: 'Your order is ready for pickup! Head over whenever you\'re ready 🙌',
-      dine_in: 'Your order is ready! Enjoy your meal 🍽️',
+      delivery: 'Your food is ready, waiting for driver',
+      pickup: 'Your food is ready for pickup',
+      dine_in: 'Your food is ready',
     },
     out_for_delivery: {
-      delivery: 'Your order is on its way to you! 🚗',
-      pickup: 'Your order is on its way!',
-      dine_in: 'Your order is on its way!',
+      delivery: 'Your order is on its way',
+      pickup: 'Your order is on its way',
+      dine_in: 'Your order is on its way',
     },
     delivered: {
-      delivery: 'Your order has been delivered — enjoy! 😋',
-      pickup: 'Your order has been picked up — enjoy! 😋',
-      dine_in: 'Your order is complete — thank you! 😋',
+      delivery: 'Your order has been delivered',
+      pickup: 'Your order has been picked up',
+      dine_in: 'Your order is complete',
     },
     cancelled: {
       delivery: 'Your order has been cancelled',
