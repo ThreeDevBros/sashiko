@@ -1,65 +1,79 @@
 
 
-# Plan: Clean Up Notifications, Polish Live Activity, Ensure Real-Time Updates
+# Plan: Fix Live Activity Deep Link, Auto-Updates, ETA with Delivery Time, Remove Order ID
 
-## Issues Found
+## Issues
 
-1. **`update-order-eta` edge function still sends FCM push notifications every cycle** — it was never updated to be Live-Activity-only. It rebuilds FCM messages for every active order and sends them via `sendFcmV2`.
+1. **Tapping Live Activity doesn't open /order-tracking** — The Swift widget has no deep link URL configured. When tapped, it just opens the app to whatever screen it was on.
 
-2. **`send-order-push` sends `alertTitle` and `alertBody` on Live Activity updates** — this causes iOS to show a banner notification alongside the Live Activity update for every status change. Live Activity updates should be silent content-state pushes, not alert pushes.
+2. **Leaving order-tracking breaks home page data** — This is the same bootstrap/data loading regression from before. The `ActiveOrderBanner` on the home page should show the active order, and it does have its own fetch + realtime subscription. Need to investigate if the realtime channel is being properly cleaned up or if something else is interfering.
 
-3. **No pg_cron job exists for `update-order-eta`** — so the function is never called automatically. Live Activities cannot update server-side without the app being open. A cron job (every 2 minutes) is needed to keep the ETA ticking down on the lock screen.
+3. **Live Activity doesn't update automatically when status changes** — The server-side `send-order-push` function sends APNs updates, but the `contentState` sends `etaMinutes` as a `number | null` while the Swift `GenericAttributes.ContentState` expects `[String: String]`. APNs JSON delivers numbers as actual numbers, not strings, causing the Swift Codable decoder to fail silently and drop the update. The `update-order-eta` cron function has the same issue.
 
-4. **Order tracking page does not react to `estimated_ready_at` changes in real-time** — the Supabase realtime subscription updates `order` state, but the Live Activity `useEffect` only depends on `order?.estimated_ready_at`. The `LiveOrderCountdown` component may not re-render if the ETA field on the payload isn't picked up. The polling interval is 10s which is fine, but the realtime channel should also trigger ETA refresh.
+4. **ETA doesn't include delivery transit time** — Both edge functions compute ETA from `estimated_ready_at` only (prep time). For delivery orders, the Live Activity should show prep time + transit time. The `LiveOrderCountdown` component already calculates this using Google Maps Directions API, but the server-side functions don't have access to transit time. Solution: store a `delivery_transit_minutes` or compute a combined ETA and send that.
 
-5. **Live Activity `contentState` still includes `orderNumber` field** — while the Swift widget doesn't display it as a title, it's still being sent and stored. The `statusMessage` from the edge function already contains user-friendly text. No order ID leaks into the widget UI (confirmed from Swift code), but the `alertTitle`/`alertBody` in the APNs push DO contain "Order #XXX" which shows as a notification banner.
+5. **Order ID still in the Live Activity title** — The `buildContentState` in `nativeLiveActivity.ts` still sends `orderNumber` in the content state. The Swift widget doesn't display it as a title (it uses `statusLabel`), but the field is still transmitted. The `nativeLiveActivity.ts` `LiveActivityData` interface still has `orderNumber` as a required field.
 
 ## Changes
 
-### 1. Remove FCM from `update-order-eta` — Live Activity only
-**File: `supabase/functions/update-order-eta/index.ts`**
-- Remove the entire FCM push block (lines 75-97)
-- Remove the `sendFcmV2` import
-- Keep only the Live Activity APNs update section
-- This stops the periodic push notification pings
+### 1. Add deep link URL to Live Activity widget
+**File: `setup/swift/OrderTrackingWidgetLiveActivity.swift`**
+- Add `.widgetURL(URL(string: "sashiko://order-tracking/\(context.state.values["orderId"] ?? "")"))` to both the lock screen view and Dynamic Island expanded region
+- The `orderId` needs to be passed in `contentState` (it's useful for navigation, not displayed)
 
-### 2. Remove alert fields from Live Activity pushes
+**File: `capacitor.config.ts`**
+- Ensure the app handles the `sashiko://` URL scheme (Capacitor handles this via `appUrlOpen` event)
+
+**File: `src/App.tsx`**
+- Add a listener for Capacitor's `appUrlOpen` event to navigate to `/order-tracking/:id` when the deep link is triggered
+
+### 2. Fix contentState type mismatch (numbers vs strings)
 **File: `supabase/functions/send-order-push/index.ts`**
-- Remove `alertTitle`, `alertBody`, and `sound` from the Live Activity update objects (lines 167-169)
-- This makes Live Activity updates silent content-state-only pushes — no banner notifications
-- The status change is shown directly in the Live Activity widget on the lock screen
+- Convert `etaMinutes` to string in the `contentState`: `etaMinutes: etaMinutes != null ? String(etaMinutes) : ''`
 
 **File: `supabase/functions/update-order-eta/index.ts`**
-- Same treatment — ensure no alert fields are sent in the ETA refresh Live Activity updates (already clean, just confirm)
+- Same fix: convert `etaMinutes` to `String(etaMinutes)`
+- Ensure all `contentState` values are strings to match the Swift `[String: String]` Codable type
 
-### 3. Create pg_cron job for `update-order-eta`
-**Database migration**
-- Schedule `update-order-eta` to run every 2 minutes via pg_cron + pg_net
-- This ensures Live Activities update on the lock screen without the app being open
-- Uses the same pattern as the existing `process-email-queue` cron job
+### 3. Include delivery transit time in server-side ETA
+**File: `supabase/functions/send-order-push/index.ts`**
+- After computing prep ETA from `estimated_ready_at`, also fetch the order's delivery address coordinates and branch coordinates
+- Use a simple straight-line distance estimate (or store transit minutes on the order) to add delivery time
+- For simplicity: add a `delivery_transit_minutes` column to orders, populated by the client when it calculates transit via Google Maps, then the edge functions can read it
 
-### 4. Ensure OrderTracking page updates in real-time
+**Database migration**: Add `delivery_transit_minutes integer` column to orders table
+
 **File: `src/pages/OrderTracking.tsx`**
-- The realtime subscription already calls `setOrder(prev => prev ? { ...prev, ...payload.new } : null)` which includes `estimated_ready_at` — this is correct
-- Add `estimated_ready_at` to the Live Activity useEffect dependency so local LA updates also fire when ETA changes via realtime
-- Ensure the `LiveOrderCountdown` component receives the latest `estimated_ready_at` from state (verify prop binding)
+- When `LiveOrderCountdown` computes `transitMinutes` via Google Maps, save it to the order if not already saved: `supabase.from('orders').update({ delivery_transit_minutes: transitMinutes }).eq('id', orderId)`
 
-### 5. Remove `orderNumber` from Live Activity content state
 **Files: `send-order-push/index.ts`, `update-order-eta/index.ts`**
-- Remove `orderNumber` from the `contentState` object sent to APNs
-- The Swift widget doesn't use it, so this is just cleanup
-- Keep `status`, `statusMessage`, `etaMinutes`, `orderType`, `updatedAt`
+- Read `delivery_transit_minutes` from the order and add it to `etaMinutes` for delivery orders
+
+### 4. Remove orderNumber from contentState
+**File: `src/lib/nativeLiveActivity.ts`**
+- Remove `orderNumber` from `buildContentState` and `LiveActivityData` interface
+- Add `orderId` to contentState (needed for deep linking, not displayed)
+
+### 5. Fix home page data loading after leaving order-tracking
+**File: `src/pages/OrderTracking.tsx`**
+- Ensure realtime channel cleanup is correct (it looks correct already — `supabase.removeChannel(channel)` in cleanup)
+- The issue may be that navigating back triggers a re-render of the home page before the bootstrap gate settles. Check if `ActiveOrderBanner` properly waits for `isAuthReady`
+
+**File: `src/components/ActiveOrderBanner.tsx`**
+- Already checks `isAuthReady` — this is likely fine. The real issue may be the realtime channel using a wildcard filter on the entire `orders` table. Scope it to the user's orders only.
 
 ## Files to modify
-1. `supabase/functions/update-order-eta/index.ts` — remove FCM, remove orderNumber from contentState
-2. `supabase/functions/send-order-push/index.ts` — remove alertTitle/alertBody/sound from LA updates, remove orderNumber from contentState
-3. `src/pages/OrderTracking.tsx` — minor: ensure estimated_ready_at changes trigger LA update
-4. Database migration — add pg_cron job for update-order-eta every 2 minutes
+1. `setup/swift/OrderTrackingWidgetLiveActivity.swift` — add deep link URL
+2. `src/App.tsx` — handle `appUrlOpen` deep link for order tracking
+3. `supabase/functions/send-order-push/index.ts` — stringify contentState values, add transit time to ETA
+4. `supabase/functions/update-order-eta/index.ts` — stringify contentState values, add transit time to ETA
+5. `src/lib/nativeLiveActivity.ts` — remove `orderNumber`, add `orderId` to contentState
+6. `src/pages/OrderTracking.tsx` — save transit minutes to DB for server-side use
+7. Database migration — add `delivery_transit_minutes` column to orders
+8. `src/components/ActiveOrderBanner.tsx` — scope realtime to user's orders to prevent stale state
 
-## Result
-- No more push notification pings during order tracking
-- Live Activity updates silently on the lock screen (status + ETA)
-- Server-side cron keeps Live Activity fresh every 2 minutes without app open
-- Only terminal statuses (delivered/cancelled) send a FCM push notification
-- Order tracking page stays in sync via realtime + polling fallback
+## Technical notes
+- The critical bug is the type mismatch: Swift's `Codable` for `[String: String]` silently fails when it receives a JSON number instead of a string. This is why server-side APNs updates aren't reflected in the widget.
+- Deep linking uses a custom URL scheme (`sashiko://`) which Capacitor intercepts via the `appUrlOpen` event.
+- Storing `delivery_transit_minutes` on the order avoids needing Google Maps API access in edge functions.
 
