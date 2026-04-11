@@ -124,11 +124,16 @@ export default function OrderTracking() {
     loadCashbackRate();
   }, [orderId, isAuthReady]);
 
-  // Helper to compute ETA minutes
+  // Helper to compute ETA minutes (prep + transit, matching server-side logic)
   const computeEtaMinutes = useCallback((o: Order | null): number | null => {
     if (!o?.estimated_ready_at) return null;
     const diffMs = new Date(o.estimated_ready_at).getTime() - Date.now();
-    return Math.max(0, Math.ceil(diffMs / 60000));
+    const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
+    // Add delivery transit minutes for delivery orders (same as server-side update-order-eta)
+    const transitMinutes = o.order_type === 'delivery' && (o as any).delivery_transit_minutes
+      ? (o as any).delivery_transit_minutes
+      : 0;
+    return prepMinutes + transitMinutes;
   }, []);
 
   // Save delivery transit minutes to DB for server-side Live Activity ETA
@@ -222,41 +227,38 @@ export default function OrderTracking() {
     };
   }, [orderId, order?.status, cashbackRate, resumeCounter]);
 
-  // Polling fallback for ALL users (realtime can be flaky on native WebView)
+  // Polling fallback for authenticated users (realtime can be flaky on native WebView)
+  // Uses auth context user instead of fragile getUser() call
   useEffect(() => {
-    if (!orderId) return;
+    if (!orderId || !user || isGuest) return;
     const isTerminal = order && ['delivered', 'cancelled'].includes(order.status);
-    if (isTerminal) return; // Stop polling for completed orders
+    if (isTerminal) return;
 
     const interval = setInterval(async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: freshOrder } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('id', orderId)
-            .single();
-          if (freshOrder) {
-            const oldStatus = order?.status;
-            if (freshOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(freshOrder.status)) {
-              showStatusChangeToast(freshOrder.status, freshOrder.order_type || 'delivery', freshOrder.order_number || '');
-              if (freshOrder.status === 'delivered' && !hasShownCashbackToast.current) {
-                showCashbackEarnedToast(freshOrder.total || 0);
-                hasShownCashbackToast.current = true;
-              }
+        const { data: freshOrder } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+        if (freshOrder) {
+          const oldStatus = order?.status;
+          if (freshOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(freshOrder.status)) {
+            showStatusChangeToast(freshOrder.status, freshOrder.order_type || 'delivery', freshOrder.order_number || '');
+            if (freshOrder.status === 'delivered' && !hasShownCashbackToast.current) {
+              showCashbackEarnedToast(freshOrder.total || 0);
+              hasShownCashbackToast.current = true;
             }
-            setOrder(freshOrder);
           }
+          setOrder(freshOrder);
         }
-        // Guest polling is handled separately below
       } catch (err) {
         console.error('Order poll error:', err);
       }
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [orderId, order?.status, isGuest, cashbackRate]);
+  }, [orderId, order?.status, user, isGuest, cashbackRate]);
 
   // Auto-poll for guest orders (no realtime subscription available)
   useEffect(() => {

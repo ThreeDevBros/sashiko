@@ -27,7 +27,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshSession = useCallback(async (): Promise<Session | null> => {
     try {
-      const { data: { session: s } } = await supabase.auth.getSession();
+      // Use refreshSession to actually validate/refresh the token, not just read from cache
+      const { data: { session: s }, error } = await supabase.auth.refreshSession();
+      if (error) {
+        // Fallback to cached session if refresh fails (e.g. offline)
+        const { data: { session: cached } } = await supabase.auth.getSession();
+        setSession(cached);
+        setUser(cached?.user ?? null);
+        return cached;
+      }
       setSession(s);
       setUser(s?.user ?? null);
       return s;

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { StaffLayout } from '@/components/staff/StaffLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -104,6 +105,7 @@ function combineDateAndTime(dateStr: string, timeStr: string) {
 }
 
 export default function StaffReservations() {
+  const { user, isAuthReady } = useAuth();
   const queryClient = useQueryClient();
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -133,16 +135,15 @@ export default function StaffReservations() {
   const timeOptions = useMemo(() => buildHalfHourOptions(), []);
 
   const { data: branchContext, isLoading: branchLoading } = useQuery({
-    queryKey: ['staff-reservations-branch-context'],
+    queryKey: ['staff-reservations-branch-context', user?.id],
+    enabled: isAuthReady && !!user,
     queryFn: async () => {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!authData.user) return null;
+      if (!user) return null;
 
       const { data: assignment, error: assignmentError } = await supabase
         .from('staff_branches')
         .select('branch_id')
-        .eq('user_id', authData.user.id)
+        .eq('user_id', user.id)
         .limit(1)
         .maybeSingle();
 
