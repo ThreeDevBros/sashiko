@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatOrderDisplayNumber } from '@/lib/orderNumber';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { DriverLayout } from '@/components/driver/DriverLayout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ interface OrderWithAddress {
 }
 
 export default function DriverOrders() {
+  const { user, isAuthReady } = useAuth();
   const [preparingOrders, setPreparingOrders] = useState<OrderWithAddress[]>([]);
   const [orders, setOrders] = useState<OrderWithAddress[]>([]);
   const [activeOrders, setActiveOrders] = useState<OrderWithAddress[]>([]);
@@ -39,9 +41,9 @@ export default function DriverOrders() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!isAuthReady || !user) return;
     loadOrders();
 
-    // Subscribe to realtime order changes
     const channel = supabase
       .channel('driver-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
@@ -50,12 +52,11 @@ export default function DriverOrders() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [isAuthReady, user]);
 
   const loadOrders = async () => {
+    if (!user) return;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
       // Get driver's branch
       const { data: staffBranch } = await supabase

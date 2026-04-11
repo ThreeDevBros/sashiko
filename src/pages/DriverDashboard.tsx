@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatOrderDisplayNumber } from '@/lib/orderNumber';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import LoadingScreen from '@/components/LoadingScreen';
 import { useBranding } from '@/hooks/useBranding';
 import sashikoLogo from '@/assets/sashiko-logo.png';
@@ -31,6 +32,7 @@ interface Address {
 }
 
 export default function DriverDashboard() {
+  const { user, isAuthReady } = useAuth();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,16 +40,14 @@ export default function DriverDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!isAuthReady) return;
+    if (!user) { setLoading(false); return; }
     loadActiveOrder();
-  }, []);
+  }, [isAuthReady, user]);
 
   const loadActiveOrder = async () => {
+    if (!user) { setLoading(false); return; }
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
 
       // Get active order assigned to this driver
       const { data: orderData, error: orderError } = await supabase
