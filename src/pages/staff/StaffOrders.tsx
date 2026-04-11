@@ -218,7 +218,7 @@ export default function StaffOrders() {
     return () => clearInterval(interval);
   }, [queryClient, staffBranchId]);
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, error: ordersError } = useQuery({
     queryKey: ['staff-orders', staffBranchId],
     queryFn: async () => {
       if (!staffBranchId) return [];
@@ -228,7 +228,10 @@ export default function StaffOrders() {
         .in('status', ACTIVE_STATUSES)
         .eq('branch_id', staffBranchId)
         .order('created_at', { ascending: false });
-      if (error) throw error;
+      if (error) {
+        console.error('Staff orders query failed:', error);
+        throw error;
+      }
       return data;
     },
     enabled: !!staffBranchId,
@@ -375,7 +378,16 @@ export default function StaffOrders() {
         </div>
 
         {/* Orders Table */}
-        {isLoading ? (
+        {ordersError ? (
+          <div className="text-center py-12 space-y-2">
+            <AlertTriangle className="h-8 w-8 text-destructive mx-auto" />
+            <p className="text-sm text-destructive">Failed to load orders</p>
+            <p className="text-xs text-muted-foreground">{(ordersError as Error).message}</p>
+            <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['staff-orders', staffBranchId] })}>
+              Retry
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="text-center py-12 text-muted-foreground text-sm">Loading orders...</div>
         ) : filteredOrders && filteredOrders.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border">

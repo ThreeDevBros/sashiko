@@ -1,86 +1,86 @@
+import { useCallback } from 'react';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 
 export const useHaptics = () => {
-  const isHapticsAvailable = async () => {
+  const isHapticsAvailable = useCallback(async () => {
     try {
-      // Check if Haptics is available on the platform
       return true;
     } catch {
       return false;
     }
-  };
+  }, []);
 
-  const light = async () => {
+  const light = useCallback(async () => {
     try {
       await Haptics.impact({ style: ImpactStyle.Light });
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
-  const medium = async () => {
+  const medium = useCallback(async () => {
     try {
       await Haptics.impact({ style: ImpactStyle.Medium });
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
-  const heavy = async () => {
+  const heavy = useCallback(async () => {
     try {
       await Haptics.impact({ style: ImpactStyle.Heavy });
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
-  const success = async () => {
+  const success = useCallback(async () => {
     try {
       await Haptics.notification({ type: NotificationType.Success });
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
-  const warning = async () => {
+  const warning = useCallback(async () => {
     try {
       await Haptics.notification({ type: NotificationType.Warning });
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
-  const error = async () => {
+  const error = useCallback(async () => {
     try {
       await Haptics.notification({ type: NotificationType.Error });
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
-  const selectionStart = async () => {
+  const selectionStart = useCallback(async () => {
     try {
       await Haptics.selectionStart();
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
-  const selectionChanged = async () => {
+  const selectionChanged = useCallback(async () => {
     try {
       await Haptics.selectionChanged();
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
-  const selectionEnd = async () => {
+  const selectionEnd = useCallback(async () => {
     try {
       await Haptics.selectionEnd();
     } catch (error) {
       console.log('Haptics not available');
     }
-  };
+  }, []);
 
   return {
     light,
