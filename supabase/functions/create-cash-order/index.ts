@@ -125,6 +125,26 @@ serve(async (req) => {
       } catch (e) { console.error('Reverse geocode failed:', e); }
     }
 
+    // For authenticated users, populate guest_name/email/phone from profile as backup display fields
+    if (user?.id) {
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const profileName = profile?.full_name || guest_info?.name || user.user_metadata?.full_name || '';
+      const profilePhone = profile?.phone || guest_info?.phone || '';
+      const profileEmail = guest_info?.email || user.email || '';
+
+      // Always store name/email/phone on the order so admin panels can display them
+      guest_info = {
+        name: profileName,
+        email: profileEmail,
+        phone: profilePhone,
+      };
+    }
+
     // Guest checkout validation
     if (!user && !guest_info) {
       return new Response(
