@@ -1,6 +1,6 @@
 // AppDelegate.swift
 // Replace the default Capacitor AppDelegate with this file.
-// It adds ONE line to initialize Firebase push notifications.
+// It adds Firebase push notifications and manually registers the LiveActivity plugin.
 
 import UIKit
 import Capacitor
@@ -13,6 +13,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Initialize Firebase + push notifications
         PushNotificationSetup.shared.configure(application: application)
+
+        // Register local LiveActivity plugin with the Capacitor bridge.
+        // Must be dispatched async so the bridge has finished initializing.
+        DispatchQueue.main.async {
+            if let bridge = (self.window?.rootViewController as? CAPBridgeViewController)?.bridge {
+                bridge.registerPluginInstance(LiveActivityPlugin())
+                print("[LiveActivity] Plugin manually registered with bridge")
+            } else {
+                print("[LiveActivity] WARNING: Could not find Capacitor bridge to register plugin")
+            }
+        }
+
         return true
     }
 

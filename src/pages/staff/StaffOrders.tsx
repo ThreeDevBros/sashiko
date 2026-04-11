@@ -418,7 +418,7 @@ function StaffOrdersContent() {
                       onClick={() => fetchOrderDetails(order.id)}
                     >
                       <TableCell className="font-mono text-xs py-2.5">#{formatOrderDisplayNumber(order.display_number)}</TableCell>
-                      <TableCell className="text-xs py-2.5">{order.user_id ? (order.profiles?.full_name || 'Registered customer') : (order.guest_name || 'Guest')}</TableCell>
+                      <TableCell className="text-xs py-2.5"><TableCell className="text-xs py-2.5">{order.user_id ? (order.profiles?.full_name || order.guest_name || 'Registered customer') : (order.guest_name || 'Guest')}</TableCell></TableCell>
                       <TableCell className="text-xs py-2.5 text-muted-foreground">{formatOrderTime(order.created_at)}</TableCell>
                       <TableCell className="py-2.5">
                         <Badge variant="outline" className="text-[10px] capitalize px-1.5 py-0">{order.order_type.replace('_', ' ')}</Badge>
@@ -497,7 +497,7 @@ function StaffOrdersContent() {
                     <User className="w-4 h-4 text-primary" /> Customer
                   </h3>
                   <div className="grid gap-1.5 text-sm">
-                    <p className="font-medium">{newOrderPopup.user_id ? (newOrderPopup.profiles?.full_name || 'Registered customer') : (newOrderPopup.guest_name || 'Guest')}</p>
+                    <p className="font-medium"><p className="font-medium">{newOrderPopup.user_id ? (newOrderPopup.profiles?.full_name || newOrderPopup.guest_name || 'Registered customer') : (newOrderPopup.guest_name || 'Guest')}</p></p>
                     {(newOrderPopup.profiles?.phone || newOrderPopup.guest_phone) && (
                       <a href={`tel:${newOrderPopup.profiles?.phone || newOrderPopup.guest_phone}`} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary">
                         <Phone className="w-3.5 h-3.5" />
