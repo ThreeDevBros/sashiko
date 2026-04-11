@@ -1,0 +1,1 @@
+ALTER TABLE public.driver_locations ADD COLUMN IF NOT EXISTS proximity_notified boolean NOT NULL DEFAULT false;
