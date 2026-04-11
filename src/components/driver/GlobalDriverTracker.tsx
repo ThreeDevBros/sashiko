@@ -15,7 +15,6 @@ export function GlobalDriverTracker() {
   const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const userIdRef = useRef<string | null>(null);
 
-  // Check if the current user is a driver and has active orders
   const checkDriverStatus = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -27,7 +26,6 @@ export function GlobalDriverTracker() {
 
       userIdRef.current = user.id;
 
-      // Check if user has delivery role
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
@@ -42,7 +40,6 @@ export function GlobalDriverTracker() {
 
       setIsDriver(true);
 
-      // Get active delivery orders assigned to this driver
       const { data: orders } = await supabase
         .from('orders')
         .select('id')
@@ -56,7 +53,32 @@ export function GlobalDriverTracker() {
     }
   }, []);
 
-  // Send GPS location for all active orders
+  const checkProximity = useCallback(async (orderId: string, lat: number, lng: number) => {
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      if (!projectId) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+
+      await fetch(`https://${projectId}.supabase.co/functions/v1/check-driver-proximity`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          driver_lat: lat,
+          driver_lng: lng,
+        }),
+      });
+    } catch (err) {
+      console.error('[GlobalDriverTracker] Proximity check error:', err);
+    }
+  }, []);
+
   const sendLocation = useCallback(async () => {
     if (activeOrderIds.length === 0 || !userIdRef.current) return;
     if (!navigator.geolocation) return;
@@ -72,29 +94,38 @@ export function GlobalDriverTracker() {
 
       const heading = position.coords.heading;
       const speed = position.coords.speed ? position.coords.speed * 3.6 : null;
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
 
       const inserts = activeOrderIds.map(orderId => ({
         driver_id: userIdRef.current!,
         order_id: orderId,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
+        latitude: lat,
+        longitude: lng,
         heading,
         speed,
         accuracy: position.coords.accuracy,
       }));
 
       const { error } = await supabase.from('driver_locations').upsert(inserts, { onConflict: 'order_id' });
-      if (error) console.error('[GlobalDriverTracker] Upsert error:', error);
+      if (error) {
+        console.error('[GlobalDriverTracker] Upsert error:', error);
+        return;
+      }
+
+      // Check proximity for each active order
+      for (const orderId of activeOrderIds) {
+        checkProximity(orderId, lat, lng);
+      }
     } catch (err) {
       console.error('[GlobalDriverTracker] GPS error:', err);
     }
-  }, [activeOrderIds]);
+  }, [activeOrderIds, checkProximity]);
 
-  // Acquire Wake Lock to prevent screen from sleeping during delivery
   const acquireWakeLock = useCallback(async () => {
     if (!('wakeLock' in navigator)) return;
     try {
-      if (wakeLockRef.current) return; // Already acquired
+      if (wakeLockRef.current) return;
       wakeLockRef.current = await navigator.wakeLock.request('screen');
       wakeLockRef.current.addEventListener('release', () => {
         wakeLockRef.current = null;
@@ -113,12 +144,10 @@ export function GlobalDriverTracker() {
     }
   }, []);
 
-  // Re-acquire wake lock when page becomes visible again
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && activeOrderIds.length > 0) {
         acquireWakeLock();
-        // Also send a location update immediately when app comes back
         sendLocation();
       }
     };
@@ -127,14 +156,10 @@ export function GlobalDriverTracker() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [activeOrderIds.length, acquireWakeLock, sendLocation]);
 
-  // Initial check + periodic re-check for active orders
   useEffect(() => {
     checkDriverStatus();
-
-    // Re-check every 30 seconds for new active orders
     checkIntervalRef.current = setInterval(checkDriverStatus, 30000);
 
-    // Also listen for realtime order changes
     const channel = supabase
       .channel('global-driver-tracker')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
@@ -148,15 +173,12 @@ export function GlobalDriverTracker() {
     };
   }, [checkDriverStatus]);
 
-  // Start/stop GPS tracking based on active orders
   useEffect(() => {
     if (activeOrderIds.length > 0) {
-      // Start tracking
-      sendLocation(); // Immediately
+      sendLocation();
       intervalRef.current = setInterval(sendLocation, 10000);
       acquireWakeLock();
     } else {
-      // Stop tracking
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -172,13 +194,11 @@ export function GlobalDriverTracker() {
     };
   }, [activeOrderIds, sendLocation, acquireWakeLock, releaseWakeLock]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       releaseWakeLock();
     };
   }, [releaseWakeLock]);
 
-  // This component renders nothing
   return null;
 }

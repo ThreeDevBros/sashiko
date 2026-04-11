@@ -17,7 +17,6 @@ const statusMessages: Record<string, string> = {
   cancelled: 'Your order has been cancelled',
 };
 
-// Maps order status to a simple state for the Live Activity widget
 const statusToLiveState: Record<string, string> = {
   pending: 'pending',
   confirmed: 'confirmed',
@@ -45,7 +44,6 @@ serve(async (req) => {
       });
     }
 
-    // Get order details
     const { data: order, error: orderErr } = await supabase
       .from('orders')
       .select('user_id, display_number, order_number, order_type, estimated_ready_at')
@@ -66,25 +64,26 @@ serve(async (req) => {
     const title = `Order ${orderLabel}`;
     const body = messageTemplate;
 
-    // --- FCM Push Notifications ---
+    // --- FCM Push Notifications (collapsible per order) ---
     const { data: tokens } = await supabase
       .from('push_device_tokens')
       .select('token')
       .eq('user_id', order.user_id);
 
-    let fcmSent = 0;
+    let fcmResult = { sent: 0, failed: 0, attempted: 0, skipped_invalid: 0, errors: [] as string[] };
     if (tokens && tokens.length > 0) {
       const messages = tokens.map((t: any) => ({
         token: t.token,
         title,
         body,
+        collapseKey: `order_${order_id}`,
         data: {
           type: 'order_status',
           order_id,
           status: new_status,
         },
       }));
-      fcmSent = await sendFcmV2(messages);
+      fcmResult = await sendFcmV2(messages);
     }
 
     // --- Live Activity Updates ---
@@ -99,7 +98,6 @@ serve(async (req) => {
       const bundleId = Deno.env.get('IOS_BUNDLE_ID') || 'app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10';
       const isTerminal = ['delivered', 'cancelled'].includes(new_status);
 
-      // Calculate ETA minutes remaining
       let etaMinutes: number | null = null;
       if (order.estimated_ready_at) {
         const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
@@ -120,15 +118,15 @@ serve(async (req) => {
         alertTitle: title,
         alertBody: body,
         sound: 'default',
-        staleDate: Math.floor(Date.now() / 1000) + 120, // Stale after 2 min
-        ...(isTerminal && { dismissalDate: Math.floor(Date.now() / 1000) + 300 }), // Dismiss after 5 min
+        staleDate: Math.floor(Date.now() / 1000) + 120,
+        ...(isTerminal && { dismissalDate: Math.floor(Date.now() / 1000) + 300 }),
         relevanceScore: isTerminal ? 0 : 75,
       }));
 
       liveActivitySent = await sendLiveActivityUpdate(updates, bundleId);
     }
 
-    return new Response(JSON.stringify({ sent: fcmSent, liveActivitySent }), {
+    return new Response(JSON.stringify({ sent: fcmResult.sent, liveActivitySent }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {

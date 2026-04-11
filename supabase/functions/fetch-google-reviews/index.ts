@@ -20,8 +20,8 @@ const buildOpeningHours = (periods?: Array<any> | null) => {
     day_of_week: ourDay,
     is_closed: true,
     is_24h: false,
-    open_time: null,
-    close_time: null,
+    open_time: null as string | null,
+    close_time: null as string | null,
   }));
 
   for (const period of periods) {
@@ -33,12 +33,35 @@ const buildOpeningHours = (periods?: Array<any> | null) => {
     const ourDay = googleToOurDay(open.day);
     const is24h = open.hour === 0 && (open.minute ?? 0) === 0 && !close;
 
+    if (is24h) {
+      schedule[ourDay] = {
+        day_of_week: ourDay,
+        is_closed: false,
+        is_24h: true,
+        open_time: null,
+        close_time: null,
+      };
+      continue;
+    }
+
+    const openTime = formatTime(open);
+    let closeTime = formatTime(close);
+
+    // Handle overnight hours: if close.day differs from open.day,
+    // the business closes past midnight. Store the close time as-is
+    // on the opening day (e.g. open 18:00, close 02:00).
+    if (close && typeof close.day === 'number' && close.day !== open.day) {
+      // Overnight closing — still record it on the opening day
+      closeTime = formatTime(close);
+      console.log(`[Hours] Overnight period: opens day ${open.day} at ${openTime}, closes day ${close.day} at ${closeTime}`);
+    }
+
     schedule[ourDay] = {
       day_of_week: ourDay,
       is_closed: false,
-      is_24h: is24h,
-      open_time: is24h ? null : formatTime(open),
-      close_time: is24h ? null : formatTime(close),
+      is_24h: false,
+      open_time: openTime,
+      close_time: closeTime,
     };
   }
 
@@ -85,6 +108,9 @@ serve(async (req) => {
       const apiMessage = data?.error?.message || responseText || 'Unknown Google Places API error';
       throw new Error(`Google Places API error: ${apiMessage}`);
     }
+
+    // Debug log raw periods for troubleshooting
+    console.log(`[fetch-google-reviews] Raw periods:`, JSON.stringify(data?.regularOpeningHours?.periods));
 
     const result = {
       rating: data?.rating ?? null,
