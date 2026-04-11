@@ -26,7 +26,7 @@ const COMPLETED_STATUSES = ['delivered', 'cancelled'] as const;
 
 type DatePreset = 'today' | 'yesterday' | 'week' | 'all' | 'custom';
 
-export default function StaffOrderHistory() {
+function StaffOrderHistoryContent() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -110,8 +110,7 @@ export default function StaffOrderHistory() {
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || typeFilter !== 'all' || datePreset !== 'all';
 
   return (
-    <StaffLayout>
-      <div className="space-y-4">
+    <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-bold">Order History</h1>
           <p className="text-muted-foreground text-xs">Completed and rejected orders</p>
@@ -252,7 +251,14 @@ export default function StaffOrderHistory() {
         ) : (
           <div className="text-center py-12 text-muted-foreground text-sm">No completed orders found</div>
         )}
-      </div>
+    </div>
+  );
+}
+
+export default function StaffOrderHistory() {
+  return (
+    <StaffLayout>
+      <StaffOrderHistoryContent />
     </StaffLayout>
   );
 }
