@@ -700,11 +700,12 @@ export default function OrderTracking() {
         {/* Order Progress Tracker */}
         <OrderProgressTracker status={order.status} orderType={order.order_type} />
 
-        {/* Live Countdown Timer */}
+        {/* Live Countdown Timer — uses same ETA formula as server-side Live Activity */}
         <LiveOrderCountdown
           orderType={order.order_type}
           status={order.status}
           estimatedReadyAt={order.estimated_ready_at}
+          deliveryTransitMinutes={(order as any).delivery_transit_minutes}
           branchLat={branch?.latitude}
           branchLng={branch?.longitude}
           deliveryLat={address?.latitude}
