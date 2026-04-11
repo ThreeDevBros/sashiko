@@ -92,17 +92,15 @@ Copy the files from this `/setup/swift/` folder into `ios/App/App/` using Xcode.
 
 | File | Description |
 |------|-------------|
-| `AppDelegate.swift` | **Replaces** the default Capacitor `AppDelegate.swift`. Adds Firebase init + FCM token capture. |
+| `PushNotificationSetup.swift` | Firebase init + FCM token capture + push permission handling. **New file — do NOT replace Capacitor's AppDelegate.** |
+| `PushNotificationBridge.m` | Objective-C hook that auto-configures push notifications on launch without touching AppDelegate. |
 | `GenericAttributes.swift` | Shared `ActivityAttributes` struct for Live Activities. Must be added to **both** App and Widget targets. |
 | `LiveActivityPlugin.swift` | Custom Capacitor plugin for Live Activity lifecycle. |
 | `LiveActivityPlugin.m` | Objective-C bridge for the Live Activity plugin. |
 
-### Important: Replace the default AppDelegate
+### Important: Do NOT replace Capacitor's AppDelegate
 
-Capacitor generates a default `AppDelegate.swift`. You must **replace its contents** with the version from `setup/swift/AppDelegate.swift`. This adds:
-- Firebase initialization (`FirebaseApp.configure()`)
-- FCM delegate and token capture
-- Storage of FCM token in `UserDefaults` for the JS layer to read
+Keep Capacitor's default `AppDelegate.swift` as-is. The `PushNotificationBridge.m` file automatically hooks into app launch via `NSNotificationCenter` and calls `PushNotificationSetup.shared.configure()` — no AppDelegate modification needed. This prevents the black screen issue that occurs when Capacitor's scene/window lifecycle is disrupted.
 
 ---
 
