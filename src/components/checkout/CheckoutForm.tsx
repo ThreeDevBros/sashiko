@@ -266,6 +266,28 @@ export const CheckoutForm = ({
         }
         return;
       }
+
+      // Handle selected/searched location (not a real DB address)
+      if (selectedAddressId === 'selected-location') {
+        if (selectedLocationData && branch?.latitude && branch?.longitude) {
+          const distance = calculateDistance(
+            branch.latitude,
+            branch.longitude,
+            selectedLocationData.latitude,
+            selectedLocationData.longitude
+          );
+          setDistanceToAddress(distance);
+          setSelectedAddress({
+            id: 'selected-location',
+            label: 'Selected Location',
+            address_line1: selectedLocationData.address,
+            city: '',
+            latitude: selectedLocationData.latitude,
+            longitude: selectedLocationData.longitude
+          });
+        }
+        return;
+      }
       
       try {
         const {

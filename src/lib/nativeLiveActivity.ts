@@ -19,10 +19,20 @@ interface LiveActivityData {
 async function getLiveActivityPlugin(): Promise<any | null> {
   try {
     const { Capacitor } = await import('@capacitor/core');
-    if (Capacitor.getPlatform() !== 'ios') return null;
+    const platform = Capacitor.getPlatform();
+    console.log('[LiveActivity] Platform:', platform);
+    if (platform !== 'ios') {
+      console.log('[LiveActivity] Not iOS — skipping');
+      return null;
+    }
     const plugin = (Capacitor as any).Plugins?.LiveActivity;
+    console.log('[LiveActivity] Plugin found:', !!plugin);
+    if (!plugin) {
+      console.warn('[LiveActivity] Plugin not registered. Available plugins:', Object.keys((Capacitor as any).Plugins || {}));
+    }
     return plugin || null;
-  } catch {
+  } catch (err) {
+    console.error('[LiveActivity] Error getting plugin:', err);
     return null;
   }
 }
@@ -33,10 +43,15 @@ async function getLiveActivityPlugin(): Promise<any | null> {
 export async function areLiveActivitiesSupported(): Promise<boolean> {
   try {
     const plugin = await getLiveActivityPlugin();
-    if (!plugin) return false;
+    if (!plugin) {
+      console.log('[LiveActivity] areLiveActivitiesSupported: no plugin');
+      return false;
+    }
     const result = await plugin.isAvailable();
+    console.log('[LiveActivity] isAvailable result:', result);
     return result.value === true;
-  } catch {
+  } catch (err) {
+    console.error('[LiveActivity] isAvailable error:', err);
     return false;
   }
 }
@@ -63,8 +78,12 @@ let pushTokenListenerRegistered = false;
  */
 export async function startOrderLiveActivity(data: LiveActivityData): Promise<string | null> {
   try {
+    console.log('[LiveActivity] startOrderLiveActivity called for order:', data.orderId);
     const plugin = await getLiveActivityPlugin();
-    if (!plugin) return null;
+    if (!plugin) {
+      console.log('[LiveActivity] Cannot start — no plugin');
+      return null;
+    }
 
     // Register push token listener once
     if (!pushTokenListenerRegistered && plugin.addListener) {
@@ -90,14 +109,18 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
       });
     }
 
+    const contentState = buildContentState(data);
+    console.log('[LiveActivity] Starting activity with state:', contentState);
+
     const result = await plugin.startActivityWithPush({
       id: data.orderId,
-      contentState: buildContentState(data),
+      contentState,
     });
 
+    console.log('[LiveActivity] Activity started, activityId:', result.activityId);
     return result.activityId;
   } catch (err) {
-    console.error('Failed to start Live Activity:', err);
+    console.error('[LiveActivity] Failed to start Live Activity:', err);
     return null;
   }
 }
@@ -110,12 +133,14 @@ export async function updateOrderLiveActivity(data: LiveActivityData): Promise<v
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return;
 
+    console.log('[LiveActivity] Updating activity for order:', data.orderId);
     await plugin.updateActivity({
       id: data.orderId,
       contentState: buildContentState(data),
     });
+    console.log('[LiveActivity] Activity updated');
   } catch (err) {
-    console.error('Failed to update Live Activity:', err);
+    console.error('[LiveActivity] Failed to update Live Activity:', err);
   }
 }
 
@@ -127,6 +152,7 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return;
 
+    console.log('[LiveActivity] Ending activity for order:', orderId);
     await plugin.endActivity({
       id: orderId,
       contentState: {
@@ -146,7 +172,8 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
         .eq('user_id', user.id)
         .eq('order_id', orderId);
     }
+    console.log('[LiveActivity] Activity ended');
   } catch (err) {
-    console.error('Failed to end Live Activity:', err);
+    console.error('[LiveActivity] Failed to end Live Activity:', err);
   }
 }
