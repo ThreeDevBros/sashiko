@@ -66,7 +66,7 @@ serve(async (req) => {
         .eq('user_id', order.user_id);
 
       if (laTokens && laTokens.length > 0) {
-        const bundleId = Deno.env.get('IOS_BUNDLE_ID') || 'app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10';
+        const bundleId = Deno.env.get('IOS_BUNDLE_ID') || Deno.env.get('APP_BUNDLE_ID') || 'com.sashiko.app';
 
         const updates = laTokens.map((t: any) => ({
           pushToken: t.push_token,
