@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,6 +88,7 @@ export default function OrderTracking() {
   const navigate = useNavigate();
   const { branding } = useBranding();
   const { theme } = useTheme();
+  const { user, isAuthReady } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
@@ -111,9 +113,10 @@ export default function OrderTracking() {
   });
 
   useEffect(() => {
+    if (!isAuthReady) return;
     loadOrderDetails();
     loadCashbackRate();
-  }, [orderId]);
+  }, [orderId, isAuthReady]);
 
   // Helper to compute ETA minutes
   const computeEtaMinutes = useCallback((o: Order | null): number | null => {
@@ -412,9 +415,6 @@ export default function OrderTracking() {
         setLoading(false);
         return;
       }
-
-      // Check if user is authenticated
-      const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
         setIsGuest(false);
