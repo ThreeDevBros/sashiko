@@ -1,85 +1,61 @@
 
-What the latest logs show
+# Plan: iOS Live Push Notifications + Google Hours Fix
 
-- The backend is authenticating correctly with Firebase now.
-- The push token sent from the iPhone is reaching the backend and being used.
-- The failure is still happening at Apple delivery time, not at app registration time and not at Google OAuth time.
+## Part 1: iOS "Updating" Push Notifications (Collapsible Notifications via FCM)
 
-Evidence from the logs
-- `OAuth2 response: token_type="Bearer"... access_token exists=true`
-- `Auth header: len=1031...`
-- FCM endpoint is correct for project `sashiko-asian-fusion-75c70`
-- The real error is:
-  - `THIRD_PARTY_AUTH_ERROR`
-  - `ApnsError`
-  - `reason: "InvalidProviderToken"`
+### Current State
+- Push notifications already fire on every status change via `send-order-push` edge function
+- Live Activity infrastructure exists (`apns-live-activity.ts`, `nativeLiveActivity.ts`, `live_activity_tokens` table) but requires native Swift WidgetExtension — this is out of scope for Lovable
+- The FCM push already sends on every status change — each one creates a separate notification on iOS
 
-What that means
-- Firebase accepted your service account auth.
-- Firebase then tried to hand the notification off to Apple.
-- Apple rejected Firebase’s APNs credentials for this iOS app.
-- So the remaining blocker is outside this codebase: Apple/Firebase app configuration mismatch.
+### What We Can Do (Backend + Web Side)
+Since true iOS Live Activities require native Swift code in Xcode (WidgetExtension with ActivityKit), what we **can** implement is **collapsible FCM notifications** — where each status update replaces the previous notification on the user's screen instead of stacking. This uses FCM's `apns-collapse-id` header.
 
-Most likely causes now
-1. The APNs auth key uploaded in Firebase belongs to a different Apple Developer team than the app.
-2. The Team ID entered in Firebase does not match the team that owns the bundle ID.
-3. The iOS app in Firebase is registered under a different bundle ID than the native app build.
-4. The native app is using a different Firebase app/config file than the Firebase project whose server key is being used.
-5. Less likely: stale Firebase Apple config needs to be removed and re-added cleanly.
+#### Changes:
+1. **`supabase/functions/_shared/fcm-v2.ts`** — Add optional `collapseKey` to `FcmMessage` interface and pass it as `apns-collapse-id` in the APNs payload and `android.collapse_key` for Android
+2. **`supabase/functions/send-order-push/index.ts`**:
+   - Add `collapseKey: order_id` to each FCM message so all status updates for the same order replace the previous notification
+   - Add driver proximity check: query `driver_locations` for the order, calculate distance to delivery address, and if within 10 meters, send a "Driver is arriving!" notification
+   - Fix the `fcmSent` variable — currently `sendFcmV2` returns `FcmSendResult` (object), not a number
+3. **New edge function `check-driver-proximity/index.ts`** — Called by `GlobalDriverTracker` on each location update to check if driver is within 10m of destination and trigger a push notification if so (only once per order)
+4. **`src/components/driver/GlobalDriverTracker.tsx`** — After each successful location upsert, call the proximity check edge function
 
-Important code findings
-- Native app id in this repo is `com.sashiko.app` (`capacitor.config.ts`).
-- There is no iOS folder checked into this project, so I cannot verify the actual Xcode bundle id or the `GoogleService-Info.plist` currently inside your native iOS project from here.
-- Broadcast sending code is using the shared FCM helper correctly; nothing in the current logs points to a bug in `send-broadcast-notification` or `fcm-v2.ts`.
+#### Database:
+- Add `proximity_notified` boolean column to `driver_locations` table (default false) to prevent repeated "arriving" notifications
 
-Plan to resolve it
-1. Verify bundle ID alignment end-to-end
-- Confirm the iOS app’s Xcode bundle identifier is exactly `com.sashiko.app`.
-- Confirm the Apple App ID in Apple Developer is also `com.sashiko.app`.
-- Confirm the iOS app entry in Firebase is registered with the exact same bundle ID.
+## Part 2: Google Hours Fetching Bug Fix
 
-2. Verify Firebase iOS app config file
-- In the native iOS project, confirm the installed `GoogleService-Info.plist` belongs to the same Firebase project shown in the logs:
-  - project id should match `sashiko-asian-fusion-75c70`
-- If there is any doubt, download a fresh plist from that Firebase iOS app entry and replace the existing one in Xcode.
+### Issue Found
+In `fetch-google-reviews` edge function, the `buildOpeningHours` function has a bug with the Google Places API v1 response format:
 
-3. Recreate Apple credentials in Firebase cleanly
-- In Firebase Cloud Messaging, remove the current APNs auth key configuration.
-- Re-upload the fresh `.p8` key.
-- Re-enter the exact Key ID and Team ID from Apple Developer.
-- Wait a few minutes for propagation before testing again.
+- Google's `regularOpeningHours.periods` in the Places API (New) v1 uses a different structure than expected
+- The v1 API returns periods with `open.day` as 0=Sunday through 6=Saturday, and `open.hour`/`open.minute` as separate fields
+- The `formatTime` function checks `typeof time?.hour !== 'number'` which should work, but the `close` object structure in the v1 API includes a `date` wrapper for overnight hours
+- The **real bug**: For places that close after midnight (overnight hours), the `close` period references the *next day*, but the code only maps `open.day` — it doesn't handle cross-day closing times
+- Also, Google may return `truncated: true` when the schedule is complex, which isn't handled
 
-4. Verify Apple-side ownership
-- Make sure the `.p8` key was created in the same Apple Developer account/team that owns `com.sashiko.app`.
-- Make sure Push Notifications capability is enabled for that App ID in Apple Developer.
+### Fix:
+1. **`supabase/functions/fetch-google-reviews/index.ts`**:
+   - Handle overnight closing times (where `close.day !== open.day`)
+   - Add logging to expose the raw Google response for debugging
+   - Handle `truncated` periods gracefully
+   - Fix the v1 API period structure: `open` and `close` objects contain `{ day, hour, minute }` directly (not nested in `time`)
 
-5. If it still fails, add one final diagnostic pass in code
-- In default mode I can add temporary logging to expose:
-  - which Firebase project/app config the native app reports
-  - whether the device is definitely connected to the same Firebase project as the backend
-- This would help prove whether the mismatch is Firebase app config vs Apple auth config.
+## Files to Change
 
-What I need from you next
-- Check these three values in your native iOS project and compare them:
-  1. Xcode bundle identifier
-  2. Firebase iOS app bundle identifier
-  3. Apple Developer App ID bundle identifier
-- Also confirm the `GoogleService-Info.plist` in Xcode belongs to Firebase project `sashiko-asian-fusion-75c70`.
+| File | Change |
+|------|--------|
+| `supabase/functions/_shared/fcm-v2.ts` | Add `collapseKey` support to FCM messages |
+| `supabase/functions/send-order-push/index.ts` | Add collapse key, fix return type, add proximity notification |
+| `supabase/functions/check-driver-proximity/index.ts` | New edge function for 10m proximity check |
+| `src/components/driver/GlobalDriverTracker.tsx` | Call proximity check after location upsert |
+| `supabase/functions/fetch-google-reviews/index.ts` | Fix overnight hours parsing, add debug logging |
+| Migration | Add `proximity_notified` to `driver_locations` |
 
-Technical summary
-```text
-Working:
-iPhone FCM token -> saved in backend -> backend gets Bearer token -> FCM request sent
+## Technical Details
 
-Failing:
-FCM -> APNs handoff
+**Collapsible notifications**: FCM supports `apns-collapse-id` (iOS) and `collapse_key` (Android) which replace existing notifications with the same key. Using `order_id` as the key means all updates for one order show as a single updating notification.
 
-Exact provider error:
-THIRD_PARTY_AUTH_ERROR / InvalidProviderToken
+**Proximity check**: The `GlobalDriverTracker` already sends GPS every 10 seconds. After each upsert, it will call `check-driver-proximity` which uses the Haversine formula server-side to check if the driver is within 10m of the delivery address. If yes and not already notified, it sends a push to the customer.
 
-Conclusion:
-This is no longer a backend auth/code problem.
-It is an Apple credentials or Firebase iOS app configuration mismatch.
-```
-
-If you want, the next implementation step after this verification is for me to add a small native/web diagnostic surface so we can confirm the active Firebase app/project and eliminate plist/bundle mismatches with certainty.
+**Google Hours**: The v1 Places API returns `{ open: { day: 0, hour: 9, minute: 0 }, close: { day: 0, hour: 17, minute: 0 } }` — the current parsing logic is mostly correct but fails for overnight hours where `close.day` differs from `open.day`.
