@@ -76,6 +76,29 @@ const AppRoutes = () => {
   const navigate = useNavigate();
   const { user, isAuthReady } = useAuth();
   usePushNotifications(navigate);
+
+  // Handle deep links from Live Activity taps (sashiko://order-tracking/:id)
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    (async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.getPlatform() === 'web') return;
+        const { App: CapApp } = await import('@capacitor/app');
+        const listener = await CapApp.addListener('appUrlOpen', (event: { url: string }) => {
+          console.log('[DeepLink] URL opened:', event.url);
+          const match = event.url.match(/sashiko:\/\/order-tracking\/([a-f0-9-]+)/i);
+          if (match?.[1]) {
+            navigate(`/order-tracking/${match[1]}`);
+          }
+        });
+        cleanup = () => listener.remove();
+      } catch (err) {
+        console.log('[DeepLink] Not available:', err);
+      }
+    })();
+    return () => cleanup?.();
+  }, [navigate]);
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isStaffRoute = location.pathname.startsWith('/staff');
   const isDriverRoute = location.pathname.startsWith('/driver');
