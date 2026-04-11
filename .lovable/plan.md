@@ -135,3 +135,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
    - Push Notifications
    - Sign in with Apple
    - Apple Pay (Merchant ID: merchant.sashiko.app)
+
+## Push Notification Credential Checklist
+
+Before push notifications will work, **all of these must match**:
+
+1. **Xcode Bundle ID** — must be `com.sashiko.app`
+2. **Firebase Console → Project Settings → iOS app** — Bundle ID must be exactly `com.sashiko.app`
+3. **`GoogleService-Info.plist`** — must belong to that same Firebase iOS app (check `BUNDLE_ID` and `PROJECT_ID` inside the plist)
+4. **APNs Auth Key** — in [Apple Developer → Keys](https://developer.apple.com/account/resources/authkeys/list):
+   - Create or verify a key with "Apple Push Notifications service (APNs)" enabled
+   - Download the `.p8` file
+   - Note the **Key ID** and your **Team ID**
+5. **Upload to Firebase** — in Firebase Console → Project Settings → Cloud Messaging → Apple app configuration:
+   - Upload the `.p8` key
+   - Enter the Key ID and Team ID
+   - Ensure it shows as active
+6. **`FIREBASE_SERVICE_ACCOUNT_JSON` secret** — must be from the **same** Firebase project as the `GoogleService-Info.plist`
+
+### How to verify
+- The `project_id` inside `GoogleService-Info.plist` must match the `project_id` inside the service account JSON
+- If you recently regenerated any credentials, re-upload them to Firebase and re-download `GoogleService-Info.plist`
+
+### Removing old native upsert code
+Your `PushNotificationSetup.swift` should **NOT** contain `upsertTokenToSupabase`. Token registration is now handled entirely by the web JS hook via the `register-push-device` edge function. Remove any direct Supabase HTTP calls from the Swift file.
