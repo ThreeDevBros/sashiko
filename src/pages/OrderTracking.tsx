@@ -105,30 +105,47 @@ export default function OrderTracking() {
     updated_at: string;
   } | null>(null);
 
+  // Refetch on app resume (native background → foreground)
+  useAppLifecycle(() => {
+    if (orderId) loadOrderDetails();
+  });
+
   useEffect(() => {
     loadOrderDetails();
     loadCashbackRate();
   }, [orderId]);
 
-  // Start/end iOS Live Activity when order loads or status changes
+  // Helper to compute ETA minutes
+  const computeEtaMinutes = useCallback((o: Order | null): number | null => {
+    if (!o?.estimated_ready_at) return null;
+    const diffMs = new Date(o.estimated_ready_at).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diffMs / 60000));
+  }, []);
+
+  // Start/update/end iOS Live Activity when order loads or status changes
   const liveActivityStarted = useRef(false);
   useEffect(() => {
     if (!order || isGuest) return;
     const isActive = !['delivered', 'cancelled'].includes(order.status);
 
+    const laData = {
+      orderId: order.id,
+      orderNumber: order.order_number,
+      orderType: order.order_type,
+      status: order.status,
+      statusMessage: getStatusMessage(),
+      etaMinutes: computeEtaMinutes(order),
+    };
+
     if (isActive && !liveActivityStarted.current) {
       areLiveActivitiesSupported().then(supported => {
         if (!supported) return;
-        startOrderLiveActivity({
-          orderId: order.id,
-          orderNumber: order.order_number,
-          orderType: order.order_type,
-          status: order.status,
-          statusMessage: getStatusMessage(),
-          etaMinutes: null,
-        });
+        startOrderLiveActivity(laData);
         liveActivityStarted.current = true;
       });
+    } else if (isActive && liveActivityStarted.current) {
+      // Update existing activity with new status/ETA
+      updateOrderLiveActivity(laData);
     } else if (!isActive && liveActivityStarted.current) {
       endOrderLiveActivity(order.id);
       liveActivityStarted.current = false;
@@ -177,6 +194,42 @@ export default function OrderTracking() {
       supabase.removeChannel(channel);
     };
   }, [orderId, order?.status, cashbackRate]);
+
+  // Polling fallback for ALL users (realtime can be flaky on native WebView)
+  useEffect(() => {
+    if (!orderId) return;
+    const isTerminal = order && ['delivered', 'cancelled'].includes(order.status);
+    if (isTerminal) return; // Stop polling for completed orders
+
+    const interval = setInterval(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: freshOrder } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', orderId)
+            .single();
+          if (freshOrder) {
+            const oldStatus = order?.status;
+            if (freshOrder.status !== oldStatus && oldStatus) {
+              showStatusChangeToast(freshOrder.status, freshOrder.order_type || 'delivery', freshOrder.order_number || '');
+              if (freshOrder.status === 'delivered' && !hasShownCashbackToast.current) {
+                showCashbackEarnedToast(freshOrder.total || 0);
+                hasShownCashbackToast.current = true;
+              }
+            }
+            setOrder(freshOrder);
+          }
+        }
+        // Guest polling is handled separately below
+      } catch (err) {
+        console.error('Order poll error:', err);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [orderId, order?.status, isGuest, cashbackRate]);
 
   // Auto-poll for guest orders (no realtime subscription available)
   useEffect(() => {
