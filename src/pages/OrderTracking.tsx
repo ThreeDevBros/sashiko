@@ -107,9 +107,15 @@ export default function OrderTracking() {
     updated_at: string;
   } | null>(null);
 
+  // Resume counter — forces realtime channel re-subscription after backgrounding
+  const [resumeCounter, setResumeCounter] = useState(0);
+
   // Refetch on app resume (native background → foreground)
   useAppLifecycle(() => {
-    if (orderId) loadOrderDetails();
+    if (orderId) {
+      loadOrderDetails();
+      setResumeCounter(prev => prev + 1);
+    }
   });
 
   useEffect(() => {
@@ -126,10 +132,12 @@ export default function OrderTracking() {
   }, []);
 
   // Save delivery transit minutes to DB for server-side Live Activity ETA
-  const transitMinutesSaved = useRef(false);
+  const lastSavedTransit = useRef<number | null>(null);
   const saveTransitMinutes = useCallback(async (minutes: number) => {
-    if (!orderId || transitMinutesSaved.current || !user) return;
-    transitMinutesSaved.current = true;
+    if (!orderId || !user) return;
+    // Only save if the value actually changed
+    if (lastSavedTransit.current === minutes) return;
+    lastSavedTransit.current = minutes;
     try {
       await supabase
         .from('orders')
@@ -212,7 +220,7 @@ export default function OrderTracking() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId, order?.status, cashbackRate]);
+  }, [orderId, order?.status, cashbackRate, resumeCounter]);
 
   // Polling fallback for ALL users (realtime can be flaky on native WebView)
   useEffect(() => {
