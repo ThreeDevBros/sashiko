@@ -226,10 +226,10 @@ const AppContent = () => {
   }, [isAuthReady, user, qc]);
 
   // On app resume: refresh auth first, then selectively invalidate core data
+  const { refreshSession } = useAuth();
   useAppLifecycle(useCallback(async () => {
     console.log('[App] Resumed — refreshing session then core data');
     // 1. Restore auth session first (ensures token is valid for RLS)
-    const { refreshSession } = await import('@/contexts/AuthContext').then(m => ({ refreshSession }));
     await refreshSession();
     // 2. Only invalidate core bootstrap queries — pages handle their own via resumeCounter
     qc.invalidateQueries({ queryKey: ['branch-data'] });
