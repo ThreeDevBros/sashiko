@@ -415,7 +415,7 @@ const Checkout = () => {
     window.addEventListener('addressChanged', handleAddressChange);
     if (orderType === 'delivery') loadAddresses();
     return () => window.removeEventListener('addressChanged', handleAddressChange);
-  }, [orderType]);
+  }, [orderType, isAuthReady, user?.id]);
 
   // Create payment intent - only when card payment is selected
   useEffect(() => {
