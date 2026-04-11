@@ -349,6 +349,7 @@ export type Database = {
           latitude: number
           longitude: number
           order_id: string
+          proximity_notified: boolean
           speed: number | null
           updated_at: string
         }
@@ -361,6 +362,7 @@ export type Database = {
           latitude: number
           longitude: number
           order_id: string
+          proximity_notified?: boolean
           speed?: number | null
           updated_at?: string
         }
@@ -373,6 +375,7 @@ export type Database = {
           latitude?: number
           longitude?: number
           order_id?: string
+          proximity_notified?: boolean
           speed?: number | null
           updated_at?: string
         }
