@@ -59,7 +59,7 @@ struct OrderTrackingWidgetLiveActivity: Widget {
             let statusMessage = context.state.values["statusMessage"] ?? ""
             let etaText = context.state.values["etaMinutes"] ?? ""
 
-            DynamicIsland {
+            return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
                         Image(systemName: statusIcon(status))
