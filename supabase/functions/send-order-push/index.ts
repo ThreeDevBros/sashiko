@@ -87,8 +87,9 @@ serve(async (req) => {
       ? `#${String(order.display_number).padStart(3, '0')}`
       : `#${order.order_number.slice(-6)}`;
 
-    const messageTemplate = statusMessages[new_status] || `Order status updated to ${new_status}`;
-    const title = `Order ${orderLabel}`;
+    const messageTemplate = getStatusMessage(new_status, order.order_type);
+    const isTerminalStatus = ['delivered', 'cancelled'].includes(new_status);
+    const title = isTerminalStatus ? `Order ${orderLabel}` : `Order ${orderLabel} Update`;
 
     // Append ETA if available
     let body = messageTemplate;
