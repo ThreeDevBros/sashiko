@@ -118,7 +118,7 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
       PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
         const data = action.notification.data || {};
         if (data.type === 'order_status' && data.order_id && navigateRef.current) {
-          navigateRef.current(`/order/${data.order_id}`);
+          navigateRef.current(`/order-tracking/${data.order_id}`);
         }
       });
 
