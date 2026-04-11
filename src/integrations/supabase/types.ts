@@ -832,6 +832,7 @@ export type Database = {
           created_at: string | null
           delivery_address_id: string | null
           delivery_fee: number | null
+          delivery_transit_minutes: number | null
           display_number: number | null
           driver_id: string | null
           estimated_delivery_time: string | null
@@ -863,6 +864,7 @@ export type Database = {
           created_at?: string | null
           delivery_address_id?: string | null
           delivery_fee?: number | null
+          delivery_transit_minutes?: number | null
           display_number?: number | null
           driver_id?: string | null
           estimated_delivery_time?: string | null
@@ -894,6 +896,7 @@ export type Database = {
           created_at?: string | null
           delivery_address_id?: string | null
           delivery_fee?: number | null
+          delivery_transit_minutes?: number | null
           display_number?: number | null
           driver_id?: string | null
           estimated_delivery_time?: string | null
