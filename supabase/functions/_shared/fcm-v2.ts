@@ -51,13 +51,16 @@ let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getAccessToken(serviceAccount: { client_email: string; private_key: string }): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
-    console.log('[FCM] Using cached access token');
+    console.log(`[FCM] Using cached access token (len=${cachedToken.token.length}, prefix=${cachedToken.token.slice(0, 10)}...)`);
     return cachedToken.token;
   }
 
+  // Clear stale cache
+  cachedToken = null;
+
   console.log(`[FCM] Requesting new OAuth2 token for ${serviceAccount.client_email}`);
   const jwt = await createJWT(serviceAccount);
-  console.log(`[FCM] JWT created, exchanging for access token...`);
+  console.log(`[FCM] JWT created (len=${jwt.length}), exchanging for access token...`);
   
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -73,12 +76,22 @@ async function getAccessToken(serviceAccount: { client_email: string; private_ke
   }
 
   const data = JSON.parse(bodyText);
-  console.log(`[FCM] OAuth2 token obtained successfully, expires_in: ${data.expires_in}s`);
+  
+  // Strict validation
+  const tokenType = data.token_type;
+  const accessToken = data.access_token;
+  console.log(`[FCM] OAuth2 response: token_type="${tokenType}", expires_in=${data.expires_in}, access_token exists=${!!accessToken}, access_token length=${accessToken?.length || 0}, prefix="${(accessToken || '').slice(0, 10)}..."`);
+  
+  if (!accessToken || typeof accessToken !== 'string' || accessToken.trim().length === 0) {
+    throw new Error(`[FCM] OAuth2 returned empty/invalid access_token. token_type=${tokenType}, keys=${Object.keys(data).join(',')}`);
+  }
+
+  const trimmedToken = accessToken.trim();
   cachedToken = {
-    token: data.access_token,
+    token: trimmedToken,
     expiresAt: Date.now() + (data.expires_in * 1000),
   };
-  return data.access_token;
+  return trimmedToken;
 }
 
 /**
@@ -133,6 +146,11 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> 
   const accessToken = await getAccessToken(serviceAccount);
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
 
+  // Log request metadata for first message
+  const authHeader = `Bearer ${accessToken}`;
+  console.log(`[FCM] Auth header: len=${authHeader.length}, starts_with="${authHeader.slice(0, 17)}...", token_len=${accessToken.length}`);
+  console.log(`[FCM] Endpoint: ${url}`);
+
   for (const msg of messages) {
     // Skip invalid tokens
     if (!isValidFcmToken(msg.token)) {
@@ -143,39 +161,43 @@ export async function sendFcmV2(messages: FcmMessage[]): Promise<FcmSendResult> 
 
     result.attempted++;
 
+    const requestBody = JSON.stringify({
+      message: {
+        token: msg.token,
+        notification: {
+          title: msg.title,
+          body: msg.body,
+        },
+        data: msg.data || {},
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+            },
+          },
+        },
+      },
+    });
+
     try {
       const res = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': authHeader,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: {
-            token: msg.token,
-            notification: {
-              title: msg.title,
-              body: msg.body,
-            },
-            data: msg.data || {},
-            apns: {
-              payload: {
-                aps: {
-                  sound: 'default',
-                  badge: 1,
-                },
-              },
-            },
-          },
-        }),
+        body: requestBody,
       });
 
       if (res.ok) {
+        const okBody = await res.text();
+        console.log(`[FCM] Send OK for ${msg.token.slice(0, 12)}...: ${okBody.slice(0, 200)}`);
         result.sent++;
       } else {
         const errBody = await res.text();
         result.failed++;
-        const errSummary = `Token ${msg.token.slice(0, 12)}...: ${res.status} ${errBody.slice(0, 200)}`;
+        const errSummary = `Token ${msg.token.slice(0, 12)}...: ${res.status} ${errBody}`;
         result.errors.push(errSummary);
         console.error(`[FCM] Send failed: ${errSummary}`);
       }
