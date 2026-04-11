@@ -2,6 +2,38 @@
 // Uses .p8 auth key (same as push notifications)
 
 let cachedApnsToken: { token: string; expiresAt: number } | null = null;
+type ApnsEnvironment = 'development' | 'production';
+let cachedApnsEnvironment: ApnsEnvironment | null = null;
+
+const APNS_HOSTS: Record<ApnsEnvironment, string> = {
+  development: 'https://api.sandbox.push.apple.com',
+  production: 'https://api.push.apple.com',
+};
+
+function getApnsEnvironmentCandidates(): ApnsEnvironment[] {
+  const configuredEnvironment = Deno.env.get('APNS_ENVIRONMENT');
+  const candidates: ApnsEnvironment[] = [];
+
+  const addCandidate = (env?: string | null) => {
+    if ((env === 'development' || env === 'production') && !candidates.includes(env)) {
+      candidates.push(env);
+    }
+  };
+
+  addCandidate(cachedApnsEnvironment);
+  addCandidate(configuredEnvironment);
+
+  if (configuredEnvironment === 'development') {
+    addCandidate('production');
+  } else if (configuredEnvironment === 'production') {
+    addCandidate('development');
+  } else {
+    addCandidate('production');
+    addCandidate('development');
+  }
+
+  return candidates;
+}
 
 function base64UrlEncode(data: Uint8Array): string {
   const base64 = btoa(String.fromCharCode(...data));
@@ -72,15 +104,30 @@ export interface LiveActivityUpdate {
   relevanceScore?: number; // 0-100
 }
 
+function buildApnsPayload(update: LiveActivityUpdate): Record<string, unknown> {
+  return {
+    aps: {
+      timestamp: Math.floor(Date.now() / 1000),
+      event: update.event || 'update',
+      'content-state': update.contentState,
+      ...(update.alertTitle && {
+        alert: {
+          title: update.alertTitle,
+          body: update.alertBody || '',
+        },
+      }),
+      ...(update.sound && { sound: update.sound }),
+      ...(update.staleDate && { 'stale-date': update.staleDate }),
+      ...(update.dismissalDate && { 'dismissal-date': update.dismissalDate }),
+      ...(update.relevanceScore !== undefined && { 'relevance-score': update.relevanceScore }),
+    },
+  };
+}
+
 export async function sendLiveActivityUpdate(
   updates: LiveActivityUpdate[],
   bundleId: string
 ): Promise<number> {
-  const apnsEnv = Deno.env.get('APNS_ENVIRONMENT') || 'production';
-  const apnsHost = apnsEnv === 'development'
-    ? 'https://api.sandbox.push.apple.com'
-    : 'https://api.push.apple.com';
-
   let token: string;
   try {
     token = await getApnsToken();
@@ -93,40 +140,50 @@ export async function sendLiveActivityUpdate(
 
   for (const update of updates) {
     try {
-      const apnsPayload: Record<string, unknown> = {
-        aps: {
-          timestamp: Math.floor(Date.now() / 1000),
-          event: update.event || 'update',
-          'content-state': update.contentState,
-          ...(update.alertTitle && {
-            alert: {
-              title: update.alertTitle,
-              body: update.alertBody || '',
-            },
-          }),
-          ...(update.sound && { sound: update.sound }),
-          ...(update.staleDate && { 'stale-date': update.staleDate }),
-          ...(update.dismissalDate && { 'dismissal-date': update.dismissalDate }),
-          ...(update.relevanceScore !== undefined && { 'relevance-score': update.relevanceScore }),
-        },
-      };
+      const apnsPayload = buildApnsPayload(update);
+      const environments = getApnsEnvironmentCandidates();
+      let delivered = false;
+      let lastFailure: { environment: ApnsEnvironment; status: number; body: string } | null = null;
 
-      const res = await fetch(`${apnsHost}/3/device/${update.pushToken}`, {
-        method: 'POST',
-        headers: {
-          authorization: `bearer ${token}`,
-          'apns-topic': `${bundleId}.push-type.liveactivity`,
-          'apns-push-type': 'liveactivity',
-          'apns-priority': '10',
-        },
-        body: JSON.stringify(apnsPayload),
-      });
+      for (let index = 0; index < environments.length; index++) {
+        const environment = environments[index];
+        const res = await fetch(`${APNS_HOSTS[environment]}/3/device/${update.pushToken}`, {
+          method: 'POST',
+          headers: {
+            authorization: `bearer ${token}`,
+            'apns-topic': `${bundleId}.push-type.liveactivity`,
+            'apns-push-type': 'liveactivity',
+            'apns-priority': '10',
+          },
+          body: JSON.stringify(apnsPayload),
+        });
 
-      if (res.ok) {
-        successCount++;
-      } else {
+        if (res.ok) {
+          cachedApnsEnvironment = environment;
+          successCount++;
+          delivered = true;
+          break;
+        }
+
         const errBody = await res.text();
-        console.error(`APNs Live Activity push failed: ${res.status} ${errBody}`);
+        lastFailure = { environment, status: res.status, body: errBody };
+
+        const shouldRetryAlternateEnvironment =
+          res.status === 400 &&
+          errBody.includes('BadDeviceToken') &&
+          index < environments.length - 1;
+
+        if (shouldRetryAlternateEnvironment) {
+          console.warn(`APNs Live Activity push failed in ${environment}, retrying alternate environment: ${errBody}`);
+        } else {
+          break;
+        }
+      }
+
+      if (!delivered && lastFailure) {
+        console.error(
+          `APNs Live Activity push failed [${lastFailure.environment}]: ${lastFailure.status} ${lastFailure.body}`
+        );
       }
     } catch (err) {
       console.error('APNs Live Activity send error:', err);
