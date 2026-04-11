@@ -7,6 +7,7 @@ import { AnimatePresence } from "framer-motion";
 import { useBranding } from "./hooks/useBranding";
 import { useBranch } from "./hooks/useBranch";
 import { CartProvider } from "./contexts/CartContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PageTransitionProvider } from "./contexts/PageTransitionContext";
 import { AnimatedPage } from "./components/AnimatedPage";
 import LoadingScreen from "./components/LoadingScreen";
@@ -67,6 +68,7 @@ prefetchSavedCards(queryClient);
 const AppRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, isAuthReady } = useAuth();
   usePushNotifications(navigate);
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isStaffRoute = location.pathname.startsWith('/staff');
@@ -75,11 +77,11 @@ const AppRoutes = () => {
   const isQrMenuRoute = location.pathname.startsWith('/qr-menu');
   const showNav = !isAdminRoute && !isStaffRoute && !isDriverRoute && !isAuthRoute && !isQrMenuRoute;
   
-  // Role-based route protection
+  // Role-based route protection — wait for auth to be ready
   useEffect(() => {
+    if (!isAuthReady) return;
+
     const checkRoleAccess = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
       if (isAuthRoute || isQrMenuRoute) return;
 
       const isProtectedPanel = location.pathname.startsWith('/admin') ||
@@ -107,10 +109,11 @@ const AppRoutes = () => {
     };
     
     checkRoleAccess();
-  }, [location.pathname, navigate, isAuthRoute, isQrMenuRoute]);
+  }, [location.pathname, navigate, isAuthRoute, isQrMenuRoute, isAuthReady, user]);
 
   // Check if first time visitor and redirect to auth (only on true first visit, not on every reload)
   useEffect(() => {
+    if (!isAuthReady) return;
     const hasVisited = localStorage.getItem('hasVisited');
     const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding');
     
@@ -122,7 +125,7 @@ const AppRoutes = () => {
       localStorage.setItem('hasVisited', 'true');
       navigate('/auth');
     }
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, isAuthReady]);
   
   return (
     <>
@@ -182,6 +185,7 @@ const AppRoutes = () => {
 const AppContent = () => {
   const { branding, isLoading: brandingLoading } = useBranding();
   const { branch, loading: branchLoading } = useBranch();
+  const { isAuthReady } = useAuth();
   const isFetching = useIsFetching();
   
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
@@ -240,19 +244,19 @@ const AppContent = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Max timeout safety valve
+  // Max timeout safety valve — extended for slow native connections
   useEffect(() => {
     if (!showLoadingScreen) return;
-    const timer = setTimeout(() => setShowLoadingScreen(false), 6000);
+    const timer = setTimeout(() => setShowLoadingScreen(false), 12000);
     return () => clearTimeout(timer);
   }, [showLoadingScreen]);
 
-  // Dismiss once ALL queries settled (isFetching === 0), core data ready, and min time elapsed
+  // Dismiss once ALL queries settled, core data ready, auth ready, and min time elapsed
   useEffect(() => {
-    if (!brandingLoading && !branchLoading && isFetching === 0 && minTimeElapsed) {
+    if (!brandingLoading && !branchLoading && isAuthReady && isFetching === 0 && minTimeElapsed) {
       setShowLoadingScreen(false);
     }
-  }, [brandingLoading, branchLoading, isFetching, minTimeElapsed]);
+  }, [brandingLoading, branchLoading, isAuthReady, isFetching, minTimeElapsed]);
   
   return (
     <>
@@ -277,9 +281,11 @@ const AppContent = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <CartProvider>
-        <AppContent />
-      </CartProvider>
+      <AuthProvider>
+        <CartProvider>
+          <AppContent />
+        </CartProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
