@@ -1,46 +1,70 @@
 
 
-# Plan: Fix Customer Name Inconsistencies
+# Plan: Polish Live Activity, Trim Push Notifications, Improve UX
 
-## Problem
-The user `4c6074df-213f-4078-8deb-3c0db2a1194f` has `full_name = ''` (empty string) in their profile. All their orders also have `guest_name = NULL`. The JS fallback chain `order.profiles?.full_name || order.guest_name || 'Registered customer'` treats empty string `''` as truthy, so it displays nothing useful — but actually it displays "Registered customer" because `''` is falsy in JS... wait, `''` IS falsy in JS. So `'' || null || 'Registered customer'` = `'Registered customer'`. That's correct — the profile simply has no name set.
+## Summary
+Make the Live Activity beautiful and user-friendly (no order ID, friendly status text, ETA), ensure it updates in real-time, and reduce push notifications to only the final "Enjoy your food" delivery notification.
 
-The real fix is two-fold:
+## Changes
 
-## Step 1: Fix the empty profile name in the database
-Update the profile for user `4c6074df-213f-4078-8deb-3c0db2a1194f` to pull the name from their email prefix or prompt them. Since we can see their email is `ioannisgeo22@icloud.com`, the best approach is to also look up their auth email and display it as a fallback in the admin panel when no name is available.
+### 1. Update Swift Live Activity Widget — prettier layout, no order ID
+**File: `setup/swift/OrderTrackingWidgetLiveActivity.swift`**
 
-## Step 2: Update admin display logic to show email as last resort
-Change the customer name display across all admin/staff panels to:
-```
-profiles.full_name || guest_name || guest_email || auth_email || 'Unknown'
-```
+- Remove the "Order #XXX" text from both the Lock Screen view and the Dynamic Island
+- Show only the user-friendly `statusMessage` as the primary text
+- Show the ETA prominently (e.g. "~12 min" or "Arriving soon")
+- Add a small progress-style feel: status icon + friendly message + ETA
+- Lock Screen layout: icon | status message | ETA minutes
+- Dynamic Island expanded: status message on bottom, ETA on trailing
+- Dynamic Island compact: icon leading, ETA trailing
+- Better status messages mapped in Swift for fallback (though JS sends the message)
 
-Since the orders table doesn't store the auth email for registered users, we need to show what we have. The query already joins `profiles`, so we can also join `orders.guest_email`. For registered users with no name, show their email from the profile or a truncated user ID.
+### 2. Update JS content state with friendlier messages
+**File: `src/pages/OrderTracking.tsx`**
 
-**Actually**, the simplest and most correct fix: the admin orders query should also fetch the user's email. We can't query `auth.users` from the client, but we can use `guest_email` for guest orders. For registered users, the profile doesn't have email. 
+- Update `getStatusMessage()` to return shorter, punchier messages suitable for the Lock Screen:
+  - pending → "Waiting for confirmation"
+  - confirmed → "Order confirmed!"
+  - preparing → "Preparing your food 👨‍🍳"
+  - ready (delivery) → "Ready — waiting for driver"
+  - ready (pickup) → "Ready for pickup!"
+  - out_for_delivery → "On its way to you!"
+  - delivered → "Delivered — enjoy!"
 
-**Better approach**: Show the email from `guest_email` for guest orders, and for registered users, if `full_name` is empty, show "User (no name set)" or fetch it differently.
+### 3. Remove intermediate push notifications, keep only delivery completion
+**File: `supabase/functions/send-order-push/index.ts`**
 
-## Step 3: Ensure future orders always have a name
-Update the checkout flow so that when an authenticated user places an order, their profile name (or checkout form name) is stored in `guest_name` as a backup, ensuring the admin always has a name to display.
+- Only send FCM push notifications for `delivered` and `cancelled` statuses
+- Keep Live Activity updates for ALL status changes (so the widget stays current)
+- This means the edge function still processes all statuses for Live Activity, but skips FCM for non-terminal statuses
 
-## Files to change
+**Files: `src/pages/admin/OrderManagement.tsx` and `src/pages/staff/StaffOrders.tsx`**
 
-1. **`src/pages/admin/OrderManagement.tsx`** — Update customer cell to show email fallback
-2. **`src/pages/admin/StaffDashboard.tsx`** — Same fallback logic
-3. **`src/pages/staff/StaffOrders.tsx`** — Same fallback logic
-4. **`src/components/admin/MobileOrderCards.tsx`** — Same fallback logic
-5. **`src/components/checkout/CheckoutForm.tsx`** or **`src/pages/Checkout.tsx`** — Store profile name in `guest_name` for authenticated orders as backup
-6. **`supabase/functions/create-cash-order/index.ts`** — For authenticated users, populate `guest_name` from profile if available
+- No changes needed — they already call `send-order-push` for all statuses, and the edge function will now filter internally
 
-## Concise summary of display logic change
-```
-// For all admin panels:
-const customerName = order.user_id
-  ? (order.profiles?.full_name || order.guest_name || order.guest_email || 'Registered customer')
-  : (order.guest_name || order.guest_email || 'Guest');
-```
+### 4. Remove in-app toast notifications for intermediate statuses
+**File: `src/pages/OrderTracking.tsx`**
 
-This already works but the issue is that the specific user has no `full_name`, no `guest_name`, and no `guest_email` on their orders. So we need the edge function fix to populate `guest_name` from the profile for future orders, and show email-based fallback for existing ones.
+- Remove `showStatusChangeToast()` calls for all statuses except `delivered` and `cancelled`
+- The Live Activity on iOS handles real-time visual feedback now
+- Keep the cashback earned toast on delivery
+- Keep the delivered/cancelled toasts as they are terminal events
+
+### 5. Ensure Live Activity updates on every status change
+**File: `src/pages/OrderTracking.tsx`**
+
+- The existing `useEffect` on `[order?.id, order?.status, isGuest]` already calls `updateOrderLiveActivity` — this is correct
+- Add `order?.estimated_ready_at` to the dependency array so ETA changes also trigger updates
+
+## Technical Details
+
+- The Swift widget reads `statusMessage` and `etaMinutes` from `contentState.values` — no code path changes needed for data flow
+- Server-side Live Activity push updates (APNs) will continue for all statuses via `send-order-push`
+- FCM push will be gated to only `delivered`/`cancelled` in the edge function
+- The `showStatusChangeToast` function stays but is only called for terminal statuses
+
+## Files to modify
+1. `setup/swift/OrderTrackingWidgetLiveActivity.swift` — remove order ID, cleaner layout
+2. `src/pages/OrderTracking.tsx` — friendlier messages, remove intermediate toasts, add ETA to LA deps
+3. `supabase/functions/send-order-push/index.ts` — skip FCM for non-terminal statuses
 
