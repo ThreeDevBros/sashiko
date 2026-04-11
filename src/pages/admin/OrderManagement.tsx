@@ -342,7 +342,7 @@ export default function OrderManagement() {
                             <span>#{formatOrderDisplayNumber(order.display_number)}</span>
                           </div>
                         </TableCell>
-                        <TableCell>{order.user_id ? (order.profiles?.full_name || 'Registered customer') : (order.guest_name || 'Guest')}</TableCell>
+                        <TableCell>{order.user_id ? (order.profiles?.full_name || order.guest_name || 'Registered customer') : (order.guest_name || 'Guest')}</TableCell>
                         <TableCell>{order.branches?.name}</TableCell>
                         <TableCell className="capitalize">{order.order_type?.replace('_', ' ')}</TableCell>
                         <TableCell>{order.order_items?.length || 0}</TableCell>
