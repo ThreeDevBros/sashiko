@@ -382,7 +382,11 @@ export const CheckoutForm = ({
               quantity: item.quantity,
               special_instructions: item.special_instructions || undefined,
             })),
-            guest_info: user ? null : guestInfo ? {
+            guest_info: user ? {
+              name: user.user_metadata?.full_name || '',
+              email: user.email || '',
+              phone: user.user_metadata?.phone || '',
+            } : guestInfo ? {
               name: guestInfo.name,
               email: guestInfo.email,
               phone: guestInfo.phone

@@ -93,7 +93,7 @@ export function MobileOrderCards({ orders, updateStatusMutation }: MobileOrderCa
 
               {/* Customer + Branch */}
               <div className="space-y-0.5">
-                <div className="text-sm font-medium"><div className="text-sm font-medium">{order.user_id ? (order.profiles?.full_name || order.guest_name || 'Registered customer') : (order.guest_name || 'Guest')}</div></div>
+                <div className="text-sm font-medium">{order.user_id ? (order.profiles?.full_name || order.guest_name || order.guest_email || 'Registered customer') : (order.guest_name || order.guest_email || 'Guest')}</div>
                 <div className="text-xs text-muted-foreground break-words">{order.branches?.name}</div>
               </div>
 

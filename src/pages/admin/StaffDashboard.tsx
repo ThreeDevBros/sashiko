@@ -213,7 +213,7 @@ export default function StaffDashboard() {
                       {pendingOrders.map((order) => (
                         <TableRow key={order.id}>
                           <TableCell className="font-medium">#{formatOrderDisplayNumber(order.display_number)}</TableCell>
-<TableCell>{order.user_id ? (order.profiles?.full_name || order.guest_name || 'Registered customer') : (order.guest_name || 'Guest')}</TableCell>
+<TableCell>{order.user_id ? (order.profiles?.full_name || order.guest_name || order.guest_email || 'Registered customer') : (order.guest_name || order.guest_email || 'Guest')}</TableCell>
                           <TableCell>
                             <Badge variant="outline">{order.order_type}</Badge>
                           </TableCell>
@@ -350,7 +350,7 @@ export default function StaffDashboard() {
                       {orderHistory.map((order) => (
                         <TableRow key={order.id}>
                           <TableCell className="font-medium">#{formatOrderDisplayNumber(order.display_number)}</TableCell>
-                          <TableCell>{order.user_id ? (order.profiles?.full_name || order.guest_name || 'Registered customer') : (order.guest_name || 'Guest')}</TableCell>
+                          <TableCell>{order.user_id ? (order.profiles?.full_name || order.guest_name || order.guest_email || 'Registered customer') : (order.guest_name || order.guest_email || 'Guest')}</TableCell>
                           <TableCell>
                             <Badge variant="outline">{order.order_type}</Badge>
                           </TableCell>
