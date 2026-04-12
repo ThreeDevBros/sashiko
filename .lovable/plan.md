@@ -1,72 +1,40 @@
 
 
-# Plan: Fix ETA Calculation and Stale State in Order Tracking + Live Activity
+# Plan: Fix "Loading/Calculating" State on Status Change
 
-## Problems found
+## Root Cause
 
-1. **Stale closure in realtime callback** — The realtime subscription (line 250) merges `payload.new` with the stale `order` from when the effect was created. After the first status change, subsequent updates merge with outdated data, losing fields like `delivery_transit_minutes`. This also explains "app stops working properly after first status update."
+When the order status changes (e.g., to `out_for_delivery`), two things show a loading state:
 
-2. **ETA missing transit minutes** — `computeEtaMinutes` reads `delivery_transit_minutes` from the order object, but it can be null/undefined if: (a) the merge lost it, (b) it hasn't been saved to DB yet, or (c) the realtime payload didn't include it. The Live Activity then shows wrong ETA or empty.
+1. **In-app `LiveOrderCountdown`** shows "Calculating…" because `remainingMinutes` is `null`. For `out_for_delivery` status, it returns `transitMinutes ?? null` — if `delivery_transit_minutes` is null, it falls through to the "Calculating…" fallback.
 
-3. **`isGuest` stale in realtime callback** — Captured from closure but not a dependency.
+2. **Swift Live Activity widget** shows a small dot instead of ETA when `etaMinutes` is empty.
 
-4. **LiveOrderCountdown shows "Calculating…"** when `deliveryTransitMinutes` is null, even though transit time was already computed by `useDynamicDeliveryInfo` elsewhere.
+The underlying issue: `delivery_transit_minutes` may be `null` in the database if the fire-and-forget computation in `loadOrderDetails` failed or never ran. Additionally, even when transit minutes exist, the `LiveOrderCountdown` component has edge cases where `remainingMinutes` returns `null` unnecessarily.
 
 ## Fixes
 
-### 1. Fix stale closure in realtime callback (`OrderTracking.tsx`)
+### 1. `LiveOrderCountdown` — never show "Calculating…" after initial load
 
-Replace `const updatedOrder = { ...(order || {}), ...payload.new }` with a functional state update that captures the fresh previous state:
+- For `out_for_delivery` and `ready` (delivery): if `transitMinutes` is null, show a fallback estimate (e.g., "~15 min") instead of "Calculating…"
+- For `confirmed`/`preparing`: if `estimatedReadyAt` exists but transit is null, show prep time only (don't block on missing transit)
+- Only show "Calculating…" for the brief initial `pending` → `confirmed` window
 
-```typescript
-setOrder(prev => {
-  if (!prev) return null;
-  const updated = { ...prev, ...payload.new } as Order;
-  
-  // Sync Live Activity with the merged order (fresh, not stale)
-  if (!isGuestRef.current && liveActivityStarted.current) {
-    const isStillActive = !['delivered', 'cancelled'].includes(updated.status);
-    if (isStillActive) {
-      updateOrderLiveActivity({
-        orderId: updated.id,
-        orderType: updated.order_type,
-        status: updated.status,
-        statusMessage: getStatusMessageForOrder(updated),
-        etaMinutes: computeEtaMinutes(updated),
-      });
-    }
-  }
-  
-  return updated;
-});
-```
+### 2. `Order` interface — add `delivery_transit_minutes`
 
-Add a `isGuestRef` (useRef) to avoid stale `isGuest` reads in the callback.
+Add the field to the `Order` interface in `OrderTracking.tsx` so it's properly typed and preserved through state updates without needing `as any` casts.
 
-### 2. Fix ETA calculation for Live Activity
+### 3. Ensure transit minutes are computed on first status change
 
-The `computeEtaMinutes` function correctly reads `delivery_transit_minutes` from the order object. But realtime `payload.new` only contains changed columns. When status changes but `delivery_transit_minutes` doesn't, the merge must preserve the old value. Fix #1 above (using `prev` state) solves this — the previous state already has `delivery_transit_minutes`.
+In the realtime callback, if the incoming status is `confirmed` or later and `delivery_transit_minutes` is still null on the merged order, trigger the transit computation immediately (same logic as `loadOrderDetails` but non-blocking).
 
-### 3. Ensure `delivery_transit_minutes` is persisted early
+### 4. Swift widget — show status message when ETA is unavailable
 
-The `saveTransitMinutes` callback is passed to `LiveOrderCountdown` via `onTransitMinutesCalculated`, but `LiveOrderCountdown` no longer calls it (the prop exists but is unused since transit comes from the DB). Need to ensure transit minutes are saved when the order tracking page first loads — use the `DeliveryTimeEstimate`-style Google Directions call or the existing `useDynamicDeliveryInfo` pattern to calculate and persist transit on first load.
-
-Actually, looking more carefully, `LiveOrderCountdown` doesn't calculate transit at all — it only reads `deliveryTransitMinutes` from props. The transit is supposed to already be in the DB from when the order was placed. If it's missing, the ETA shows "Calculating…" forever.
-
-**Fix**: In `loadOrderDetails`, after loading the order, if `delivery_transit_minutes` is null and it's a delivery order with coordinates, compute transit via Google Directions and save it.
-
-### 4. End Live Activity on terminal status in realtime callback
-
-When status becomes `delivered`/`cancelled`, call `endOrderLiveActivity` immediately in the callback instead of waiting for the `useEffect` on `order?.status`.
+The compact trailing slot currently shows a tiny dot when ETA is empty. Instead, show the status icon so it's informative rather than looking broken.
 
 ## Files to modify
 
-- **`src/pages/OrderTracking.tsx`** — Fix stale closure, add isGuestRef, compute transit on first load if missing, end activity in realtime callback
-
-## Technical details
-
-- Use `useRef` for `isGuest` to avoid stale reads in realtime/poll callbacks
-- Use functional `setOrder(prev => ...)` pattern to get fresh merged state
-- Add a one-time transit calculation in `loadOrderDetails` when `delivery_transit_minutes` is null for delivery orders
-- Keep `syncLiveActivity` for resume path (already correct since it uses functional `setOrder`)
+- **`src/components/order/LiveOrderCountdown.tsx`** — Remove "Calculating…" fallback; show prep-only or fallback estimate
+- **`src/pages/OrderTracking.tsx`** — Add `delivery_transit_minutes` to Order interface; trigger transit computation in realtime callback if missing
+- **`setup/swift/OrderTrackingWidgetLiveActivity.swift`** — Show status icon instead of dot when ETA is unavailable
 
