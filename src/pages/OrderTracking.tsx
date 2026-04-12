@@ -655,6 +655,23 @@ export default function OrderTracking() {
     return <LoadingScreen show={true} />;
   }
 
+  if (loadError && !order) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <Card className="p-8 text-center">
+          <AlertTriangle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
+          <p className="text-muted-foreground mb-6">
+            We couldn't load your order details. Please try again.
+          </p>
+          <Button onClick={() => { setLoading(true); setLoadError(false); loadOrderDetails(); }}>
+            Retry
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   if (!order) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-2xl">

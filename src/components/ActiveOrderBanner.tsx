@@ -12,7 +12,7 @@ const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_
 export const ActiveOrderBanner = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, isAuthReady, refreshSession } = useAuth();
+  const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
   const [activeOrder, setActiveOrder] = useState<{ id: string; order_number: string; status: string } | null>(null);
   const [resumeCounter, setResumeCounter] = useState(0);
 
@@ -25,13 +25,17 @@ export const ActiveOrderBanner = () => {
   };
 
   const fetchActiveOrder = async () => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || isAuthRecovering) return;
 
-    if (user) {
+    // Use fresh session to avoid stale user references
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    const currentUser = currentSession?.user ?? null;
+
+    if (currentUser) {
       const { data } = await supabase
         .from('orders')
         .select('id, order_number, status')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .in('status', ACTIVE_STATUSES)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -86,7 +90,7 @@ export const ActiveOrderBanner = () => {
   });
 
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || isAuthRecovering) return;
     fetchActiveOrder();
     const interval = setInterval(fetchActiveOrder, 15000);
 
@@ -96,7 +100,6 @@ export const ActiveOrderBanner = () => {
         event: '*',
         schema: 'public',
         table: 'orders',
-        ...(user ? { filter: `user_id=eq.${user.id}` } : {}),
       }, () => {
         fetchActiveOrder();
       })
@@ -106,7 +109,7 @@ export const ActiveOrderBanner = () => {
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [isAuthReady, user?.id, resumeCounter]);
+  }, [isAuthReady, isAuthRecovering, user?.id, resumeCounter]);
 
   const config = activeOrder ? statusConfig[activeOrder.status] : null;
   const StatusIcon = config?.icon || Clock;
