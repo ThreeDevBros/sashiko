@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { formatOrderDisplayNumber } from '@/lib/orderNumber';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { DriverLayout } from '@/components/driver/DriverLayout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Package, MapPin, Clock, Truck, Navigation, ChefHat } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 interface OrderWithAddress {
   id: string;
@@ -33,7 +33,7 @@ interface OrderWithAddress {
 }
 
 export default function DriverOrders() {
-  const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
+  const { user, isAuthReady, isAuthRecovering } = useAuth();
   const [preparingOrders, setPreparingOrders] = useState<OrderWithAddress[]>([]);
   const [orders, setOrders] = useState<OrderWithAddress[]>([]);
   const [activeOrders, setActiveOrders] = useState<OrderWithAddress[]>([]);
@@ -42,32 +42,16 @@ export default function DriverOrders() {
   const { toast } = useToast();
   const [resumeCounter, setResumeCounter] = useState(0);
 
-  // Reconnect on app resume
-  useAppLifecycle(async () => {
-    await refreshSession();
-    loadOrders();
-    setResumeCounter(c => c + 1);
-  });
+  const loadOrders = useCallback(async () => {
+    if (!isAuthReady || isAuthRecovering) return;
 
-  useEffect(() => {
-    if (!isAuthReady || isAuthRecovering || !user) return;
-    loadOrders();
-
-    const channel = supabase
-      .channel(`driver-orders-${resumeCounter}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        loadOrders();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [isAuthReady, isAuthRecovering, user, resumeCounter]);
-
-  const loadOrders = async () => {
     // Always get fresh session to avoid stale user references
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     const currentUser = currentSession?.user;
-    if (!currentUser) return;
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
     try {
 
       // Get driver's branch
@@ -120,7 +104,30 @@ export default function DriverOrders() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthReady, isAuthRecovering]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      void loadOrders();
+      setResumeCounter(c => c + 1);
+    });
+
+    return unsubscribe;
+  }, [loadOrders]);
+
+  useEffect(() => {
+    if (!isAuthReady || isAuthRecovering || !user) return;
+    loadOrders();
+
+    const channel = supabase
+      .channel(`driver-orders-${resumeCounter}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        loadOrders();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isAuthReady, isAuthRecovering, user, resumeCounter]);
 
   const markOutForDelivery = async (orderId: string) => {
     setUpdatingId(orderId);

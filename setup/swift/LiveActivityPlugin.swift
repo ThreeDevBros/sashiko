@@ -54,7 +54,9 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                     let token = tokenData.map { String(format: "%02x", $0) }.joined()
                     self.notifyListeners("liveActivityPushToken", data: [
                         "token": token,
-                        "activityId": id
+                        "activityId": activity.id,
+                        "customId": id,
+                        "orderId": id
                     ])
                 }
             }

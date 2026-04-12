@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTheme } from '@/components/ThemeProvider';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Truck, Navigation, WifiOff, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 import { getMapStyle, createMarkerIcon, triggerMapResize } from '@/lib/mapStyles';
 import { loadGoogleMaps } from '@/lib/googleMaps';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 interface OrderTrackingMapProps {
   orderId: string;
@@ -243,7 +243,15 @@ export function OrderTrackingMap({
 
   // Resume counter for unique channel names after backgrounding
   const [mapResumeCounter, setMapResumeCounter] = useState(0);
-  useAppLifecycle(() => { setMapResumeCounter(c => c + 1); });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      setMapResumeCounter(c => c + 1);
+      setConnectionLost(false);
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Subscribe to real-time driver location (authenticated users only)
   useEffect(() => {

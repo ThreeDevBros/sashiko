@@ -61,10 +61,20 @@ function buildContentState(data: LiveActivityData): Record<string, string> {
 }
 
 // ─── Persistent mapping: activityId ↔ orderId ───
-// Stored in localStorage so it survives app kills on iOS.
+// Stored in native preferences on mobile with localStorage fallback.
 const MAPPING_KEY = 'liveactivity_id_map';
+let mappingCache: Record<string, string> | null = null;
 
-function loadMapping(): Record<string, string> {
+async function readStoredMapping(): Promise<Record<string, string>> {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.getPlatform() !== 'web') {
+      const { Preferences } = await import('@capacitor/preferences');
+      const { value } = await Preferences.get({ key: MAPPING_KEY });
+      if (value) return JSON.parse(value);
+    }
+  } catch {}
+
   try {
     const raw = localStorage.getItem(MAPPING_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -73,30 +83,53 @@ function loadMapping(): Record<string, string> {
   }
 }
 
-function saveMapping(map: Record<string, string>) {
+async function writeStoredMapping(map: Record<string, string>) {
+  const serialized = JSON.stringify(map);
+
   try {
-    localStorage.setItem(MAPPING_KEY, JSON.stringify(map));
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.getPlatform() !== 'web') {
+      const { Preferences } = await import('@capacitor/preferences');
+      await Preferences.set({ key: MAPPING_KEY, value: serialized });
+    }
+  } catch {}
+
+  try {
+    localStorage.setItem(MAPPING_KEY, serialized);
   } catch {}
 }
 
-function setMappingEntry(activityId: string, orderId: string) {
-  const map = loadMapping();
+export async function restoreLiveActivityMappings(): Promise<Record<string, string>> {
+  mappingCache = await readStoredMapping();
+  console.log('[LiveActivity] Restored mapping entries:', Object.keys(mappingCache).length);
+  return mappingCache;
+}
+
+async function ensureMappingCache() {
+  if (mappingCache) return mappingCache;
+  return restoreLiveActivityMappings();
+}
+
+async function setMappingEntry(activityId: string, orderId: string) {
+  const map = await ensureMappingCache();
   map[activityId] = orderId;
-  saveMapping(map);
+  map[orderId] = orderId;
+  await writeStoredMapping(map);
 }
 
-function getOrderIdForActivity(activityId: string): string | null {
-  return loadMapping()[activityId] ?? null;
+async function getOrderIdForActivity(activityId: string): Promise<string | null> {
+  const map = await ensureMappingCache();
+  return map[activityId] ?? null;
 }
 
-function removeMappingByOrderId(orderId: string) {
-  const map = loadMapping();
+async function removeMappingByOrderId(orderId: string) {
+  const map = await ensureMappingCache();
   for (const [actId, oId] of Object.entries(map)) {
-    if (oId === orderId) {
+    if (oId === orderId || actId === orderId) {
       delete map[actId];
     }
   }
-  saveMapping(map);
+  await writeStoredMapping(map);
 }
 
 let pushTokenListenerRegistered = false;
@@ -114,6 +147,8 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
     console.log('[LiveActivity] startOrderLiveActivity called for order:', data.orderId);
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return null;
+
+    await restoreLiveActivityMappings();
 
     // Clean up stale tokens for this user+order before starting a new activity
     try {
@@ -134,11 +169,11 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
     if (!pushTokenListenerRegistered && plugin.addListener) {
       pushTokenListenerRegistered = true;
       plugin.addListener('liveActivityPushToken', async (event: any) => {
-        const activityId = event.activityId;
-        const orderId = activityId ? getOrderIdForActivity(activityId) : null;
+        const activityId = event.activityId ?? event.customId ?? null;
+        const orderId = event.orderId ?? event.customId ?? (activityId ? await getOrderIdForActivity(activityId) : null);
         console.log('[LiveActivity] Push token received — activityId:', activityId, 'orderId:', orderId, 'token:', event.token?.substring(0, 20) + '...');
         if (!orderId) {
-          console.warn('[LiveActivity] No orderId found for activityId:', activityId);
+          console.warn('[LiveActivity] Blocking LiveActivity — missing orderId');
           return;
         }
         try {
@@ -179,7 +214,7 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
 
     // Persist the native activityId → orderId mapping
     if (result.activityId) {
-      setMappingEntry(result.activityId, data.orderId);
+      await setMappingEntry(result.activityId, data.orderId);
       console.log('[LiveActivity] Mapped activityId:', result.activityId, '-> orderId:', data.orderId);
     }
 
@@ -242,7 +277,7 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
     }
 
     // Clean up persistent mapping
-    removeMappingByOrderId(orderId);
+    await removeMappingByOrderId(orderId);
 
     console.log('[LiveActivity] Activity ended');
   } catch (err) {

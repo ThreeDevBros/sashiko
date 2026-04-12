@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bike, ChefHat, Clock, ArrowRight } from 'lucide-react';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'] as const;
 
 export const ActiveOrderBanner = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
+  const { isAuthReady, isAuthRecovering } = useAuth();
   const [activeOrder, setActiveOrder] = useState<{ id: string; order_number: string; status: string } | null>(null);
   const [resumeCounter, setResumeCounter] = useState(0);
 
@@ -24,7 +24,7 @@ export const ActiveOrderBanner = () => {
     out_for_delivery: { icon: Bike, label: t('orderStatus.onTheWay'), color: 'text-primary' },
   };
 
-  const fetchActiveOrder = async () => {
+  const fetchActiveOrder = useCallback(async () => {
     if (!isAuthReady || isAuthRecovering) return;
 
     // Use fresh session to avoid stale user references
@@ -80,14 +80,16 @@ export const ActiveOrderBanner = () => {
       localStorage.removeItem('guest_active_order');
       setActiveOrder(null);
     }
-  };
+  }, [isAuthReady, isAuthRecovering]);
 
-  // Refetch on app resume (native) / tab focus (web)
-  useAppLifecycle(async () => {
-    await refreshSession();
-    fetchActiveOrder();
-    setResumeCounter(c => c + 1);
-  });
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      void fetchActiveOrder();
+      setResumeCounter(c => c + 1);
+    });
+
+    return unsubscribe;
+  }, [fetchActiveOrder]);
 
   useEffect(() => {
     if (!isAuthReady || isAuthRecovering) return;
@@ -109,7 +111,7 @@ export const ActiveOrderBanner = () => {
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [isAuthReady, isAuthRecovering, user?.id, resumeCounter]);
+  }, [isAuthReady, isAuthRecovering, fetchActiveOrder, resumeCounter]);
 
   const config = activeOrder ? statusConfig[activeOrder.status] : null;
   const StatusIcon = config?.icon || Clock;

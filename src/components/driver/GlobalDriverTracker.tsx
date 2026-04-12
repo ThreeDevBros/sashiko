@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 /**
  * Global driver GPS tracker that runs on ANY page of the app when the driver
@@ -144,9 +144,14 @@ export function GlobalDriverTracker() {
 
   // Resume counter for realtime reconnect
   const [resumeCounter, setResumeCounter] = useState(0);
-  useAppLifecycle(() => {
-    setResumeCounter(prev => prev + 1);
-  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      setResumeCounter(prev => prev + 1);
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Don't start anything until auth is ready and we have a user
   useEffect(() => {
