@@ -165,6 +165,9 @@ serve(async (req) => {
             updatedAt: new Date().toISOString(),
           },
         },
+        alertTitle: title,
+        alertBody: messageTemplate,
+        sound: 'default',
         // 10-minute stale window to survive cron gaps
         staleDate: Math.floor(Date.now() / 1000) + 600,
         ...(isTerminal && { dismissalDate: Math.floor(Date.now() / 1000) + 300 }),
