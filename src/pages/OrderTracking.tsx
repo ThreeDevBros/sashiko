@@ -532,6 +532,84 @@ export default function OrderTracking() {
         if (orderError) throw orderError;
         setOrder(orderData);
 
+        // If delivery order is missing transit minutes, compute and persist them
+        if (
+          orderData.order_type === 'delivery' &&
+          !(orderData as any).delivery_transit_minutes &&
+          orderData.branch_id
+        ) {
+          // Fire-and-forget: compute transit and save
+          (async () => {
+            try {
+              const { data: branchForTransit } = await supabase
+                .from('branches')
+                .select('latitude, longitude')
+                .eq('id', orderData.branch_id!)
+                .single();
+              if (!branchForTransit?.latitude || !branchForTransit?.longitude) return;
+
+              // Get delivery coordinates
+              let dLat: number | null = orderData.guest_delivery_lat;
+              let dLng: number | null = orderData.guest_delivery_lng;
+              if (!dLat && orderData.delivery_address_id) {
+                const { data: addr } = await supabase
+                  .from('user_addresses')
+                  .select('latitude, longitude')
+                  .eq('id', orderData.delivery_address_id)
+                  .single();
+                dLat = addr?.latitude ? Number(addr.latitude) : null;
+                dLng = addr?.longitude ? Number(addr.longitude) : null;
+              }
+              if (!dLat || !dLng) return;
+
+              // Try Google Directions, fallback to straight-line estimate
+              const { loadGoogleMaps } = await import('@/lib/googleMaps');
+              const { calculateDistance } = await import('@/lib/distance');
+              let mins: number;
+              try {
+                await loadGoogleMaps(['maps', 'routes']);
+                const result = await new Promise<number>((resolve, reject) => {
+                  const svc = new google.maps.DirectionsService();
+                  svc.route(
+                    {
+                      origin: { lat: Number(branchForTransit.latitude), lng: Number(branchForTransit.longitude) },
+                      destination: { lat: dLat!, lng: dLng! },
+                      travelMode: google.maps.TravelMode.DRIVING,
+                    },
+                    (res, status) => {
+                      if (status === 'OK' && res?.routes[0]?.legs[0]?.duration?.value) {
+                        resolve(Math.ceil(res.routes[0].legs[0].duration.value / 60));
+                      } else {
+                        reject(new Error(status));
+                      }
+                    }
+                  );
+                });
+                mins = result;
+              } catch {
+                const dist = calculateDistance(
+                  Number(branchForTransit.latitude), Number(branchForTransit.longitude),
+                  dLat, dLng
+                );
+                mins = Math.ceil((dist / 40) * 60);
+              }
+
+              // Save to DB
+              await supabase
+                .from('orders')
+                .update({ delivery_transit_minutes: mins } as any)
+                .eq('id', orderId);
+              lastSavedTransit.current = mins;
+              console.log('[OrderTracking] Computed & saved delivery_transit_minutes:', mins);
+
+              // Update local state so ETA renders immediately
+              setOrder(prev => prev ? { ...prev, delivery_transit_minutes: mins } as any : null);
+            } catch (err) {
+              console.error('[OrderTracking] Failed to compute transit minutes:', err);
+            }
+          })();
+        }
+
         // Load order items
         const { data: itemsData } = await supabase
           .from('order_items')
