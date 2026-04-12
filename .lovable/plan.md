@@ -1,41 +1,46 @@
 
 
-# Plan: Simplify Live Activity Updates — 60s Poll + Resume Fetch
+# Plan: Fix App Resume Reliability on Native iOS
 
-## Problem
-The APNs push token system is unreliable (persistent `BadDeviceToken` errors cause the Live Activity to get stuck in a loading/stale state after status changes). The ETA shown on the Live Activity can also drift from the `/order-tracking` page.
+## Root causes identified
 
-## Approach
-Instead of relying solely on fragile server-side APNs pushes, add a **60-second local polling loop** in OrderTracking that fetches the order and updates the Live Activity directly from the app. On app resume (`isActive: true`), immediately fetch and sync.
+After reviewing every file involved, the ChatGPT checklist maps to **3 concrete issues** in this codebase:
 
-The server-side cron (`update-order-eta`) still handles background updates via APNs when the app is closed — but when the app is open, the local poll keeps the Live Activity perfectly in sync with the page.
+### Issue 1: Realtime channel breaks after backgrounding
+The Supabase Realtime WebSocket disconnects when iOS suspends the app. On resume, `resumeCounter` increments to force a new channel — but the channel name `order-status-${orderId}` is reused. Supabase may reject a duplicate channel name if the old one hasn't fully torn down yet. This means **status updates stop arriving** after reopen.
 
-## Changes
+**Fix**: Append `resumeCounter` to the channel name so each reconnection gets a unique channel: `order-status-${orderId}-${resumeCounter}`.
 
-### 1. Add 60s Live Activity sync loop in `src/pages/OrderTracking.tsx`
-- Merge the existing 10-second polling interval into a single 60-second loop that:
-  1. Fetches fresh order data from DB
-  2. Updates `setOrder(...)` (page UI)
-  3. Calls `updateOrderLiveActivity(...)` with the same status + ETA the page displays
-- This ensures the Live Activity and page always show identical data — no separate data paths.
+### Issue 2: Stale closure in realtime callback
+The realtime `postgres_changes` callback references `order?.status` from its closure, but this value is stale after the effect re-runs because `order?.status` is also a dependency. When the channel recreates, the old status is captured. This can cause missed toast notifications and incorrect diff logic.
 
-### 2. Force-sync on app resume
-- The existing `useAppLifecycle` handler already calls `loadOrderDetails()`. After that resolves, also call `updateOrderLiveActivity()` with the fresh data so the Live Activity snaps to correct values immediately on reopen.
+**Fix**: Use a ref (`orderStatusRef`) to always read the latest status inside the callback instead of relying on the closure value.
 
-### 3. Unify ETA computation
-- Both the page display and the Live Activity update use `computeEtaMinutes(order)` — the single function already in OrderTracking. No separate server-side ETA formula visible to the user when the app is open.
+### Issue 3: Auth session not awaited before data fetch on resume
+In `OrderTracking`, `useAppLifecycle` calls `loadOrderDetails()` immediately. But in `App.tsx`, the *other* `useAppLifecycle` hook calls `refreshSession()` first. These two hooks fire independently — the OrderTracking one may fetch data with an expired token before the App-level one has refreshed it. This causes **RLS failures / empty data** on resume.
 
-### 4. Keep server-side cron for background
-- `update-order-eta` (every 2 min) still pushes APNs updates for when the app is truly closed. No changes needed there — it's a fallback.
-- The stale/loading issue is resolved because when the app is open, local updates keep the widget fresh regardless of APNs success.
+**Fix**: In `OrderTracking`'s resume handler, call `refreshSession()` before `loadOrderDetails()` to ensure the token is valid. Import `useAuth` is already available.
+
+### Issue 4: 60s poll interval resets on every status change
+The 60s polling effect depends on `order?.status`. Every time status changes (via realtime), the interval restarts — meaning the poll timer resets. This is minor but can cause gaps.
+
+**Fix**: Remove `order?.status` from the 60s poll deps. Use a ref for terminal-status checking instead.
 
 ## Files to modify
 
-1. **`src/pages/OrderTracking.tsx`** — Replace the 10s poll with a 60s poll that also syncs the Live Activity. Add Live Activity update to the resume handler.
-2. **`src/lib/nativeLiveActivity.ts`** — No structural changes needed; the existing `updateOrderLiveActivity()` function is already correct.
+1. **`src/pages/OrderTracking.tsx`**
+   - Unique channel name with `resumeCounter`
+   - Ref-based status reading in realtime callback
+   - `refreshSession()` before `loadOrderDetails()` in resume handler
+   - Stabilize 60s poll deps
+
+2. **`src/hooks/useAppLifecycle.ts`** — no changes needed (already correct)
+
+3. **`src/contexts/AuthContext.tsx`** — no changes needed
 
 ## What this fixes
-- **Stuck loading**: When the app is open, local updates bypass APNs entirely. The widget never goes stale because it gets refreshed every 60s directly.
-- **ETA mismatch**: Both page and Live Activity read from the same fetched order data and use the same `computeEtaMinutes()` function.
-- **Resume sync**: Opening the app immediately fetches fresh data and pushes it to the Live Activity.
+- Order tracking page shows correct data immediately after reopening the app
+- Realtime updates continue working after backgrounding
+- No stale auth tokens causing empty/failed queries
+- 60s Live Activity sync poll runs consistently without resets
 
