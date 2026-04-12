@@ -118,14 +118,36 @@ export default function OrderTracking() {
 
   // Refetch on app resume (native background → foreground) and sync Live Activity
   useAppLifecycle(async () => {
-    if (orderId) {
-      // Refresh auth session FIRST to avoid RLS failures with expired tokens
-      await refreshSession();
-      await loadOrderDetails();
-      // After fresh data is loaded, sync the Live Activity immediately
-      syncLiveActivity();
-      setResumeCounter(prev => prev + 1);
+    if (!orderId) return;
+    console.log('[OrderTracking] App resumed — refreshing session then reloading');
+    // 1. Refresh auth session FIRST to avoid RLS failures with expired tokens
+    const freshSession = await refreshSession();
+    // 2. Use fresh user directly (avoids stale closure on `user`)
+    const freshUser = freshSession?.user ?? null;
+    // 3. Reload order details with the fresh auth state
+    try {
+      if (freshUser) {
+        // Authenticated path — direct query
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', orderId)
+          .single();
+        if (orderData) {
+          setOrder(orderData);
+          setIsGuest(false);
+        }
+      } else {
+        // Guest path — loadOrderDetails handles it
+        await loadOrderDetails();
+      }
+    } catch (err) {
+      console.error('[OrderTracking] Resume fetch error:', err);
     }
+    // 4. Sync the Live Activity with whatever data we now have
+    syncLiveActivity();
+    // 5. Force a new realtime channel
+    setResumeCounter(prev => prev + 1);
   });
 
   useEffect(() => {

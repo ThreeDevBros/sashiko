@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTheme } from '@/components/ThemeProvider';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Truck, Navigation, Clock } from 'lucide-react';
@@ -50,10 +51,17 @@ export function LiveDeliveryMap({ orderId, deliveryAddress, restaurantLocation }
     });
   }, []);
 
+  // Resume counter for unique channel names
+  const [liveMapResumeCounter, setLiveMapResumeCounter] = useState(0);
+  useAppLifecycle(() => {
+    setLiveMapResumeCounter(c => c + 1);
+    loadDriverLocation();
+  });
+
   // Subscribe to real-time driver location updates
   useEffect(() => {
     const channel = supabase
-      .channel(`driver-location-${orderId}`)
+      .channel(`live-driver-location-${orderId}-${liveMapResumeCounter}`)
       .on(
         'postgres_changes',
         {
@@ -96,7 +104,7 @@ export function LiveDeliveryMap({ orderId, deliveryAddress, restaurantLocation }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId]);
+  }, [orderId, liveMapResumeCounter]);
 
   const loadDriverLocation = async () => {
     try {
