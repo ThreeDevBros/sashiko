@@ -72,8 +72,9 @@ const Auth = () => {
     }
 
     const redirectByRole = async () => {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) return;
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) return;
       
       // Fetch roles to determine redirect
       const { data: roleData } = await supabase
@@ -84,6 +85,9 @@ const Auth = () => {
       const roles = roleData?.map(r => r.role) || [];
       const { getRoleBasedRoute } = await import('@/hooks/useRoleRedirect');
       navigate(getRoleBasedRoute(roles));
+      } catch (err) {
+        console.error('[Auth] redirectByRole error:', err);
+      }
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {

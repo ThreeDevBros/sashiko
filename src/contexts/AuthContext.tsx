@@ -118,6 +118,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // 1. Set up the listener FIRST (per Supabase docs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {
+        console.log('[Auth] onAuthStateChange:', _event, newSession ? 'has session' : 'no session');
         setSession(newSession);
         setUser(newSession?.user ?? null);
         // Mirror to native on every change (fire-and-forget)
@@ -130,6 +131,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const { data: { session: existingSession } } = await supabase.auth.getSession();
         if (existingSession) {
+          console.log('[Auth] Restored from web storage');
           setSession(existingSession);
           setUser(existingSession.user);
           saveSessionToNative(existingSession);
@@ -141,18 +143,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const nativeSession = await loadSessionFromNative();
         if (nativeSession) {
           console.log('[Auth] No web session, restoring from native storage');
-          const { data: { session: restored }, error } = await supabase.auth.setSession({
-            access_token: nativeSession.access_token,
-            refresh_token: nativeSession.refresh_token,
-          });
-          if (!error && restored) {
-            setSession(restored);
-            setUser(restored.user);
-          } else {
-            console.warn('[Auth] Native session restore failed:', error?.message);
-            // Clear invalid native session
+          try {
+            const { data: { session: restored }, error } = await supabase.auth.setSession({
+              access_token: nativeSession.access_token,
+              refresh_token: nativeSession.refresh_token,
+            });
+            if (!error && restored) {
+              console.log('[Auth] Restored from native storage successfully');
+              setSession(restored);
+              setUser(restored.user);
+            } else {
+              console.warn('[Auth] Native session restore failed:', error?.message);
+              // Clear corrupted native session
+              saveSessionToNative(null);
+            }
+          } catch (setErr) {
+            console.error('[Auth] Native setSession threw:', setErr);
             saveSessionToNative(null);
           }
+        } else {
+          console.log('[Auth] No session found (web or native)');
         }
       } catch (err) {
         console.error('[Auth] Session restore error:', err);

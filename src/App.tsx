@@ -223,7 +223,7 @@ const AppRoutes = () => {
 const AppContent = () => {
   const { branding, isLoading: brandingLoading, isError: brandingError } = useBranding();
   const { branch, loading: branchLoading, error: branchError } = useBranch();
-  const { isAuthReady, user } = useAuth();
+  const { isAuthReady, isAuthRecovering, user } = useAuth();
   const qc = useQueryClient();
   
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
@@ -306,6 +306,7 @@ const AppContent = () => {
   // Bootstrap gate: wait for auth + core data
   useEffect(() => {
     if (!isAuthReady) return; // Auth not restored yet — keep waiting
+    if (isAuthRecovering) return; // Auth recovery in-flight — keep waiting
     if (!minTimeElapsed) return; // Still in splash min time
     
     const coreDataSettled = !brandingLoading && !branchLoading;
@@ -323,7 +324,7 @@ const AppContent = () => {
       setShowLoadingScreen(false);
       setBootstrapComplete(true);
     }
-  }, [isAuthReady, brandingLoading, branchLoading, brandingError, branchError, branding, branch, minTimeElapsed]);
+  }, [isAuthReady, isAuthRecovering, brandingLoading, branchLoading, brandingError, branchError, branding, branch, minTimeElapsed]);
 
   const handleRetry = useCallback(() => {
     setConnectionFailed(false);
