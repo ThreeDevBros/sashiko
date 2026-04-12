@@ -88,7 +88,7 @@ export default function OrderTracking() {
   const navigate = useNavigate();
   const { branding } = useBranding();
   const { theme } = useTheme();
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, refreshSession } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
@@ -110,13 +110,20 @@ export default function OrderTracking() {
   // Resume counter — forces realtime channel re-subscription after backgrounding
   const [resumeCounter, setResumeCounter] = useState(0);
 
+  // Ref to track latest order status (avoids stale closures in realtime/poll callbacks)
+  const orderStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    orderStatusRef.current = order?.status ?? null;
+  }, [order?.status]);
+
   // Refetch on app resume (native background → foreground) and sync Live Activity
-  useAppLifecycle(() => {
+  useAppLifecycle(async () => {
     if (orderId) {
-      loadOrderDetails().then(() => {
-        // After fresh data is loaded, sync the Live Activity immediately
-        syncLiveActivity();
-      });
+      // Refresh auth session FIRST to avoid RLS failures with expired tokens
+      await refreshSession();
+      await loadOrderDetails();
+      // After fresh data is loaded, sync the Live Activity immediately
+      syncLiveActivity();
       setResumeCounter(prev => prev + 1);
     }
   });
@@ -224,7 +231,7 @@ export default function OrderTracking() {
     if (!orderId) return;
 
     const channel = supabase
-      .channel(`order-status-${orderId}`)
+      .channel(`order-status-${orderId}-${resumeCounter}`)
       .on(
         'postgres_changes',
         {
@@ -237,16 +244,16 @@ export default function OrderTracking() {
           console.log('Order status update:', payload);
           if (payload.new) {
             const newStatus = (payload.new as any).status;
-            const oldStatus = order?.status;
+            const oldStatus = orderStatusRef.current;
             
             // Only show toast for terminal statuses (Live Activity handles the rest)
             if (newStatus !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(newStatus)) {
-              showStatusChangeToast(newStatus, order?.order_type || 'delivery', order?.order_number || '');
+              showStatusChangeToast(newStatus, (payload.new as any).order_type || 'delivery', (payload.new as any).order_number || '');
             }
             
             // Show cashback toast when order is delivered
             if (newStatus === 'delivered' && oldStatus !== 'delivered' && !hasShownCashbackToast.current) {
-              const orderTotal = (payload.new as any).total || order?.total || 0;
+              const orderTotal = (payload.new as any).total || 0;
               showCashbackEarnedToast(orderTotal);
               hasShownCashbackToast.current = true;
             }
@@ -260,15 +267,18 @@ export default function OrderTracking() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId, order?.status, cashbackRate, resumeCounter]);
+  }, [orderId, resumeCounter]);
 
   // 60s polling for authenticated users — fetches fresh order data AND syncs Live Activity
   useEffect(() => {
     if (!orderId || !user || isGuest) return;
-    const isTerminal = order && ['delivered', 'cancelled'].includes(order.status);
-    if (isTerminal) return;
+    // Check terminal status via ref to avoid restarting interval on every status change
+    if (orderStatusRef.current && ['delivered', 'cancelled'].includes(orderStatusRef.current)) return;
 
     const interval = setInterval(async () => {
+      // Re-check terminal status inside the callback
+      if (orderStatusRef.current && ['delivered', 'cancelled'].includes(orderStatusRef.current)) return;
+
       try {
         const { data: freshOrder } = await supabase
           .from('orders')
@@ -276,7 +286,7 @@ export default function OrderTracking() {
           .eq('id', orderId)
           .single();
         if (freshOrder) {
-          const oldStatus = order?.status;
+          const oldStatus = orderStatusRef.current;
           if (freshOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(freshOrder.status)) {
             showStatusChangeToast(freshOrder.status, freshOrder.order_type || 'delivery', freshOrder.order_number || '');
             if (freshOrder.status === 'delivered' && !hasShownCashbackToast.current) {
@@ -305,7 +315,7 @@ export default function OrderTracking() {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [orderId, order?.status, user, isGuest, cashbackRate]);
+  }, [orderId, user, isGuest]);
 
   // Auto-poll for guest orders (no realtime subscription available)
   useEffect(() => {
