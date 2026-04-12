@@ -44,6 +44,7 @@ interface Order {
   subtotal: number;
   tax: number | null;
   delivery_fee: number | null;
+  delivery_transit_minutes: number | null;
   total: number;
   guest_name: string | null;
   guest_phone: string | null;
@@ -130,8 +131,8 @@ export default function OrderTracking() {
     const diffMs = new Date(o.estimated_ready_at).getTime() - Date.now();
     const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
     // Add delivery transit minutes for delivery orders (same as server-side update-order-eta)
-    const transitMinutes = o.order_type === 'delivery' && (o as any).delivery_transit_minutes
-      ? (o as any).delivery_transit_minutes
+    const transitMinutes = o.order_type === 'delivery' && o.delivery_transit_minutes
+      ? o.delivery_transit_minutes
       : 0;
     return prepMinutes + transitMinutes;
   }, []);
@@ -535,7 +536,7 @@ export default function OrderTracking() {
         // If delivery order is missing transit minutes, compute and persist them
         if (
           orderData.order_type === 'delivery' &&
-          !(orderData as any).delivery_transit_minutes &&
+          !orderData.delivery_transit_minutes &&
           orderData.branch_id
         ) {
           // Fire-and-forget: compute transit and save
@@ -603,7 +604,7 @@ export default function OrderTracking() {
               console.log('[OrderTracking] Computed & saved delivery_transit_minutes:', mins);
 
               // Update local state so ETA renders immediately
-              setOrder(prev => prev ? { ...prev, delivery_transit_minutes: mins } as any : null);
+              setOrder(prev => prev ? { ...prev, delivery_transit_minutes: mins } : null);
             } catch (err) {
               console.error('[OrderTracking] Failed to compute transit minutes:', err);
             }

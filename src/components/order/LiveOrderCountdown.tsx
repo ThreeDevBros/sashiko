@@ -9,7 +9,6 @@ interface LiveOrderCountdownProps {
   estimatedReadyAt: string | null;
   deliveryTransitMinutes?: number | null;
   onTransitMinutesCalculated?: (minutes: number) => void;
-  // Keep these props for backward compat but they are no longer used for ETA display
   branchLat?: number;
   branchLng?: number;
   deliveryLat?: number;
@@ -57,20 +56,22 @@ export function LiveOrderCountdown({
 
     // For out_for_delivery, only transit time matters
     if (status === 'out_for_delivery') {
-      return transitMinutes ?? null;
+      // Fallback to ~15 min if transit minutes not yet computed
+      return transitMinutes ?? 15;
     }
 
     // For ready + delivery, transit time only
     if (status === 'ready' && orderType === 'delivery') {
-      return transitMinutes ?? null;
+      return transitMinutes ?? 15;
     }
 
     // For confirmed/preparing: prep + transit (delivery) or prep only
-    if (orderType === 'delivery' && transitMinutes != null) {
-      return prepRemaining + transitMinutes;
+    if (orderType === 'delivery') {
+      // Show prep time even if transit is unknown (don't block on missing transit)
+      return prepRemaining + (transitMinutes ?? 0);
     }
 
-    return prepRemaining > 0 ? prepRemaining : null;
+    return prepRemaining > 0 ? prepRemaining : 0;
   }, [status, estimatedReadyAt, now, transitMinutes, orderType]);
 
   if (['delivered', 'cancelled'].includes(status)) return null;
@@ -138,7 +139,7 @@ export function LiveOrderCountdown({
                   </div>
                 ) : (
                   <p className="text-xl font-bold text-foreground mt-0.5">
-                    Calculating…
+                    Processing…
                   </p>
                 )}
               </div>

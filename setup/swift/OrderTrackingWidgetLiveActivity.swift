@@ -99,8 +99,9 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                         .foregroundColor(statusColor(status))
                         .monospacedDigit()
                 } else {
-                    Image(systemName: "circle.fill")
-                        .font(.system(size: 6))
+                    // Show status icon instead of uninformative dot
+                    Image(systemName: statusIcon(status))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(statusColor(status))
                 }
             } minimal: {
