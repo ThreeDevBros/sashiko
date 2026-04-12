@@ -91,6 +91,8 @@ export default function OrderTracking() {
   const { theme } = useTheme();
   const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
+  const orderRef = useRef<Order | null>(null);
+  useEffect(() => { orderRef.current = order; }, [order]);
   const [address, setAddress] = useState<Address | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -221,6 +223,20 @@ export default function OrderTracking() {
       liveActivityStarted.current = false;
     }
   }, [order?.id, order?.status, order?.estimated_ready_at, isGuest]);
+
+  // Callback from LiveOrderCountdown — push fresh ETA to Live Activity every tick
+  const handleRemainingMinutesChange = useCallback((minutes: number | null) => {
+    const currentOrder = orderRef.current;
+    if (!currentOrder || isGuestRef.current || !liveActivityStarted.current) return;
+    if (['delivered', 'cancelled'].includes(currentOrder.status)) return;
+    void updateOrderLiveActivity({
+      orderId: currentOrder.id,
+      orderType: currentOrder.order_type,
+      status: currentOrder.status,
+      statusMessage: '',
+      etaMinutes: minutes,
+    });
+  }, []);
 
   // Subscribe to real-time order status updates
   useEffect(() => {
@@ -936,6 +952,7 @@ export default function OrderTracking() {
           guestDeliveryLat={order.guest_delivery_lat}
           guestDeliveryLng={order.guest_delivery_lng}
           onTransitMinutesCalculated={saveTransitMinutes}
+          onRemainingMinutesChange={handleRemainingMinutesChange}
         />
 
         {/* Map Section - unified for all order types */}
