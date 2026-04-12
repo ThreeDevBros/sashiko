@@ -150,10 +150,15 @@ export default function OrderTracking() {
     }
   }, []);
 
+  // Keep isGuestRef in sync
+  useEffect(() => {
+    isGuestRef.current = isGuest;
+  }, [isGuest]);
+
   // Sync current order state to the Live Activity widget
   const syncLiveActivity = useCallback(() => {
     setOrder(currentOrder => {
-      if (!currentOrder || isGuest) return currentOrder;
+      if (!currentOrder || isGuestRef.current) return currentOrder;
       const isActive = !['delivered', 'cancelled'].includes(currentOrder.status);
       if (isActive && liveActivityStarted.current) {
         updateOrderLiveActivity({
@@ -166,7 +171,7 @@ export default function OrderTracking() {
       }
       return currentOrder; // no mutation
     });
-  }, [isGuest, computeEtaMinutes, getStatusMessageForOrder]);
+  }, [computeEtaMinutes, getStatusMessageForOrder]);
 
   // Save delivery transit minutes to DB for server-side Live Activity ETA
   const lastSavedTransit = useRef<number | null>(null);
@@ -248,22 +253,30 @@ export default function OrderTracking() {
               hasShownCashbackToast.current = true;
             }
             
-            const updatedOrder = { ...(order || {} as Order), ...payload.new } as Order;
-            setOrder(prev => prev ? { ...prev, ...payload.new } : null);
+            // Use functional update to avoid stale closure — prev has all fields including delivery_transit_minutes
+            setOrder(prev => {
+              if (!prev) return null;
+              const updated = { ...prev, ...payload.new } as Order;
 
-            // Sync Live Activity immediately with the realtime payload
-            if (!isGuest && liveActivityStarted.current) {
-              const isStillActive = !['delivered', 'cancelled'].includes(newStatus);
-              if (isStillActive) {
-                updateOrderLiveActivity({
-                  orderId: updatedOrder.id,
-                  orderType: updatedOrder.order_type,
-                  status: updatedOrder.status,
-                  statusMessage: getStatusMessageForOrder(updatedOrder),
-                  etaMinutes: computeEtaMinutes(updatedOrder),
-                });
+              // Sync Live Activity immediately with fresh merged data
+              if (!isGuestRef.current && liveActivityStarted.current) {
+                const isTerminal = ['delivered', 'cancelled'].includes(updated.status);
+                if (isTerminal) {
+                  endOrderLiveActivity(updated.id);
+                  liveActivityStarted.current = false;
+                } else {
+                  updateOrderLiveActivity({
+                    orderId: updated.id,
+                    orderType: updated.order_type,
+                    status: updated.status,
+                    statusMessage: getStatusMessageForOrder(updated),
+                    etaMinutes: computeEtaMinutes(updated),
+                  });
+                }
               }
-            }
+
+              return updated;
+            });
           }
         }
       )
