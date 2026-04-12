@@ -1,61 +1,41 @@
 
-Goal
 
-Fix the last 2 Live Activity issues on iOS:
-1. stop the Live Activity from falling into the loading/stale state after a status change
-2. make the expanded Live Activity ETA exactly match the ETA shown on `/order-tracking/:id`
+# Plan: Simplify Live Activity Updates — 60s Poll + Resume Fetch
 
-What I found
+## Problem
+The APNs push token system is unreliable (persistent `BadDeviceToken` errors cause the Live Activity to get stuck in a loading/stale state after status changes). The ETA shown on the Live Activity can also drift from the `/order-tracking` page.
 
-- The loading problem is still in the server push path, not the widget layout. Backend logs still show `BadDeviceToken` warnings during Live Activity updates. That means some status-change pushes are still targeting an invalid or outdated token.
-- The token registration is still a bit fragile: `src/lib/nativeLiveActivity.ts` saves the push token using a mutable `currentActiveOrderId` instead of the `activityId` returned by the native plugin event. That can attach a token to the wrong order after reopen/restart flows.
-- The ETA mismatch is real in code:
-  - Live Activity uses `estimated_ready_at + delivery_transit_minutes`
-  - `/order-tracking/:id` uses `LiveOrderCountdown`, which recalculates with live Google Maps data and special-case UI rules
-- So right now the page ETA and Live Activity ETA are not driven by the same source.
+## Approach
+Instead of relying solely on fragile server-side APNs pushes, add a **60-second local polling loop** in OrderTracking that fetches the order and updates the Live Activity directly from the app. On app resume (`isActive: true`), immediately fetch and sync.
 
-Plan
+The server-side cron (`update-order-eta`) still handles background updates via APNs when the app is closed — but when the app is open, the local poll keeps the Live Activity perfectly in sync with the page.
 
-1. Make token registration exact and durable
-- Refactor `src/lib/nativeLiveActivity.ts` to map native `activityId -> orderId` and persist tokens using the event’s `activityId`, not the mutable global order variable.
-- Keep cleanup of old tokens, but tighten it so only the current valid token survives for that user/order.
-- Update `setup/swift/LiveActivityPlugin.swift` only if needed to expose the activity/order mapping more explicitly.
+## Changes
 
-2. Harden the status-change push path
-- Update `supabase/functions/_shared/apns-live-activity.ts` to log final per-token outcome clearly, not just the first environment warning.
-- Tighten failure handling in:
-  - `supabase/functions/send-order-push/index.ts`
-  - `supabase/functions/update-order-eta/index.ts`
-- If a token is definitively bad, prune it immediately so later cron/status updates stop targeting dead tokens.
+### 1. Add 60s Live Activity sync loop in `src/pages/OrderTracking.tsx`
+- Merge the existing 10-second polling interval into a single 60-second loop that:
+  1. Fetches fresh order data from DB
+  2. Updates `setOrder(...)` (page UI)
+  3. Calls `updateOrderLiveActivity(...)` with the same status + ETA the page displays
+- This ensures the Live Activity and page always show identical data — no separate data paths.
 
-3. Unify ETA logic into one source of truth
-- Refactor the customer-facing ETA logic so `/order-tracking/:id` uses the same formula as the Live Activity:
-  - prep remaining from `estimated_ready_at`
-  - plus persisted `delivery_transit_minutes`
-- Remove the separate display-only rules in `LiveOrderCountdown` that currently create a different ETA path.
+### 2. Force-sync on app resume
+- The existing `useAppLifecycle` handler already calls `loadOrderDetails()`. After that resolves, also call `updateOrderLiveActivity()` with the fresh data so the Live Activity snaps to correct values immediately on reopen.
 
-4. Make the page display match the Live Activity exactly
-- Update:
-  - `src/components/order/LiveOrderCountdown.tsx`
-  - `src/pages/OrderTracking.tsx`
-- The page should display the same remaining minutes the backend pushes to the Live Activity, so the user never sees two different ETAs.
+### 3. Unify ETA computation
+- Both the page display and the Live Activity update use `computeEtaMinutes(order)` — the single function already in OrderTracking. No separate server-side ETA formula visible to the user when the app is open.
 
-5. Keep Google Maps only for refreshing transit data
-- Continue using Google Maps to calculate/save `delivery_transit_minutes` when needed.
-- But do not let that live recalculation create a second ETA shown to the user once the persisted ETA exists.
+### 4. Keep server-side cron for background
+- `update-order-eta` (every 2 min) still pushes APNs updates for when the app is truly closed. No changes needed there — it's a fallback.
+- The stale/loading issue is resolved because when the app is open, local updates keep the widget fresh regardless of APNs success.
 
-Files likely involved
+## Files to modify
 
-- `src/lib/nativeLiveActivity.ts`
-- `setup/swift/LiveActivityPlugin.swift`
-- `src/components/order/LiveOrderCountdown.tsx`
-- `src/pages/OrderTracking.tsx`
-- `supabase/functions/_shared/apns-live-activity.ts`
-- `supabase/functions/send-order-push/index.ts`
-- `supabase/functions/update-order-eta/index.ts`
+1. **`src/pages/OrderTracking.tsx`** — Replace the 10s poll with a 60s poll that also syncs the Live Activity. Add Live Activity update to the resume handler.
+2. **`src/lib/nativeLiveActivity.ts`** — No structural changes needed; the existing `updateOrderLiveActivity()` function is already correct.
 
-Expected result
+## What this fixes
+- **Stuck loading**: When the app is open, local updates bypass APNs entirely. The widget never goes stale because it gets refreshed every 60s directly.
+- **ETA mismatch**: Both page and Live Activity read from the same fetched order data and use the same `computeEtaMinutes()` function.
+- **Resume sync**: Opening the app immediately fetches fresh data and pushes it to the Live Activity.
 
-- After a staff/admin status change, the Live Activity keeps updating instead of dropping into loading/stale state.
-- The expanded Live Activity ETA and the `/order-tracking/:id` ETA are the same number at all times.
-- Background cron refreshes and immediate status-change pushes both use the same valid token and the same ETA model.
