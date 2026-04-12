@@ -88,7 +88,7 @@ export default function OrderTracking() {
   const navigate = useNavigate();
   const { branding } = useBranding();
   const { theme } = useTheme();
-  const { user, isAuthReady, refreshSession } = useAuth();
+  const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
@@ -99,6 +99,7 @@ export default function OrderTracking() {
   const hasShownCashbackToast = useRef(false);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [guestDriverLocation, setGuestDriverLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -151,10 +152,10 @@ export default function OrderTracking() {
   });
 
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || isAuthRecovering) return;
     loadOrderDetails();
     loadCashbackRate();
-  }, [orderId, isAuthReady]);
+  }, [orderId, isAuthReady, isAuthRecovering]);
 
   // Helper to compute ETA minutes (prep + transit, matching server-side logic)
   const computeEtaMinutes = useCallback((o: Order | null): number | null => {
@@ -515,13 +516,16 @@ export default function OrderTracking() {
 
   const loadOrderDetails = async () => {
     try {
+      setLoadError(false);
       if (!orderId) {
         setLoading(false);
         return;
       }
 
-      if (user) {
-        setIsGuest(false);
+      // Always get a fresh session to avoid stale user reference
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const currentUser = currentSession?.user ?? null;
+      if (currentUser) {
         // Authenticated flow — direct DB query
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
