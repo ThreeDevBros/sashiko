@@ -230,6 +230,7 @@ const AppContent = () => {
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [connectionFailed, setConnectionFailed] = useState(false);
   const [bootstrapComplete, setBootstrapComplete] = useState(false);
+  const hasBootstrapped = useRef(false);
 
   // Prefetch saved cards only after auth is ready and user exists
   useEffect(() => {
@@ -238,16 +239,15 @@ const AppContent = () => {
     }
   }, [isAuthReady, user, qc]);
 
-  // On app resume: refresh auth first, then selectively invalidate core data
+  // On app resume: refresh auth ONLY — do NOT re-invalidate bootstrap queries
+  // (that would cause re-bootstrap logs and unnecessary re-renders)
   const { refreshSession } = useAuth();
   useAppLifecycle(useCallback(async () => {
-    console.log('[App] Resumed — refreshing session then core data');
-    // 1. Restore auth session first (ensures token is valid for RLS)
+    console.log('[App] Resumed — refreshing session');
     await refreshSession();
-    // 2. Only invalidate core bootstrap queries — pages handle their own via resumeCounter
-    qc.invalidateQueries({ queryKey: ['branch-data'] });
-    qc.invalidateQueries({ queryKey: ['branding'] });
-  }, [qc, refreshSession]));
+    // NOTE: Do NOT invalidate branding/branch here — bootstrap already ran once.
+    // Individual pages handle their own resume refetch via their own useAppLifecycle.
+  }, [refreshSession]));
   
   // Auto-detect location on every app launch (deferred until bootstrap is complete)
   useEffect(() => {
@@ -315,11 +315,14 @@ const AppContent = () => {
     const bothErrored = brandingError && branchError;
     
     if (bothErrored && !branding && !branch) {
-      console.error('[App] Bootstrap failed — both branding and branch errored');
-      setConnectionFailed(true);
-      setShowLoadingScreen(false);
-    } else {
+      if (!hasBootstrapped.current) {
+        console.error('[App] Bootstrap failed — both branding and branch errored');
+        setConnectionFailed(true);
+        setShowLoadingScreen(false);
+      }
+    } else if (!hasBootstrapped.current) {
       console.log('[App] Bootstrap complete — branding:', !!branding, 'branch:', !!branch);
+      hasBootstrapped.current = true;
       setConnectionFailed(false);
       setShowLoadingScreen(false);
       setBootstrapComplete(true);
