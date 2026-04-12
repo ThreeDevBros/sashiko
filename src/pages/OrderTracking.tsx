@@ -952,6 +952,7 @@ export default function OrderTracking() {
           guestDeliveryLat={order.guest_delivery_lat}
           guestDeliveryLng={order.guest_delivery_lng}
           onTransitMinutesCalculated={saveTransitMinutes}
+          onRemainingMinutesChange={handleRemainingMinutesChange}
         />
 
         {/* Map Section - unified for all order types */}
