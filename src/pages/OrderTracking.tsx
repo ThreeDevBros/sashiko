@@ -272,10 +272,13 @@ export default function OrderTracking() {
   // 60s polling for authenticated users — fetches fresh order data AND syncs Live Activity
   useEffect(() => {
     if (!orderId || !user || isGuest) return;
-    const isTerminal = order && ['delivered', 'cancelled'].includes(order.status);
-    if (isTerminal) return;
+    // Check terminal status via ref to avoid restarting interval on every status change
+    if (orderStatusRef.current && ['delivered', 'cancelled'].includes(orderStatusRef.current)) return;
 
     const interval = setInterval(async () => {
+      // Re-check terminal status inside the callback
+      if (orderStatusRef.current && ['delivered', 'cancelled'].includes(orderStatusRef.current)) return;
+
       try {
         const { data: freshOrder } = await supabase
           .from('orders')
@@ -283,7 +286,7 @@ export default function OrderTracking() {
           .eq('id', orderId)
           .single();
         if (freshOrder) {
-          const oldStatus = order?.status;
+          const oldStatus = orderStatusRef.current;
           if (freshOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(freshOrder.status)) {
             showStatusChangeToast(freshOrder.status, freshOrder.order_type || 'delivery', freshOrder.order_number || '');
             if (freshOrder.status === 'delivered' && !hasShownCashbackToast.current) {
@@ -312,7 +315,7 @@ export default function OrderTracking() {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [orderId, order?.status, user, isGuest, cashbackRate]);
+  }, [orderId, user, isGuest]);
 
   // Auto-poll for guest orders (no realtime subscription available)
   useEffect(() => {
