@@ -526,6 +526,7 @@ export default function OrderTracking() {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       const currentUser = currentSession?.user ?? null;
       if (currentUser) {
+        setIsGuest(false);
         // Authenticated flow — direct DB query
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
