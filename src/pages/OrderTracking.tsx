@@ -88,7 +88,7 @@ export default function OrderTracking() {
   const navigate = useNavigate();
   const { branding } = useBranding();
   const { theme } = useTheme();
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, refreshSession } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
