@@ -1,27 +1,35 @@
 
 
-# Plan: Keep Live Activity ETA in Sync with Order Tracking Countdown
+# Plan: Make Live Activity Alert on Every Status Change
 
 ## Problem
-The `LiveOrderCountdown` component ticks every 60 seconds and shows a decreasing ETA in the app UI, but the Live Activity widget on iOS only receives ETA updates during the 60s data poll or status changes. Between those events, the Live Activity shows a stale ETA.
+Currently, Live Activity APNs updates are sent as **silent** pushes (no `alertTitle`, `alertBody`, or `sound`). The widget updates its content but doesn't buzz or expand on the lock screen.
 
-## Solution
-Add a callback from `LiveOrderCountdown` that fires every time `remainingMinutes` changes (every 60s tick). The parent `OrderTracking` page uses this to push the updated ETA to the Live Activity immediately.
+## Fix
 
-## Changes
+### `supabase/functions/send-order-push/index.ts` (lines 155–172)
 
-### 1. `src/components/order/LiveOrderCountdown.tsx`
-- Add a new prop: `onRemainingMinutesChange?: (minutes: number | null) => void`
-- Call it in a `useEffect` whenever `remainingMinutes` changes
+Add `alertTitle`, `alertBody`, and `sound` to every Live Activity update payload so iOS expands the Live Activity banner and triggers haptic feedback on each status change:
 
-### 2. `src/pages/OrderTracking.tsx`
-- Pass `onRemainingMinutesChange` to `LiveOrderCountdown`
-- In the callback, call `updateOrderLiveActivity` with the fresh ETA minutes (using the current order from a ref to avoid stale closures)
-- Store `order` in a ref (`orderRef`) so the callback always has the latest order data
+```typescript
+const updates = laTokens.map((t: any) => ({
+  pushToken: t.push_token,
+  event: isTerminal ? 'end' as const : 'update' as const,
+  contentState: { ... }, // unchanged
+  alertTitle: title,           // ← ADD: "Order #042 Update"
+  alertBody: messageTemplate,  // ← ADD: "Preparing your food"
+  sound: 'default',            // ← ADD: triggers buzz/haptic
+  staleDate: ...,
+  ...
+}));
+```
 
-This means the Live Activity ETA will update every 60 seconds in lockstep with the in-app countdown, plus on every status change and poll — giving the user a perfectly synchronized experience.
+That's the only change needed. The `buildApnsPayload` helper in `apns-live-activity.ts` already supports `alertTitle`, `alertBody`, and `sound` — they just weren't being passed. Adding them will cause iOS to:
 
-## Files to modify
-- `src/components/order/LiveOrderCountdown.tsx` — add callback prop + useEffect
-- `src/pages/OrderTracking.tsx` — wire callback, add orderRef, push ETA to LA on every tick
+1. **Expand** the Live Activity on the lock screen with the alert
+2. **Vibrate/buzz** the device (via the `sound: 'default'` trigger)
+3. Show the updated status message prominently
+
+### One file modified
+- **`supabase/functions/send-order-push/index.ts`** — Add 3 fields to the Live Activity update objects
 
