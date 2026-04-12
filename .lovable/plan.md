@@ -1,40 +1,43 @@
 
 
-# Plan: Fix "Loading/Calculating" State on Status Change
+# Plan: Disable Text/Image Selection App-Wide
 
-## Root Cause
+Add CSS rules to `src/index.css` to prevent all text, image, and element selection across the entire app. This is common for mobile/native-feel web apps.
 
-When the order status changes (e.g., to `out_for_delivery`), two things show a loading state:
+## Changes
 
-1. **In-app `LiveOrderCountdown`** shows "Calculating…" because `remainingMinutes` is `null`. For `out_for_delivery` status, it returns `transitMinutes ?? null` — if `delivery_transit_minutes` is null, it falls through to the "Calculating…" fallback.
+### `src/index.css` — Add to the `@layer base` block
 
-2. **Swift Live Activity widget** shows a small dot instead of ETA when `etaMinutes` is empty.
+Add the following to the `body` rule:
 
-The underlying issue: `delivery_transit_minutes` may be `null` in the database if the fire-and-forget computation in `loadOrderDetails` failed or never ran. Additionally, even when transit minutes exist, the `LiveOrderCountdown` component has edge cases where `remainingMinutes` returns `null` unnecessarily.
+```css
+body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+```
 
-## Fixes
+Also add an exception for input fields and textareas so users can still select/edit text in form fields:
 
-### 1. `LiveOrderCountdown` — never show "Calculating…" after initial load
+```css
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+```
 
-- For `out_for_delivery` and `ready` (delivery): if `transitMinutes` is null, show a fallback estimate (e.g., "~15 min") instead of "Calculating…"
-- For `confirmed`/`preparing`: if `estimatedReadyAt` exists but transit is null, show prep time only (don't block on missing transit)
-- Only show "Calculating…" for the brief initial `pending` → `confirmed` window
+Add image drag prevention:
 
-### 2. `Order` interface — add `delivery_transit_minutes`
+```css
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: auto;
+}
+```
 
-Add the field to the `Order` interface in `OrderTracking.tsx` so it's properly typed and preserved through state updates without needing `as any` casts.
-
-### 3. Ensure transit minutes are computed on first status change
-
-In the realtime callback, if the incoming status is `confirmed` or later and `delivery_transit_minutes` is still null on the merged order, trigger the transit computation immediately (same logic as `loadOrderDetails` but non-blocking).
-
-### 4. Swift widget — show status message when ETA is unavailable
-
-The compact trailing slot currently shows a tiny dot when ETA is empty. Instead, show the status icon so it's informative rather than looking broken.
-
-## Files to modify
-
-- **`src/components/order/LiveOrderCountdown.tsx`** — Remove "Calculating…" fallback; show prep-only or fallback estimate
-- **`src/pages/OrderTracking.tsx`** — Add `delivery_transit_minutes` to Order interface; trigger transit computation in realtime callback if missing
-- **`setup/swift/OrderTrackingWidgetLiveActivity.swift`** — Show status icon instead of dot when ETA is unavailable
+**One file modified**: `src/index.css`
 
