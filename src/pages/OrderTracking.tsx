@@ -139,6 +139,38 @@ export default function OrderTracking() {
     return prepMinutes + transitMinutes;
   }, []);
 
+  // Pure function to get status message for any order object (used by poll + resume)
+  const getStatusMessageForOrder = useCallback((o: Order): string => {
+    switch (o.status) {
+      case 'pending': return 'Waiting for confirmation';
+      case 'confirmed': return 'Order confirmed!';
+      case 'preparing': return 'Preparing your food 👨‍🍳';
+      case 'ready': return o.order_type === 'pickup' ? 'Ready for pickup!' : 'Ready — waiting for driver';
+      case 'out_for_delivery': return 'On its way to you!';
+      case 'delivered': return 'Delivered — enjoy! 🎉';
+      case 'cancelled': return 'Order cancelled';
+      default: return 'Order status: ' + o.status;
+    }
+  }, []);
+
+  // Sync current order state to the Live Activity widget
+  const syncLiveActivity = useCallback(() => {
+    setOrder(currentOrder => {
+      if (!currentOrder || isGuest) return currentOrder;
+      const isActive = !['delivered', 'cancelled'].includes(currentOrder.status);
+      if (isActive && liveActivityStarted.current) {
+        updateOrderLiveActivity({
+          orderId: currentOrder.id,
+          orderType: currentOrder.order_type,
+          status: currentOrder.status,
+          statusMessage: getStatusMessageForOrder(currentOrder),
+          etaMinutes: computeEtaMinutes(currentOrder),
+        });
+      }
+      return currentOrder; // no mutation
+    });
+  }, [isGuest, computeEtaMinutes, getStatusMessageForOrder]);
+
   // Save delivery transit minutes to DB for server-side Live Activity ETA
   const lastSavedTransit = useRef<number | null>(null);
   const saveTransitMinutes = useCallback(async (minutes: number) => {
