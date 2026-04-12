@@ -233,7 +233,7 @@ export default function OrderTracking() {
       orderId: currentOrder.id,
       orderType: currentOrder.order_type,
       status: currentOrder.status,
-      statusMessage: '',
+      statusMessage: getStatusMessageForOrder(currentOrder),
       etaMinutes: minutes,
     });
   }, []);
