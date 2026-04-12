@@ -115,9 +115,9 @@ serve(async (req) => {
       })
       .eq('id', order_id);
 
-    // --- FCM Push Notifications — only for terminal statuses ---
+    // --- FCM Push Notifications — only for cancelled (delivered handled by Live Activity) ---
     let fcmResult = { sent: 0, failed: 0, attempted: 0, skipped_invalid: 0, errors: [] as string[] };
-    if (isTerminalStatus) {
+    if (new_status === 'cancelled') {
       const { data: tokens } = await supabase
         .from('push_device_tokens')
         .select('token')

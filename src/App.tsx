@@ -259,6 +259,8 @@ const AppContent = () => {
 
           console.log('[AppLifecycle] Resume fired — notifying 1 listener');
           await handleGlobalResume(refreshSession);
+          // Force all queries to refetch with the fresh session
+          queryClient.invalidateQueries();
         });
 
         if (disposed) {
