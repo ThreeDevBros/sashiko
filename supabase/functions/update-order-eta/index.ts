@@ -46,7 +46,7 @@ serve(async (req) => {
       confirmed: 'confirmed',
       preparing: 'preparing',
       ready: 'ready',
-      out_for_delivery: 'onTheWay',
+      out_for_delivery: 'out_for_delivery',
       delivered: 'delivered',
       cancelled: 'cancelled',
     };
@@ -70,12 +70,14 @@ serve(async (req) => {
           pushToken: t.push_token,
           event: 'update' as const,
           contentState: {
-            status: statusToLiveState[order.last_push_status] || order.last_push_status,
-            orderId: order.id,
-            orderType: order.order_type,
-            statusMessage: order.last_push_message || '',
-            etaMinutes: String(etaMinutes),
-            updatedAt: new Date().toISOString(),
+            values: {
+              status: statusToLiveState[order.last_push_status] || order.last_push_status,
+              orderId: order.id,
+              orderType: order.order_type,
+              statusMessage: order.last_push_message || '',
+              etaMinutes: String(etaMinutes),
+              updatedAt: new Date().toISOString(),
+            },
           },
           // 10-minute stale window
           staleDate: Math.floor(Date.now() / 1000) + 600,

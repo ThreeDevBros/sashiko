@@ -239,34 +239,36 @@ export default function OrderTracking() {
         (payload) => {
           console.log('Order status update:', payload);
           if (payload.new) {
-            const newStatus = (payload.new as any).status;
+            const nextOrder = payload.new as Partial<Order> & {
+              status?: string;
+              order_type?: Order['order_type'];
+              order_number?: string;
+              total?: number;
+            };
+            const newStatus = nextOrder.status;
             const oldStatus = orderStatusRef.current;
-            
-            // Only show toast for terminal statuses (Live Activity handles the rest)
-            if (newStatus !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(newStatus)) {
-              showStatusChangeToast(newStatus, (payload.new as any).order_type || 'delivery', (payload.new as any).order_number || '');
+            const statusChanged = !!newStatus && newStatus !== oldStatus;
+
+            if (statusChanged && oldStatus && newStatus && ['delivered', 'cancelled'].includes(newStatus)) {
+              showStatusChangeToast(newStatus, nextOrder.order_type || 'delivery', nextOrder.order_number || '');
             }
-            
-            // Show cashback toast when order is delivered
+
             if (newStatus === 'delivered' && oldStatus !== 'delivered' && !hasShownCashbackToast.current) {
-              const orderTotal = (payload.new as any).total || 0;
-              showCashbackEarnedToast(orderTotal);
+              showCashbackEarnedToast(nextOrder.total || 0);
               hasShownCashbackToast.current = true;
             }
-            
-            // Use functional update to avoid stale closure — prev has all fields including delivery_transit_minutes
+
             setOrder(prev => {
               if (!prev) return null;
-              const updated = { ...prev, ...payload.new } as Order;
+              const updated = { ...prev, ...nextOrder } as Order;
 
-              // Sync Live Activity immediately with fresh merged data
               if (!isGuestRef.current && liveActivityStarted.current) {
                 const isTerminal = ['delivered', 'cancelled'].includes(updated.status);
                 if (isTerminal) {
-                  endOrderLiveActivity(updated.id);
+                  void endOrderLiveActivity(updated.id);
                   liveActivityStarted.current = false;
                 } else {
-                  updateOrderLiveActivity({
+                  void updateOrderLiveActivity({
                     orderId: updated.id,
                     orderType: updated.order_type,
                     status: updated.status,
@@ -278,6 +280,10 @@ export default function OrderTracking() {
 
               return updated;
             });
+
+            if (statusChanged) {
+              void loadOrderDetails();
+            }
           }
         }
       )
@@ -286,24 +292,28 @@ export default function OrderTracking() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId, resumeCounter]);
+  }, [orderId, resumeCounter, loadOrderDetails, computeEtaMinutes, getStatusMessageForOrder]);
 
   // 60s polling for authenticated users — fetches fresh order data AND syncs Live Activity
   useEffect(() => {
-    if (!orderId || !user || isGuest) return;
-    // Check terminal status via ref to avoid restarting interval on every status change
+    if (!orderId || isGuest || !isAuthReady) return;
     if (orderStatusRef.current && ['delivered', 'cancelled'].includes(orderStatusRef.current)) return;
 
     const interval = setInterval(async () => {
-      // Re-check terminal status inside the callback
       if (orderStatusRef.current && ['delivered', 'cancelled'].includes(orderStatusRef.current)) return;
 
       try {
-        const { data: freshOrder } = await supabase
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession?.user) return;
+
+        const { data: freshOrder, error: freshOrderError } = await supabase
           .from('orders')
           .select('*')
           .eq('id', orderId)
           .single();
+
+        if (freshOrderError) throw freshOrderError;
+
         if (freshOrder) {
           const oldStatus = orderStatusRef.current;
           if (freshOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(freshOrder.status)) {
@@ -315,11 +325,10 @@ export default function OrderTracking() {
           }
           setOrder(freshOrder);
 
-          // Sync Live Activity with the exact same data the page displays
           const isStillActive = !['delivered', 'cancelled'].includes(freshOrder.status);
           if (isStillActive && liveActivityStarted.current) {
             const etaMins = computeEtaMinutes(freshOrder);
-            updateOrderLiveActivity({
+            void updateOrderLiveActivity({
               orderId: freshOrder.id,
               orderType: freshOrder.order_type,
               status: freshOrder.status,
@@ -334,7 +343,7 @@ export default function OrderTracking() {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [orderId, user, isGuest]);
+  }, [orderId, isGuest, isAuthReady, computeEtaMinutes, getStatusMessageForOrder]);
 
   // Auto-poll for guest orders (no realtime subscription available)
   useEffect(() => {

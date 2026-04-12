@@ -49,7 +49,7 @@ const statusToLiveState: Record<string, string> = {
   confirmed: 'confirmed',
   preparing: 'preparing',
   ready: 'ready',
-  out_for_delivery: 'onTheWay',
+  out_for_delivery: 'out_for_delivery',
   delivered: 'delivered',
   cancelled: 'cancelled',
 };
@@ -156,12 +156,14 @@ serve(async (req) => {
         pushToken: t.push_token,
         event: isTerminal ? 'end' as const : 'update' as const,
         contentState: {
-          status: statusToLiveState[new_status] || new_status,
-          orderId: order_id,
-          orderType: order.order_type,
-          statusMessage: messageTemplate,
-          etaMinutes: etaMinutes != null ? String(etaMinutes) : '',
-          updatedAt: new Date().toISOString(),
+          values: {
+            status: statusToLiveState[new_status] || new_status,
+            orderId: order_id,
+            orderType: order.order_type,
+            statusMessage: messageTemplate,
+            etaMinutes: etaMinutes != null ? String(etaMinutes) : '',
+            updatedAt: new Date().toISOString(),
+          },
         },
         // 10-minute stale window to survive cron gaps
         staleDate: Math.floor(Date.now() / 1000) + 600,
