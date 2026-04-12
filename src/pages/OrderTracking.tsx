@@ -224,6 +224,20 @@ export default function OrderTracking() {
     }
   }, [order?.id, order?.status, order?.estimated_ready_at, isGuest]);
 
+  // Callback from LiveOrderCountdown — push fresh ETA to Live Activity every tick
+  const handleRemainingMinutesChange = useCallback((minutes: number | null) => {
+    const currentOrder = orderRef.current;
+    if (!currentOrder || isGuestRef.current || !liveActivityStarted.current) return;
+    if (['delivered', 'cancelled'].includes(currentOrder.status)) return;
+    void updateOrderLiveActivity({
+      orderId: currentOrder.id,
+      orderType: currentOrder.order_type,
+      status: currentOrder.status,
+      statusMessage: '',
+      etaMinutes: minutes,
+    });
+  }, []);
+
   // Subscribe to real-time order status updates
   useEffect(() => {
     if (!orderId) return;
