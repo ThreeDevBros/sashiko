@@ -12,8 +12,52 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "endActivity", returnType: CAPPluginReturnPromise),
     ]
 
-    // Track running activities by our custom ID
-    private var activityMap: [String: String] = [:]  // customId -> Activity.id
+    // MARK: - Persistent activity mapping (UserDefaults-backed)
+    private static let mapKey = "com.liveactivity.activityMap"
+
+    private var activityMap: [String: String] {
+        get {
+            UserDefaults.standard.dictionary(forKey: Self.mapKey) as? [String: String] ?? [:]
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.mapKey)
+        }
+    }
+
+    /// Rebuild the map from any still-running activities (survives app kill)
+    private func rebuildMapFromRunningActivities() {
+        guard #available(iOS 16.2, *) else { return }
+        var map = activityMap
+        for activity in Activity<GenericAttributes>.activities {
+            // If this activity isn't in our map, we can't recover the custom ID,
+            // but at least we won't lose activities that ARE in the map.
+            // Clean up entries whose native activity no longer exists.
+        }
+        // Remove map entries that point to activities no longer running
+        let runningIds = Set(Activity<GenericAttributes>.activities.map { $0.id })
+        for (customId, nativeId) in map {
+            if !runningIds.contains(nativeId) {
+                map.removeValue(forKey: customId)
+            }
+        }
+        activityMap = map
+    }
+
+    /// End all stale activities that don't match the given order ID
+    private func cleanupStaleActivities(exceptOrderId: String) {
+        guard #available(iOS 16.2, *) else { return }
+        let map = activityMap
+        for activity in Activity<GenericAttributes>.activities {
+            // Check if this activity belongs to a different order
+            let isCurrentOrder = map.contains(where: { $0.key == exceptOrderId && $0.value == activity.id })
+            if !isCurrentOrder {
+                Task {
+                    let content = ActivityContent(state: activity.content.state, staleDate: nil)
+                    await activity.end(content, dismissalPolicy: .immediate)
+                }
+            }
+        }
+    }
 
     @objc func isAvailable(_ call: CAPPluginCall) {
         if #available(iOS 16.2, *) {
@@ -34,6 +78,12 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Missing 'id' or 'contentState'")
             return
         }
+
+        // Rebuild map from running activities in case app was killed
+        rebuildMapFromRunningActivities()
+
+        // Clean up stale activities from previous orders
+        cleanupStaleActivities(exceptOrderId: id)
 
         let attributes = GenericAttributes()
         let state = GenericAttributes.ContentState(values: contentStateDict)
@@ -80,15 +130,26 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         let state = GenericAttributes.ContentState(values: contentStateDict)
+        let nativeId = activityMap[id]
 
         Task {
             for activity in Activity<GenericAttributes>.activities {
-                if activity.id == activityMap[id] {
+                if activity.id == nativeId {
                     let content = ActivityContent(state: state, staleDate: nil)
                     await activity.update(content)
                     call.resolve()
                     return
                 }
+            }
+            // Fallback: try to find any running activity and update it
+            // (handles case where map was cleared but activity still runs)
+            if let firstActivity = Activity<GenericAttributes>.activities.first {
+                let content = ActivityContent(state: state, staleDate: nil)
+                await firstActivity.update(content)
+                // Re-map it
+                activityMap[id] = firstActivity.id
+                call.resolve()
+                return
             }
             call.reject("Activity not found for id: \(id)")
         }
@@ -106,10 +167,11 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         let contentStateDict = call.getObject("contentState") as? [String: String]
+        let nativeId = activityMap[id]
 
         Task {
             for activity in Activity<GenericAttributes>.activities {
-                if activity.id == activityMap[id] {
+                if activity.id == nativeId {
                     let finalState: GenericAttributes.ContentState
                     if let dict = contentStateDict {
                         finalState = GenericAttributes.ContentState(values: dict)
@@ -123,6 +185,8 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                     return
                 }
             }
+            // Clean up map entry even if activity wasn't found
+            activityMap.removeValue(forKey: id)
             call.resolve() // Already ended or not found — not an error
         }
     }
