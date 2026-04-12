@@ -10,7 +10,7 @@ import { useAppLifecycle } from '@/hooks/useAppLifecycle';
  * Renders nothing visible — it's a background service component.
  */
 export function GlobalDriverTracker() {
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, isAuthRecovering } = useAuth();
   const [isDriver, setIsDriver] = useState(false);
   const [activeOrderIds, setActiveOrderIds] = useState<string[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -150,7 +150,7 @@ export function GlobalDriverTracker() {
 
   // Don't start anything until auth is ready and we have a user
   useEffect(() => {
-    if (!isAuthReady || !user) return;
+    if (!isAuthReady || isAuthRecovering || !user) return;
 
     checkDriverStatus();
     checkIntervalRef.current = setInterval(checkDriverStatus, 30000);
@@ -166,7 +166,7 @@ export function GlobalDriverTracker() {
       if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
       supabase.removeChannel(channel);
     };
-  }, [isAuthReady, user, checkDriverStatus, resumeCounter]);
+  }, [isAuthReady, isAuthRecovering, user, checkDriverStatus, resumeCounter]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {

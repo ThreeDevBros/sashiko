@@ -88,7 +88,7 @@ export default function OrderTracking() {
   const navigate = useNavigate();
   const { branding } = useBranding();
   const { theme } = useTheme();
-  const { user, isAuthReady, refreshSession } = useAuth();
+  const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
@@ -99,6 +99,7 @@ export default function OrderTracking() {
   const hasShownCashbackToast = useRef(false);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [guestDriverLocation, setGuestDriverLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -151,10 +152,10 @@ export default function OrderTracking() {
   });
 
   useEffect(() => {
-    if (!isAuthReady) return;
+    if (!isAuthReady || isAuthRecovering) return;
     loadOrderDetails();
     loadCashbackRate();
-  }, [orderId, isAuthReady]);
+  }, [orderId, isAuthReady, isAuthRecovering]);
 
   // Helper to compute ETA minutes (prep + transit, matching server-side logic)
   const computeEtaMinutes = useCallback((o: Order | null): number | null => {
@@ -515,12 +516,16 @@ export default function OrderTracking() {
 
   const loadOrderDetails = async () => {
     try {
+      setLoadError(false);
       if (!orderId) {
         setLoading(false);
         return;
       }
 
-      if (user) {
+      // Always get a fresh session to avoid stale user reference
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const currentUser = currentSession?.user ?? null;
+      if (currentUser) {
         setIsGuest(false);
         // Authenticated flow — direct DB query
         const { data: orderData, error: orderError } = await supabase
@@ -615,6 +620,7 @@ export default function OrderTracking() {
       }
     } catch (error) {
       console.error('Error loading order details:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -647,6 +653,23 @@ export default function OrderTracking() {
 
   if (loading) {
     return <LoadingScreen show={true} />;
+  }
+
+  if (loadError && !order) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <Card className="p-8 text-center">
+          <AlertTriangle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
+          <p className="text-muted-foreground mb-6">
+            We couldn't load your order details. Please try again.
+          </p>
+          <Button onClick={() => { setLoading(true); setLoadError(false); loadOrderDetails(); }}>
+            Retry
+          </Button>
+        </Card>
+      </div>
+    );
   }
 
   if (!order) {

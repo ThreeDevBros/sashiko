@@ -33,7 +33,7 @@ interface OrderWithAddress {
 }
 
 export default function DriverOrders() {
-  const { user, isAuthReady, refreshSession } = useAuth();
+  const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
   const [preparingOrders, setPreparingOrders] = useState<OrderWithAddress[]>([]);
   const [orders, setOrders] = useState<OrderWithAddress[]>([]);
   const [activeOrders, setActiveOrders] = useState<OrderWithAddress[]>([]);
@@ -50,7 +50,7 @@ export default function DriverOrders() {
   });
 
   useEffect(() => {
-    if (!isAuthReady || !user) return;
+    if (!isAuthReady || isAuthRecovering || !user) return;
     loadOrders();
 
     const channel = supabase
@@ -61,17 +61,20 @@ export default function DriverOrders() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isAuthReady, user, resumeCounter]);
+  }, [isAuthReady, isAuthRecovering, user, resumeCounter]);
 
   const loadOrders = async () => {
-    if (!user) return;
+    // Always get fresh session to avoid stale user references
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    const currentUser = currentSession?.user;
+    if (!currentUser) return;
     try {
 
       // Get driver's branch
       const { data: staffBranch } = await supabase
         .from('staff_branches')
         .select('branch_id')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .limit(1)
         .single();
 
