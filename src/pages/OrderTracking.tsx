@@ -282,7 +282,23 @@ export default function OrderTracking() {
             });
 
             if (statusChanged) {
-              void loadOrderDetails();
+              void (async () => {
+                try {
+                  const { data: { session: currentSession } } = await supabase.auth.getSession();
+                  if (!currentSession?.user) return;
+
+                  const { data: freshOrder, error: freshOrderError } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('id', orderId)
+                    .single();
+
+                  if (freshOrderError) throw freshOrderError;
+                  if (freshOrder) setOrder(freshOrder);
+                } catch (refreshErr) {
+                  console.error('Realtime refresh error:', refreshErr);
+                }
+              })();
             }
           }
         }
@@ -292,7 +308,7 @@ export default function OrderTracking() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId, resumeCounter, loadOrderDetails, computeEtaMinutes, getStatusMessageForOrder]);
+  }, [orderId, resumeCounter, computeEtaMinutes, getStatusMessageForOrder]);
 
   // 60s polling for authenticated users — fetches fresh order data AND syncs Live Activity
   useEffect(() => {
