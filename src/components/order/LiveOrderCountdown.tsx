@@ -9,6 +9,7 @@ interface LiveOrderCountdownProps {
   estimatedReadyAt: string | null;
   deliveryTransitMinutes?: number | null;
   onTransitMinutesCalculated?: (minutes: number) => void;
+  onRemainingMinutesChange?: (minutes: number | null) => void;
   branchLat?: number;
   branchLng?: number;
   deliveryLat?: number;
@@ -73,6 +74,13 @@ export function LiveOrderCountdown({
 
     return prepRemaining > 0 ? prepRemaining : 0;
   }, [status, estimatedReadyAt, now, transitMinutes, orderType]);
+
+  // Notify parent whenever remainingMinutes changes (for Live Activity sync)
+  const onRemainingMinutesChangeRef = useRef(onRemainingMinutesChange);
+  onRemainingMinutesChangeRef.current = onRemainingMinutesChange;
+  useEffect(() => {
+    onRemainingMinutesChangeRef.current?.(remainingMinutes);
+  }, [remainingMinutes]);
 
   if (['delivered', 'cancelled'].includes(status)) return null;
 
