@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Clock, ChefHat, Truck, CheckCircle2, Timer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,6 +31,7 @@ export function LiveOrderCountdown({
   status,
   estimatedReadyAt,
   deliveryTransitMinutes,
+  onRemainingMinutesChange,
 }: LiveOrderCountdownProps) {
   const [now, setNow] = useState(Date.now());
 
