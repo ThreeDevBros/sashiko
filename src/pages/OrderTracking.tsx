@@ -247,7 +247,22 @@ export default function OrderTracking() {
               hasShownCashbackToast.current = true;
             }
             
+            const updatedOrder = { ...(order || {} as Order), ...payload.new } as Order;
             setOrder(prev => prev ? { ...prev, ...payload.new } : null);
+
+            // Sync Live Activity immediately with the realtime payload
+            if (!isGuest && liveActivityStarted.current) {
+              const isStillActive = !['delivered', 'cancelled'].includes(newStatus);
+              if (isStillActive) {
+                updateOrderLiveActivity({
+                  orderId: updatedOrder.id,
+                  orderType: updatedOrder.order_type,
+                  status: updatedOrder.status,
+                  statusMessage: getStatusMessageForOrder(updatedOrder),
+                  etaMinutes: computeEtaMinutes(updatedOrder),
+                });
+              }
+            }
           }
         }
       )
@@ -593,10 +608,12 @@ export default function OrderTracking() {
   }, [extractGuestDriverLocation, orderId]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToResume(() => {
+    const unsubscribe = subscribeToResume(async () => {
       if (!orderId) return;
       console.log('[OrderTracking] Resume subscriber — reloading order state');
-      void loadOrderDetails();
+      await loadOrderDetails();
+      // Sync Live Activity with the freshly loaded data
+      syncLiveActivity();
       setResumeCounter(prev => prev + 1);
     });
 
