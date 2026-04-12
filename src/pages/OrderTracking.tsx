@@ -95,6 +95,7 @@ export default function OrderTracking() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  const isGuestRef = useRef(false);
   const [cashbackRate, setCashbackRate] = useState<number>(0);
   const hasShownCashbackToast = useRef(false);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
