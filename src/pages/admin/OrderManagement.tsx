@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Search, CalendarIcon, X, MessageSquareText, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import {
   Table,
   TableBody,
@@ -37,6 +36,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useOrderAlerts } from '@/hooks/useOrderAlerts';
 import { PauseBranchButton } from '@/components/PauseBranchButton';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 // ── Status → color-group mapping ──
 type StatusGroup = 'in_progress' | 'completed' | 'failed';
@@ -92,10 +92,15 @@ export default function OrderManagement() {
 
   // Resume counter to force realtime reconnect after backgrounding
   const [resumeCounter, setResumeCounter] = useState(0);
-  useAppLifecycle(() => {
-    setResumeCounter(prev => prev + 1);
-    queryClient.invalidateQueries({ queryKey: ['orders-admin'] });
-  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      setResumeCounter(prev => prev + 1);
+      queryClient.invalidateQueries({ queryKey: ['orders-admin'] });
+    });
+
+    return unsubscribe;
+  }, [queryClient]);
 
   // Real-time subscription for orders (reconnects on resume)
   useEffect(() => {

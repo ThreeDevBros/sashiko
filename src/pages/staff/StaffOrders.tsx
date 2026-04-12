@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { StaffLayout } from '@/components/staff/StaffLayout';
@@ -22,6 +21,7 @@ import { StaffOrderMap } from '@/components/staff/StaffOrderMap';
 import { GeocodedStaffMap } from '@/components/staff/GeocodedStaffMap';
 import { PauseBranchButton } from '@/components/PauseBranchButton';
 import { useStaffBranch } from '@/contexts/StaffBranchContext';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 // ── Status → color-group mapping ──
 type StatusGroup = 'in_progress' | 'completed' | 'failed';
@@ -147,10 +147,15 @@ function StaffOrdersContent() {
 
   // Resume counter to force realtime reconnect after backgrounding
   const [resumeCounter, setResumeCounter] = useState(0);
-  useAppLifecycle(() => {
-    setResumeCounter(prev => prev + 1);
-    queryClient.invalidateQueries({ queryKey: ['staff-orders', staffBranchId] });
-  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      setResumeCounter(prev => prev + 1);
+      queryClient.invalidateQueries({ queryKey: ['staff-orders', staffBranchId] });
+    });
+
+    return unsubscribe;
+  }, [queryClient, staffBranchId]);
 
   // Real-time subscription for order updates (reconnects on resume)
   useEffect(() => {

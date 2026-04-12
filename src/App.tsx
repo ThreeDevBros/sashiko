@@ -18,8 +18,9 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
 import { usePushNotifications } from "./hooks/usePushNotifications";
-import { useAppLifecycle } from "./hooks/useAppLifecycle";
 import { prefetchSavedCards } from './hooks/useSavedCards';
+import { handleGlobalResume } from "@/lib/lifecycleManager";
+import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
 import Index from "./pages/Index";
 import Order from "./pages/Order";
 import Cart from "./pages/Cart";
@@ -223,7 +224,7 @@ const AppRoutes = () => {
 const AppContent = () => {
   const { branding, isLoading: brandingLoading, isError: brandingError } = useBranding();
   const { branch, loading: branchLoading, error: branchError } = useBranch();
-  const { isAuthReady, isAuthRecovering, user } = useAuth();
+  const { isAuthReady, isAuthRecovering, user, refreshSession } = useAuth();
   const qc = useQueryClient();
   
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
@@ -239,15 +240,45 @@ const AppContent = () => {
     }
   }, [isAuthReady, user, qc]);
 
-  // On app resume: refresh auth ONLY — do NOT re-invalidate bootstrap queries
-  // (that would cause re-bootstrap logs and unnecessary re-renders)
-  const { refreshSession } = useAuth();
-  useAppLifecycle(useCallback(async () => {
-    console.log('[App] Resumed — refreshing session');
-    await refreshSession();
-    // NOTE: Do NOT invalidate branding/branch here — bootstrap already ran once.
-    // Individual pages handle their own resume refetch via their own useAppLifecycle.
-  }, [refreshSession]));
+  useEffect(() => {
+    void restoreLiveActivityMappings();
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let removeListener: (() => void) | null = null;
+
+    (async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.getPlatform() === 'web') return;
+
+        const { App: CapApp } = await import('@capacitor/app');
+        const listener = await CapApp.addListener('appStateChange', async ({ isActive }) => {
+          if (!isActive) return;
+
+          console.log('[AppLifecycle] Resume fired — notifying 1 listener');
+          await handleGlobalResume(refreshSession);
+        });
+
+        if (disposed) {
+          await listener.remove();
+          return;
+        }
+
+        removeListener = () => {
+          void listener.remove();
+        };
+      } catch (error) {
+        console.warn('[AppLifecycle] Failed to register native listener:', error);
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      removeListener?.();
+    };
+  }, [refreshSession]);
   
   // Auto-detect location on every app launch (deferred until bootstrap is complete)
   useEffect(() => {

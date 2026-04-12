@@ -29,7 +29,7 @@ import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import { getGuestOrders } from '@/lib/guestOrders';
 import { areLiveActivitiesSupported, startOrderLiveActivity, updateOrderLiveActivity, endOrderLiveActivity } from '@/lib/nativeLiveActivity';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 interface Order {
   id: string;
@@ -116,40 +116,6 @@ export default function OrderTracking() {
   useEffect(() => {
     orderStatusRef.current = order?.status ?? null;
   }, [order?.status]);
-
-  // Refetch on app resume (native background → foreground) and sync Live Activity
-  useAppLifecycle(async () => {
-    if (!orderId) return;
-    console.log('[OrderTracking] App resumed — refreshing session then reloading');
-    // 1. Refresh auth session FIRST to avoid RLS failures with expired tokens
-    const freshSession = await refreshSession();
-    // 2. Use fresh user directly (avoids stale closure on `user`)
-    const freshUser = freshSession?.user ?? null;
-    // 3. Reload order details with the fresh auth state
-    try {
-      if (freshUser) {
-        // Authenticated path — direct query
-        const { data: orderData } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .single();
-        if (orderData) {
-          setOrder(orderData);
-          setIsGuest(false);
-        }
-      } else {
-        // Guest path — loadOrderDetails handles it
-        await loadOrderDetails();
-      }
-    } catch (err) {
-      console.error('[OrderTracking] Resume fetch error:', err);
-    }
-    // 4. Sync the Live Activity with whatever data we now have
-    syncLiveActivity();
-    // 5. Force a new realtime channel
-    setResumeCounter(prev => prev + 1);
-  });
 
   useEffect(() => {
     if (!isAuthReady || isAuthRecovering) return;
@@ -498,7 +464,7 @@ export default function OrderTracking() {
     }
   };
 
-  const extractGuestDriverLocation = (gOrder: any) => {
+  const extractGuestDriverLocation = useCallback((gOrder: any) => {
     if (gOrder.driver_locations && Array.isArray(gOrder.driver_locations) && gOrder.driver_locations.length > 0) {
       const sorted = [...gOrder.driver_locations].sort((a: any, b: any) => 
         new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
@@ -512,9 +478,9 @@ export default function OrderTracking() {
         updated_at: latest.updated_at,
       });
     }
-  };
+  }, []);
 
-  const loadOrderDetails = async () => {
+  const loadOrderDetails = useCallback(async () => {
     try {
       setLoadError(false);
       if (!orderId) {
@@ -624,7 +590,18 @@ export default function OrderTracking() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [extractGuestDriverLocation, orderId]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      if (!orderId) return;
+      console.log('[OrderTracking] Resume subscriber — reloading order state');
+      void loadOrderDetails();
+      setResumeCounter(prev => prev + 1);
+    });
+
+    return unsubscribe;
+  }, [loadOrderDetails, orderId]);
 
   const getStatusMessage = () => {
     if (!order) return '';

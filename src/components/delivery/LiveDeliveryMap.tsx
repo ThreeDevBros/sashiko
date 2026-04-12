@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTheme } from '@/components/ThemeProvider';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Truck, Navigation, Clock } from 'lucide-react';
 import { getMapStyle, createMarkerIcon, waitForContainerReady, triggerMapResize } from '@/lib/mapStyles';
 import { loadGoogleMaps } from '@/lib/googleMaps';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 interface LiveDeliveryMapProps {
   orderId: string;
@@ -51,12 +51,53 @@ export function LiveDeliveryMap({ orderId, deliveryAddress, restaurantLocation }
     });
   }, []);
 
+  const loadDriverLocation = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('driver_locations')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setDriverLocation({
+          latitude: typeof data.latitude === 'string'
+            ? parseFloat(data.latitude)
+            : data.latitude,
+          longitude: typeof data.longitude === 'string'
+            ? parseFloat(data.longitude)
+            : data.longitude,
+          heading: data.heading ? (
+            typeof data.heading === 'string'
+              ? parseFloat(data.heading)
+              : data.heading
+          ) : undefined,
+          speed: data.speed ? (
+            typeof data.speed === 'string'
+              ? parseFloat(data.speed)
+              : data.speed
+          ) : undefined,
+          updated_at: data.updated_at
+        });
+      }
+    } catch (error) {
+      console.error('Error loading driver location:', error);
+    }
+  }, [orderId]);
+
   // Resume counter for unique channel names
   const [liveMapResumeCounter, setLiveMapResumeCounter] = useState(0);
-  useAppLifecycle(() => {
-    setLiveMapResumeCounter(c => c + 1);
-    loadDriverLocation();
-  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      setLiveMapResumeCounter(c => c + 1);
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Subscribe to real-time driver location updates
   useEffect(() => {
@@ -104,44 +145,7 @@ export function LiveDeliveryMap({ orderId, deliveryAddress, restaurantLocation }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId, liveMapResumeCounter]);
-
-  const loadDriverLocation = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('driver_locations')
-        .select('*')
-        .eq('order_id', orderId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setDriverLocation({
-          latitude: typeof data.latitude === 'string' 
-            ? parseFloat(data.latitude) 
-            : data.latitude,
-          longitude: typeof data.longitude === 'string' 
-            ? parseFloat(data.longitude) 
-            : data.longitude,
-          heading: data.heading ? (
-            typeof data.heading === 'string' 
-              ? parseFloat(data.heading) 
-              : data.heading
-          ) : undefined,
-          speed: data.speed ? (
-            typeof data.speed === 'string' 
-              ? parseFloat(data.speed) 
-              : data.speed
-          ) : undefined,
-          updated_at: data.updated_at
-        });
-      }
-    } catch (error) {
-      console.error('Error loading driver location:', error);
-    }
-  };
+  }, [orderId, liveMapResumeCounter, loadDriverLocation]);
 
   // Initialize map and update when driver location changes
   useEffect(() => {

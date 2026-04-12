@@ -1,5 +1,4 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   fetchBranchWithFallback, 
@@ -10,6 +9,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { APP_CONFIG } from '@/constants';
 import type { Branch } from '@/types';
+import { subscribeToResume } from '@/lib/lifecycleManager';
 
 /**
  * Geocode a branch address to get lat/lng when coordinates are missing.
@@ -87,9 +87,14 @@ export const useBranch = () => {
 
   // Resume counter to force realtime reconnect after backgrounding
   const [resumeCounter, setResumeCounter] = useState(0);
-  useAppLifecycle(() => {
-    setResumeCounter(prev => prev + 1);
-  });
+
+  useEffect(() => {
+    const unsubscribe = subscribeToResume(() => {
+      setResumeCounter(prev => prev + 1);
+    });
+
+    return unsubscribe;
+  }, []);
 
   // Listen for branch changes (user switching branches)
   useEffect(() => {
