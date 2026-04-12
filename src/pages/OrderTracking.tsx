@@ -236,7 +236,7 @@ export default function OrderTracking() {
       statusMessage: getStatusMessageForOrder(currentOrder),
       etaMinutes: minutes,
     });
-  }, []);
+  }, [getStatusMessageForOrder]);
 
   // Subscribe to real-time order status updates
   useEffect(() => {
