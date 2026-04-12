@@ -110,10 +110,13 @@ export default function OrderTracking() {
   // Resume counter — forces realtime channel re-subscription after backgrounding
   const [resumeCounter, setResumeCounter] = useState(0);
 
-  // Refetch on app resume (native background → foreground)
+  // Refetch on app resume (native background → foreground) and sync Live Activity
   useAppLifecycle(() => {
     if (orderId) {
-      loadOrderDetails();
+      loadOrderDetails().then(() => {
+        // After fresh data is loaded, sync the Live Activity immediately
+        syncLiveActivity();
+      });
       setResumeCounter(prev => prev + 1);
     }
   });
@@ -135,6 +138,38 @@ export default function OrderTracking() {
       : 0;
     return prepMinutes + transitMinutes;
   }, []);
+
+  // Pure function to get status message for any order object (used by poll + resume)
+  const getStatusMessageForOrder = useCallback((o: Order): string => {
+    switch (o.status) {
+      case 'pending': return 'Waiting for confirmation';
+      case 'confirmed': return 'Order confirmed!';
+      case 'preparing': return 'Preparing your food 👨‍🍳';
+      case 'ready': return o.order_type === 'pickup' ? 'Ready for pickup!' : 'Ready — waiting for driver';
+      case 'out_for_delivery': return 'On its way to you!';
+      case 'delivered': return 'Delivered — enjoy! 🎉';
+      case 'cancelled': return 'Order cancelled';
+      default: return 'Order status: ' + o.status;
+    }
+  }, []);
+
+  // Sync current order state to the Live Activity widget
+  const syncLiveActivity = useCallback(() => {
+    setOrder(currentOrder => {
+      if (!currentOrder || isGuest) return currentOrder;
+      const isActive = !['delivered', 'cancelled'].includes(currentOrder.status);
+      if (isActive && liveActivityStarted.current) {
+        updateOrderLiveActivity({
+          orderId: currentOrder.id,
+          orderType: currentOrder.order_type,
+          status: currentOrder.status,
+          statusMessage: getStatusMessageForOrder(currentOrder),
+          etaMinutes: computeEtaMinutes(currentOrder),
+        });
+      }
+      return currentOrder; // no mutation
+    });
+  }, [isGuest, computeEtaMinutes, getStatusMessageForOrder]);
 
   // Save delivery transit minutes to DB for server-side Live Activity ETA
   const lastSavedTransit = useRef<number | null>(null);
@@ -227,8 +262,7 @@ export default function OrderTracking() {
     };
   }, [orderId, order?.status, cashbackRate, resumeCounter]);
 
-  // Polling fallback for authenticated users (realtime can be flaky on native WebView)
-  // Uses auth context user instead of fragile getUser() call
+  // 60s polling for authenticated users — fetches fresh order data AND syncs Live Activity
   useEffect(() => {
     if (!orderId || !user || isGuest) return;
     const isTerminal = order && ['delivered', 'cancelled'].includes(order.status);
@@ -251,11 +285,24 @@ export default function OrderTracking() {
             }
           }
           setOrder(freshOrder);
+
+          // Sync Live Activity with the exact same data the page displays
+          const isStillActive = !['delivered', 'cancelled'].includes(freshOrder.status);
+          if (isStillActive && liveActivityStarted.current) {
+            const etaMins = computeEtaMinutes(freshOrder);
+            updateOrderLiveActivity({
+              orderId: freshOrder.id,
+              orderType: freshOrder.order_type,
+              status: freshOrder.status,
+              statusMessage: getStatusMessageForOrder(freshOrder),
+              etaMinutes: etaMins,
+            });
+          }
         }
       } catch (err) {
         console.error('Order poll error:', err);
       }
-    }, 10000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [orderId, order?.status, user, isGuest, cashbackRate]);
