@@ -95,6 +95,7 @@ export default function OrderTracking() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  const isGuestRef = useRef(false);
   const [cashbackRate, setCashbackRate] = useState<number>(0);
   const hasShownCashbackToast = useRef(false);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
@@ -149,10 +150,15 @@ export default function OrderTracking() {
     }
   }, []);
 
+  // Keep isGuestRef in sync
+  useEffect(() => {
+    isGuestRef.current = isGuest;
+  }, [isGuest]);
+
   // Sync current order state to the Live Activity widget
   const syncLiveActivity = useCallback(() => {
     setOrder(currentOrder => {
-      if (!currentOrder || isGuest) return currentOrder;
+      if (!currentOrder || isGuestRef.current) return currentOrder;
       const isActive = !['delivered', 'cancelled'].includes(currentOrder.status);
       if (isActive && liveActivityStarted.current) {
         updateOrderLiveActivity({
@@ -165,7 +171,7 @@ export default function OrderTracking() {
       }
       return currentOrder; // no mutation
     });
-  }, [isGuest, computeEtaMinutes, getStatusMessageForOrder]);
+  }, [computeEtaMinutes, getStatusMessageForOrder]);
 
   // Save delivery transit minutes to DB for server-side Live Activity ETA
   const lastSavedTransit = useRef<number | null>(null);
@@ -247,22 +253,30 @@ export default function OrderTracking() {
               hasShownCashbackToast.current = true;
             }
             
-            const updatedOrder = { ...(order || {} as Order), ...payload.new } as Order;
-            setOrder(prev => prev ? { ...prev, ...payload.new } : null);
+            // Use functional update to avoid stale closure — prev has all fields including delivery_transit_minutes
+            setOrder(prev => {
+              if (!prev) return null;
+              const updated = { ...prev, ...payload.new } as Order;
 
-            // Sync Live Activity immediately with the realtime payload
-            if (!isGuest && liveActivityStarted.current) {
-              const isStillActive = !['delivered', 'cancelled'].includes(newStatus);
-              if (isStillActive) {
-                updateOrderLiveActivity({
-                  orderId: updatedOrder.id,
-                  orderType: updatedOrder.order_type,
-                  status: updatedOrder.status,
-                  statusMessage: getStatusMessageForOrder(updatedOrder),
-                  etaMinutes: computeEtaMinutes(updatedOrder),
-                });
+              // Sync Live Activity immediately with fresh merged data
+              if (!isGuestRef.current && liveActivityStarted.current) {
+                const isTerminal = ['delivered', 'cancelled'].includes(updated.status);
+                if (isTerminal) {
+                  endOrderLiveActivity(updated.id);
+                  liveActivityStarted.current = false;
+                } else {
+                  updateOrderLiveActivity({
+                    orderId: updated.id,
+                    orderType: updated.order_type,
+                    status: updated.status,
+                    statusMessage: getStatusMessageForOrder(updated),
+                    etaMinutes: computeEtaMinutes(updated),
+                  });
+                }
               }
-            }
+
+              return updated;
+            });
           }
         }
       )
@@ -517,6 +531,84 @@ export default function OrderTracking() {
 
         if (orderError) throw orderError;
         setOrder(orderData);
+
+        // If delivery order is missing transit minutes, compute and persist them
+        if (
+          orderData.order_type === 'delivery' &&
+          !(orderData as any).delivery_transit_minutes &&
+          orderData.branch_id
+        ) {
+          // Fire-and-forget: compute transit and save
+          (async () => {
+            try {
+              const { data: branchForTransit } = await supabase
+                .from('branches')
+                .select('latitude, longitude')
+                .eq('id', orderData.branch_id!)
+                .single();
+              if (!branchForTransit?.latitude || !branchForTransit?.longitude) return;
+
+              // Get delivery coordinates
+              let dLat: number | null = orderData.guest_delivery_lat;
+              let dLng: number | null = orderData.guest_delivery_lng;
+              if (!dLat && orderData.delivery_address_id) {
+                const { data: addr } = await supabase
+                  .from('user_addresses')
+                  .select('latitude, longitude')
+                  .eq('id', orderData.delivery_address_id)
+                  .single();
+                dLat = addr?.latitude ? Number(addr.latitude) : null;
+                dLng = addr?.longitude ? Number(addr.longitude) : null;
+              }
+              if (!dLat || !dLng) return;
+
+              // Try Google Directions, fallback to straight-line estimate
+              const { loadGoogleMaps } = await import('@/lib/googleMaps');
+              const { calculateDistance } = await import('@/lib/distance');
+              let mins: number;
+              try {
+                await loadGoogleMaps(['maps', 'routes']);
+                const result = await new Promise<number>((resolve, reject) => {
+                  const svc = new google.maps.DirectionsService();
+                  svc.route(
+                    {
+                      origin: { lat: Number(branchForTransit.latitude), lng: Number(branchForTransit.longitude) },
+                      destination: { lat: dLat!, lng: dLng! },
+                      travelMode: google.maps.TravelMode.DRIVING,
+                    },
+                    (res, status) => {
+                      if (status === 'OK' && res?.routes[0]?.legs[0]?.duration?.value) {
+                        resolve(Math.ceil(res.routes[0].legs[0].duration.value / 60));
+                      } else {
+                        reject(new Error(status));
+                      }
+                    }
+                  );
+                });
+                mins = result;
+              } catch {
+                const dist = calculateDistance(
+                  Number(branchForTransit.latitude), Number(branchForTransit.longitude),
+                  dLat, dLng
+                );
+                mins = Math.ceil((dist / 40) * 60);
+              }
+
+              // Save to DB
+              await supabase
+                .from('orders')
+                .update({ delivery_transit_minutes: mins } as any)
+                .eq('id', orderId);
+              lastSavedTransit.current = mins;
+              console.log('[OrderTracking] Computed & saved delivery_transit_minutes:', mins);
+
+              // Update local state so ETA renders immediately
+              setOrder(prev => prev ? { ...prev, delivery_transit_minutes: mins } as any : null);
+            } catch (err) {
+              console.error('[OrderTracking] Failed to compute transit minutes:', err);
+            }
+          })();
+        }
 
         // Load order items
         const { data: itemsData } = await supabase
