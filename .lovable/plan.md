@@ -1,42 +1,72 @@
 
 
-# Plan: Sync Order Tracking Page and Live Activity — Same Data, Same Timing
+# Plan: Fix ETA Calculation and Stale State in Order Tracking + Live Activity
 
-## Current state
+## Problems found
 
-- The `/order-tracking` page has a **60s poll** that fetches fresh order data AND syncs the Live Activity — this is correct.
-- The page also has a **realtime subscription** that updates status on change — this is correct.
-- However, the realtime callback only calls `setOrder()` — it does **not** sync the Live Activity immediately on status change.
-- The Live Activity also gets updated via a separate `useEffect` watching `order?.status` — but this fires asynchronously after the state update, introducing a small delay and potential race.
+1. **Stale closure in realtime callback** — The realtime subscription (line 250) merges `payload.new` with the stale `order` from when the effect was created. After the first status change, subsequent updates merge with outdated data, losing fields like `delivery_transit_minutes`. This also explains "app stops working properly after first status update."
 
-## What needs to change
+2. **ETA missing transit minutes** — `computeEtaMinutes` reads `delivery_transit_minutes` from the order object, but it can be null/undefined if: (a) the merge lost it, (b) it hasn't been saved to DB yet, or (c) the realtime payload didn't include it. The Live Activity then shows wrong ETA or empty.
 
-### 1. Sync Live Activity immediately on realtime status change
+3. **`isGuest` stale in realtime callback** — Captured from closure but not a dependency.
 
-In the realtime `postgres_changes` callback (line ~232–252), after `setOrder(...)`, also call `updateOrderLiveActivity()` inline with the fresh payload data. This ensures the Live Activity updates at the exact same moment the page does — no waiting for a React re-render cycle.
+4. **LiveOrderCountdown shows "Calculating…"** when `deliveryTransitMinutes` is null, even though transit time was already computed by `useDynamicDeliveryInfo` elsewhere.
 
-### 2. Sync Live Activity immediately on resume
+## Fixes
 
-The resume handler (line ~596) calls `loadOrderDetails()` but does not explicitly sync the Live Activity afterward. Add a `syncLiveActivity()` call after `loadOrderDetails()` completes.
+### 1. Fix stale closure in realtime callback (`OrderTracking.tsx`)
 
-### 3. Keep 60s poll as the fallback
+Replace `const updatedOrder = { ...(order || {}), ...payload.new }` with a functional state update that captures the fresh previous state:
 
-No changes needed — it already fetches + syncs both page and Live Activity.
+```typescript
+setOrder(prev => {
+  if (!prev) return null;
+  const updated = { ...prev, ...payload.new } as Order;
+  
+  // Sync Live Activity with the merged order (fresh, not stale)
+  if (!isGuestRef.current && liveActivityStarted.current) {
+    const isStillActive = !['delivered', 'cancelled'].includes(updated.status);
+    if (isStillActive) {
+      updateOrderLiveActivity({
+        orderId: updated.id,
+        orderType: updated.order_type,
+        status: updated.status,
+        statusMessage: getStatusMessageForOrder(updated),
+        etaMinutes: computeEtaMinutes(updated),
+      });
+    }
+  }
+  
+  return updated;
+});
+```
 
-### 4. Keep the `useEffect` on `order?.status` as a safety net
+Add a `isGuestRef` (useRef) to avoid stale `isGuest` reads in the callback.
 
-This already handles start/end lifecycle. No removal needed — it acts as a catch-all.
+### 2. Fix ETA calculation for Live Activity
+
+The `computeEtaMinutes` function correctly reads `delivery_transit_minutes` from the order object. But realtime `payload.new` only contains changed columns. When status changes but `delivery_transit_minutes` doesn't, the merge must preserve the old value. Fix #1 above (using `prev` state) solves this — the previous state already has `delivery_transit_minutes`.
+
+### 3. Ensure `delivery_transit_minutes` is persisted early
+
+The `saveTransitMinutes` callback is passed to `LiveOrderCountdown` via `onTransitMinutesCalculated`, but `LiveOrderCountdown` no longer calls it (the prop exists but is unused since transit comes from the DB). Need to ensure transit minutes are saved when the order tracking page first loads — use the `DeliveryTimeEstimate`-style Google Directions call or the existing `useDynamicDeliveryInfo` pattern to calculate and persist transit on first load.
+
+Actually, looking more carefully, `LiveOrderCountdown` doesn't calculate transit at all — it only reads `deliveryTransitMinutes` from props. The transit is supposed to already be in the DB from when the order was placed. If it's missing, the ETA shows "Calculating…" forever.
+
+**Fix**: In `loadOrderDetails`, after loading the order, if `delivery_transit_minutes` is null and it's a delivery order with coordinates, compute transit via Google Directions and save it.
+
+### 4. End Live Activity on terminal status in realtime callback
+
+When status becomes `delivered`/`cancelled`, call `endOrderLiveActivity` immediately in the callback instead of waiting for the `useEffect` on `order?.status`.
 
 ## Files to modify
 
-- **`src/pages/OrderTracking.tsx`** — Add `updateOrderLiveActivity` call inside the realtime callback; add `syncLiveActivity()` in the resume handler after data loads.
+- **`src/pages/OrderTracking.tsx`** — Fix stale closure, add isGuestRef, compute transit on first load if missing, end activity in realtime callback
 
-## AppIconSmall dimensions
+## Technical details
 
-For the Dynamic Island compact slots, `AppIconSmall` should be:
-
-- **Size**: **48×48 pixels** (renders at 24×24 pt on @2x Retina)
-- **Format**: PNG, no transparency, no rounded corners (the `clipShape` in SwiftUI handles rounding)
-- **Location**: Add to the **widget extension's Asset Catalog** (not the main app target)
-- If you want to support @3x as well, provide a **72×72 px** variant in the same image set
+- Use `useRef` for `isGuest` to avoid stale reads in realtime/poll callbacks
+- Use functional `setOrder(prev => ...)` pattern to get fresh merged state
+- Add a one-time transit calculation in `loadOrderDetails` when `delivery_transit_minutes` is null for delivery orders
+- Keep `syncLiveActivity` for resume path (already correct since it uses functional `setOrder`)
 
