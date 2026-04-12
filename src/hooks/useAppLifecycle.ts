@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react';
  * Deduplicates events: on native, both `visibilitychange` and Capacitor `appStateChange`
  * fire — this hook ensures only one resume callback fires per wake cycle.
  */
-export function useAppLifecycle(onResume: () => void) {
+export function useAppLifecycle(onResume: () => void | Promise<void>) {
   const onResumeRef = useRef(onResume);
   onResumeRef.current = onResume;
 
