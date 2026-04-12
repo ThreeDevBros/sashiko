@@ -620,6 +620,7 @@ export default function OrderTracking() {
       }
     } catch (error) {
       console.error('Error loading order details:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
