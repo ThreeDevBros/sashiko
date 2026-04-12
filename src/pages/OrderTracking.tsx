@@ -110,13 +110,20 @@ export default function OrderTracking() {
   // Resume counter — forces realtime channel re-subscription after backgrounding
   const [resumeCounter, setResumeCounter] = useState(0);
 
+  // Ref to track latest order status (avoids stale closures in realtime/poll callbacks)
+  const orderStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    orderStatusRef.current = order?.status ?? null;
+  }, [order?.status]);
+
   // Refetch on app resume (native background → foreground) and sync Live Activity
-  useAppLifecycle(() => {
+  useAppLifecycle(async () => {
     if (orderId) {
-      loadOrderDetails().then(() => {
-        // After fresh data is loaded, sync the Live Activity immediately
-        syncLiveActivity();
-      });
+      // Refresh auth session FIRST to avoid RLS failures with expired tokens
+      await refreshSession();
+      await loadOrderDetails();
+      // After fresh data is loaded, sync the Live Activity immediately
+      syncLiveActivity();
       setResumeCounter(prev => prev + 1);
     }
   });
