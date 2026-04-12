@@ -91,6 +91,8 @@ export default function OrderTracking() {
   const { theme } = useTheme();
   const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
+  const orderRef = useRef<Order | null>(null);
+  useEffect(() => { orderRef.current = order; }, [order]);
   const [address, setAddress] = useState<Address | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
