@@ -110,10 +110,13 @@ export default function OrderTracking() {
   // Resume counter — forces realtime channel re-subscription after backgrounding
   const [resumeCounter, setResumeCounter] = useState(0);
 
-  // Refetch on app resume (native background → foreground)
+  // Refetch on app resume (native background → foreground) and sync Live Activity
   useAppLifecycle(() => {
     if (orderId) {
-      loadOrderDetails();
+      loadOrderDetails().then(() => {
+        // After fresh data is loaded, sync the Live Activity immediately
+        syncLiveActivity();
+      });
       setResumeCounter(prev => prev + 1);
     }
   });
@@ -227,8 +230,7 @@ export default function OrderTracking() {
     };
   }, [orderId, order?.status, cashbackRate, resumeCounter]);
 
-  // Polling fallback for authenticated users (realtime can be flaky on native WebView)
-  // Uses auth context user instead of fragile getUser() call
+  // 60s polling for authenticated users — fetches fresh order data AND syncs Live Activity
   useEffect(() => {
     if (!orderId || !user || isGuest) return;
     const isTerminal = order && ['delivered', 'cancelled'].includes(order.status);
@@ -251,11 +253,24 @@ export default function OrderTracking() {
             }
           }
           setOrder(freshOrder);
+
+          // Sync Live Activity with the exact same data the page displays
+          const isStillActive = !['delivered', 'cancelled'].includes(freshOrder.status);
+          if (isStillActive && liveActivityStarted.current) {
+            const etaMins = computeEtaMinutes(freshOrder);
+            updateOrderLiveActivity({
+              orderId: freshOrder.id,
+              orderType: freshOrder.order_type,
+              status: freshOrder.status,
+              statusMessage: getStatusMessageForOrder(freshOrder),
+              etaMinutes: etaMins,
+            });
+          }
         }
       } catch (err) {
         console.error('Order poll error:', err);
       }
-    }, 10000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [orderId, order?.status, user, isGuest, cashbackRate]);
