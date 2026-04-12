@@ -60,9 +60,45 @@ function buildContentState(data: LiveActivityData): Record<string, string> {
   };
 }
 
-// Map activityId (from native plugin event) -> orderId
-// This replaces the old mutable currentActiveOrderId approach
-const activityIdToOrderId: Map<string, string> = new Map();
+// ─── Persistent mapping: activityId ↔ orderId ───
+// Stored in localStorage so it survives app kills on iOS.
+const MAPPING_KEY = 'liveactivity_id_map';
+
+function loadMapping(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(MAPPING_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMapping(map: Record<string, string>) {
+  try {
+    localStorage.setItem(MAPPING_KEY, JSON.stringify(map));
+  } catch {}
+}
+
+function setMappingEntry(activityId: string, orderId: string) {
+  const map = loadMapping();
+  map[activityId] = orderId;
+  saveMapping(map);
+}
+
+function getOrderIdForActivity(activityId: string): string | null {
+  return loadMapping()[activityId] ?? null;
+}
+
+function removeMappingByOrderId(orderId: string) {
+  const map = loadMapping();
+  for (const [actId, oId] of Object.entries(map)) {
+    if (oId === orderId) {
+      delete map[actId];
+    }
+  }
+  saveMapping(map);
+}
+
 let pushTokenListenerRegistered = false;
 
 /**
@@ -71,6 +107,10 @@ let pushTokenListenerRegistered = false;
  */
 export async function startOrderLiveActivity(data: LiveActivityData): Promise<string | null> {
   try {
+    if (!data.orderId) {
+      console.warn('[LiveActivity] startOrderLiveActivity called without orderId — skipping');
+      return null;
+    }
     console.log('[LiveActivity] startOrderLiveActivity called for order:', data.orderId);
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return null;
@@ -90,13 +130,12 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
       console.warn('[LiveActivity] Token cleanup failed (non-fatal):', cleanupErr);
     }
 
-    // Register push token listener once — uses activityIdToOrderId map for exact matching
+    // Register push token listener once — uses persistent mapping for exact matching
     if (!pushTokenListenerRegistered && plugin.addListener) {
       pushTokenListenerRegistered = true;
       plugin.addListener('liveActivityPushToken', async (event: any) => {
-        // Use the activityId from the event to find the correct orderId
         const activityId = event.activityId;
-        const orderId = activityId ? activityIdToOrderId.get(activityId) : null;
+        const orderId = activityId ? getOrderIdForActivity(activityId) : null;
         console.log('[LiveActivity] Push token received — activityId:', activityId, 'orderId:', orderId, 'token:', event.token?.substring(0, 20) + '...');
         if (!orderId) {
           console.warn('[LiveActivity] No orderId found for activityId:', activityId);
@@ -106,7 +145,6 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
           const { data: { session } } = await supabase.auth.getSession();
           const userId = session?.user?.id;
           if (userId) {
-            // Delete any existing tokens for this user+order first, then insert fresh
             await supabase
               .from('live_activity_tokens')
               .delete()
@@ -139,9 +177,9 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
       contentState,
     });
 
-    // Map the native activityId to our orderId for token registration
+    // Persist the native activityId → orderId mapping
     if (result.activityId) {
-      activityIdToOrderId.set(result.activityId, data.orderId);
+      setMappingEntry(result.activityId, data.orderId);
       console.log('[LiveActivity] Mapped activityId:', result.activityId, '-> orderId:', data.orderId);
     }
 
@@ -158,6 +196,10 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
  */
 export async function updateOrderLiveActivity(data: LiveActivityData): Promise<void> {
   try {
+    if (!data.orderId) {
+      console.warn('[LiveActivity] updateOrderLiveActivity called without orderId — skipping');
+      return;
+    }
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return;
 
@@ -175,6 +217,7 @@ export async function updateOrderLiveActivity(data: LiveActivityData): Promise<v
  */
 export async function endOrderLiveActivity(orderId: string): Promise<void> {
   try {
+    if (!orderId) return;
     const plugin = await getLiveActivityPlugin();
     if (!plugin) return;
 
@@ -198,13 +241,8 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
         .eq('order_id', orderId);
     }
 
-    // Clean up activityId mapping
-    for (const [actId, oId] of activityIdToOrderId.entries()) {
-      if (oId === orderId) {
-        activityIdToOrderId.delete(actId);
-        break;
-      }
-    }
+    // Clean up persistent mapping
+    removeMappingByOrderId(orderId);
 
     console.log('[LiveActivity] Activity ended');
   } catch (err) {
