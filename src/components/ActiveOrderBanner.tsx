@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,8 +12,9 @@ const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_
 export const ActiveOrderBanner = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, refreshSession } = useAuth();
   const [activeOrder, setActiveOrder] = useState<{ id: string; order_number: string; status: string } | null>(null);
+  const [resumeCounter, setResumeCounter] = useState(0);
 
   const statusConfig: Record<string, { icon: typeof Clock; label: string; color: string }> = {
     pending: { icon: Clock, label: t('banners.orderPlaced'), color: 'text-amber-500' },
@@ -78,8 +79,10 @@ export const ActiveOrderBanner = () => {
   };
 
   // Refetch on app resume (native) / tab focus (web)
-  useAppLifecycle(() => {
+  useAppLifecycle(async () => {
+    await refreshSession();
     fetchActiveOrder();
+    setResumeCounter(c => c + 1);
   });
 
   useEffect(() => {
@@ -88,7 +91,7 @@ export const ActiveOrderBanner = () => {
     const interval = setInterval(fetchActiveOrder, 15000);
 
     const channel = supabase
-      .channel('active-order-home')
+      .channel(`active-order-home-${resumeCounter}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -103,7 +106,7 @@ export const ActiveOrderBanner = () => {
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [isAuthReady, user?.id]);
+  }, [isAuthReady, user?.id, resumeCounter]);
 
   const config = activeOrder ? statusConfig[activeOrder.status] : null;
   const StatusIcon = config?.icon || Clock;

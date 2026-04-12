@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { formatOrderDisplayNumber } from '@/lib/orderNumber';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { DriverLayout } from '@/components/driver/DriverLayout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,27 +33,35 @@ interface OrderWithAddress {
 }
 
 export default function DriverOrders() {
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, refreshSession } = useAuth();
   const [preparingOrders, setPreparingOrders] = useState<OrderWithAddress[]>([]);
   const [orders, setOrders] = useState<OrderWithAddress[]>([]);
   const [activeOrders, setActiveOrders] = useState<OrderWithAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const [resumeCounter, setResumeCounter] = useState(0);
+
+  // Reconnect on app resume
+  useAppLifecycle(async () => {
+    await refreshSession();
+    loadOrders();
+    setResumeCounter(c => c + 1);
+  });
 
   useEffect(() => {
     if (!isAuthReady || !user) return;
     loadOrders();
 
     const channel = supabase
-      .channel('driver-orders')
+      .channel(`driver-orders-${resumeCounter}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         loadOrders();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isAuthReady, user]);
+  }, [isAuthReady, user, resumeCounter]);
 
   const loadOrders = async () => {
     if (!user) return;

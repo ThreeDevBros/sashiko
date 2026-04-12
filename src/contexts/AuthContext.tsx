@@ -6,6 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isAuthReady: boolean;
+  /** True while a session refresh is in-flight (e.g. after app resume). UI should not redirect during this window. */
+  isAuthRecovering: boolean;
   /** Force-refresh the session (e.g. on app resume). Returns the refreshed session. */
   refreshSession: () => Promise<Session | null>;
 }
@@ -14,34 +16,99 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   isAuthReady: false,
+  isAuthRecovering: false,
   refreshSession: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
 
+// ─── Native session persistence helpers ───
+// On Capacitor/native, mirror the Supabase session into @capacitor/preferences
+// so it survives full app kills (WebView localStorage can be wiped by iOS).
+
+async function saveSessionToNative(session: Session | null) {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.getPlatform() === 'web') return;
+    const { Preferences } = await import('@capacitor/preferences');
+    if (session) {
+      await Preferences.set({ key: 'supabase_session', value: JSON.stringify(session) });
+    } else {
+      await Preferences.remove({ key: 'supabase_session' });
+    }
+  } catch {
+    // Not on native or Preferences not available — fine
+  }
+}
+
+async function loadSessionFromNative(): Promise<Session | null> {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.getPlatform() === 'web') return null;
+    const { Preferences } = await import('@capacitor/preferences');
+    const { value } = await Preferences.get({ key: 'supabase_session' });
+    if (value) return JSON.parse(value) as Session;
+  } catch {
+    // Not on native or Preferences not available
+  }
+  return null;
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isAuthRecovering, setIsAuthRecovering] = useState(false);
   const initialized = useRef(false);
 
+  // Single-flight guard for refreshSession
+  const refreshPromise = useRef<Promise<Session | null> | null>(null);
+
   const refreshSession = useCallback(async (): Promise<Session | null> => {
-    try {
-      // Use refreshSession to actually validate/refresh the token, not just read from cache
-      const { data: { session: s }, error } = await supabase.auth.refreshSession();
-      if (error) {
-        // Fallback to cached session if refresh fails (e.g. offline)
-        const { data: { session: cached } } = await supabase.auth.getSession();
-        setSession(cached);
-        setUser(cached?.user ?? null);
-        return cached;
+    // Deduplicate concurrent calls (e.g. multiple resume events firing)
+    if (refreshPromise.current) return refreshPromise.current;
+
+    const doRefresh = async (): Promise<Session | null> => {
+      setIsAuthRecovering(true);
+      try {
+        const { data: { session: s }, error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.warn('[Auth] refreshSession failed, falling back to cached:', error.message);
+          const { data: { session: cached } } = await supabase.auth.getSession();
+          setSession(cached);
+          setUser(cached?.user ?? null);
+          // Try native backup if web storage failed
+          if (!cached) {
+            const native = await loadSessionFromNative();
+            if (native) {
+              console.log('[Auth] Restoring session from native storage');
+              const { data: { session: restored }, error: setErr } = await supabase.auth.setSession({
+                access_token: native.access_token,
+                refresh_token: native.refresh_token,
+              });
+              if (!setErr && restored) {
+                setSession(restored);
+                setUser(restored.user);
+                return restored;
+              }
+            }
+          }
+          return cached;
+        }
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s) saveSessionToNative(s);
+        return s;
+      } catch {
+        return null;
+      } finally {
+        setIsAuthRecovering(false);
+        refreshPromise.current = null;
       }
-      setSession(s);
-      setUser(s?.user ?? null);
-      return s;
-    } catch {
-      return null;
-    }
+    };
+
+    refreshPromise.current = doRefresh();
+    return refreshPromise.current;
   }, []);
 
   useEffect(() => {
@@ -51,30 +118,56 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // 1. Set up the listener FIRST (per Supabase docs)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {
-        // Synchronous state update only — no async work here
         setSession(newSession);
         setUser(newSession?.user ?? null);
-        // Don't set isAuthReady here; let getSession() below do it once
-        // But after initial load, auth changes should still propagate
-        if (isAuthReady) return;
+        // Mirror to native on every change (fire-and-forget)
+        saveSessionToNative(newSession);
       }
     );
 
-    // 2. Then restore the existing session — mark ready ONLY after this completes
-    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      setSession(existingSession);
-      setUser(existingSession?.user ?? null);
-      setIsAuthReady(true);
-    }).catch(() => {
-      // Even on error, mark ready so the app doesn't hang
-      setIsAuthReady(true);
-    });
+    // 2. Restore session — try web first, then native backup
+    const restore = async () => {
+      try {
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        if (existingSession) {
+          setSession(existingSession);
+          setUser(existingSession.user);
+          saveSessionToNative(existingSession);
+          setIsAuthReady(true);
+          return;
+        }
+
+        // No web session — try native backup (cold start after iOS killed WebView)
+        const nativeSession = await loadSessionFromNative();
+        if (nativeSession) {
+          console.log('[Auth] No web session, restoring from native storage');
+          const { data: { session: restored }, error } = await supabase.auth.setSession({
+            access_token: nativeSession.access_token,
+            refresh_token: nativeSession.refresh_token,
+          });
+          if (!error && restored) {
+            setSession(restored);
+            setUser(restored.user);
+          } else {
+            console.warn('[Auth] Native session restore failed:', error?.message);
+            // Clear invalid native session
+            saveSessionToNative(null);
+          }
+        }
+      } catch (err) {
+        console.error('[Auth] Session restore error:', err);
+      } finally {
+        setIsAuthReady(true);
+      }
+    };
+
+    restore();
 
     return () => subscription.unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, isAuthReady, refreshSession }}>
+    <AuthContext.Provider value={{ user, session, isAuthReady, isAuthRecovering, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

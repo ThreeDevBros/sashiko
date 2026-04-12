@@ -74,7 +74,7 @@ const queryClient = new QueryClient({
 const AppRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, isAuthRecovering } = useAuth();
   usePushNotifications(navigate);
 
   // Handle deep links from Live Activity taps (sashiko://order-tracking/:id)
@@ -112,6 +112,8 @@ const AppRoutes = () => {
 
   useEffect(() => {
     if (!isAuthReady) return;
+    // Don't redirect while auth is recovering after app resume — session may not be restored yet
+    if (isAuthRecovering) return;
 
     const checkRoleAccess = async () => {
       if (isAuthRoute || isQrMenuRoute) return;
@@ -148,7 +150,7 @@ const AppRoutes = () => {
     };
     
     checkRoleAccess();
-  }, [location.pathname, navigate, isAuthRoute, isQrMenuRoute, isAuthReady, user]);
+  }, [location.pathname, navigate, isAuthRoute, isQrMenuRoute, isAuthReady, isAuthRecovering, user]);
 
   useEffect(() => {
     if (!isAuthReady) return;

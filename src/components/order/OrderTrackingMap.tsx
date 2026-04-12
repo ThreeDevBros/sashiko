@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTheme } from '@/components/ThemeProvider';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -240,12 +241,16 @@ export function OrderTrackingMap({
     connectionTimerRef.current = setTimeout(() => setConnectionLost(true), 30000);
   }, [isGuest, guestDriverLocation]);
 
+  // Resume counter for unique channel names after backgrounding
+  const [mapResumeCounter, setMapResumeCounter] = useState(0);
+  useAppLifecycle(() => { setMapResumeCounter(c => c + 1); });
+
   // Subscribe to real-time driver location (authenticated users only)
   useEffect(() => {
     if (orderType !== 'delivery' || !driverTrackingActive || isGuest) return;
 
     const channel = supabase
-      .channel(`driver-location-${orderId}`)
+      .channel(`driver-location-${orderId}-${mapResumeCounter}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'driver_locations', filter: `order_id=eq.${orderId}` },
@@ -304,7 +309,7 @@ export function OrderTrackingMap({
       supabase.removeChannel(channel);
       if (connectionTimerRef.current) clearTimeout(connectionTimerRef.current);
     };
-  }, [orderId, orderType, driverTrackingActive]);
+  }, [orderId, orderType, driverTrackingActive, mapResumeCounter]);
 
   // Smooth marker animation
   const animateMarkerTo = useCallback((marker: google.maps.Marker, newPos: google.maps.LatLngLiteral, duration = 800) => {
