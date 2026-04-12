@@ -1,46 +1,84 @@
 
+Goal
 
-# Plan: Fix App Resume Reliability on Native iOS
+Fix the real native iOS reopen/restart problem end-to-end: no unexpected logout, no broken tracking after reopen, no stale realtime/live updates, and no screens stuck in loading because auth/data recovery raced.
 
-## Root causes identified
+What I checked
 
-After reviewing every file involved, the ChatGPT checklist maps to **3 concrete issues** in this codebase:
+- The app already has a top-level bootstrap gate in `App.tsx`, so this is not just “render too early”.
+- The remaining gaps are deeper:
+  1. `AuthContext.tsx` still relies on web storage only. There is no native backup/restore path for the session.
+  2. `OrderTracking.tsx` refreshes auth on resume, but `loadOrderDetails()` still uses the stale `user` value from the old render, so it can take the wrong guest/auth path right after reopen.
+  3. Only some realtime subscriptions were hardened. Others still use static channel names and no resume reconnect, especially driver/location tracking paths.
+  4. Protected-route logic can still react to a temporary “no user yet” state during recovery.
+  5. Some hot paths still make direct auth-dependent calls without a shared “auth recovered” guard.
 
-### Issue 1: Realtime channel breaks after backgrounding
-The Supabase Realtime WebSocket disconnects when iOS suspends the app. On resume, `resumeCounter` increments to force a new channel — but the channel name `order-status-${orderId}` is reused. Supabase may reject a duplicate channel name if the old one hasn't fully torn down yet. This means **status updates stop arriving** after reopen.
+Plan
 
-**Fix**: Append `resumeCounter` to the channel name so each reconnection gets a unique channel: `order-status-${orderId}-${resumeCounter}`.
+1. Harden native auth persistence and recovery
+- Update `src/contexts/AuthContext.tsx` to:
+  - mirror the current session into native persistent storage on mobile
+  - restore that stored session on cold reopen before declaring auth ready
+  - clear native stored session on sign-out
+  - add a recovery/refresh-in-progress flag so the rest of the app can wait properly
+  - make refresh a single-flight operation so multiple resume events do not race
 
-### Issue 2: Stale closure in realtime callback
-The realtime `postgres_changes` callback references `order?.status` from its closure, but this value is stale after the effect re-runs because `order?.status` is also a dependency. When the channel recreates, the old status is captured. This can cause missed toast notifications and incorrect diff logic.
+2. Prevent false logout / bad redirects during recovery
+- Update `src/App.tsx` route protection to wait for auth recovery, not just basic auth readiness.
+- Update any auth redirect logic that can fire too early, especially `src/pages/Auth.tsx`.
 
-**Fix**: Use a ref (`orderStatusRef`) to always read the latest status inside the callback instead of relying on the closure value.
+3. Fix order tracking resume logic properly
+- Refactor `src/pages/OrderTracking.tsx` so `loadOrderDetails()` uses a freshly resolved session/user instead of the stale closure value.
+- On resume:
+  - await auth recovery
+  - fetch order data with the correct auth state
+  - reconnect subscriptions
+  - refresh Live Activity from the same fetched data
+- Add an explicit error/empty-retry state so this page cannot sit in a misleading loading state forever.
 
-### Issue 3: Auth session not awaited before data fetch on resume
-In `OrderTracking`, `useAppLifecycle` calls `loadOrderDetails()` immediately. But in `App.tsx`, the *other* `useAppLifecycle` hook calls `refreshSession()` first. These two hooks fire independently — the OrderTracking one may fetch data with an expired token before the App-level one has refreshed it. This causes **RLS failures / empty data** on resume.
+4. Reconnect all critical realtime paths after reopen
+- Audit and harden the still-fragile subscriptions by giving them resume-aware unique channel names and immediate re-fetch on resume:
+  - `src/components/order/OrderTrackingMap.tsx`
+  - `src/components/delivery/LiveDeliveryMap.tsx`
+  - `src/components/ActiveOrderBanner.tsx`
+  - `src/pages/driver/DriverOrders.tsx`
+  - `src/components/driver/GlobalDriverTracker.tsx`
+- This is especially important for driver location/live tracking, which is currently one of the most likely reasons “tracking stops”.
 
-**Fix**: In `OrderTracking`'s resume handler, call `refreshSession()` before `loadOrderDetails()` to ensure the token is valid. Import `useAuth` is already available.
+5. Standardize auth-dependent fetching
+- Replace ad-hoc auth reads in critical screens/hooks with a shared pattern that waits for recovered auth before querying.
+- Prioritize the flows users hit after reopening:
+  - order tracking
+  - active order banner
+  - driver tracking
+  - saved cards / protected views as needed
 
-### Issue 4: 60s poll interval resets on every status change
-The 60s polling effect depends on `order?.status`. Every time status changes (via realtime), the interval restarts — meaning the poll timer resets. This is minor but can cause gaps.
+6. Add defensive error handling and diagnostics
+- Ensure failed auth refresh, failed order fetches, and failed realtime re-subscribe paths surface a controlled UI state instead of silent failure.
+- Keep targeted logs around resume/auth restore/reconnect so the remaining issue, if any, is obvious.
 
-**Fix**: Remove `order?.status` from the 60s poll deps. Use a ref for terminal-status checking instead.
+Files I expect to touch
 
-## Files to modify
+- `src/contexts/AuthContext.tsx`
+- `src/App.tsx`
+- `src/pages/Auth.tsx`
+- `src/pages/OrderTracking.tsx`
+- `src/components/order/OrderTrackingMap.tsx`
+- `src/components/delivery/LiveDeliveryMap.tsx`
+- `src/components/ActiveOrderBanner.tsx`
+- `src/pages/driver/DriverOrders.tsx`
+- `src/components/driver/GlobalDriverTracker.tsx`
 
-1. **`src/pages/OrderTracking.tsx`**
-   - Unique channel name with `resumeCounter`
-   - Ref-based status reading in realtime callback
-   - `refreshSession()` before `loadOrderDetails()` in resume handler
-   - Stabilize 60s poll deps
+Expected result
 
-2. **`src/hooks/useAppLifecycle.ts`** — no changes needed (already correct)
+- Reopening the iOS app restores the session reliably instead of dropping the user out.
+- Protected screens do not redirect to login during brief recovery windows.
+- `/order-tracking/:id` reloads correctly after reopen every time.
+- Driver/live tracking reconnects after backgrounding instead of silently freezing.
+- If something does fail, the app shows a recoverable state rather than endless loading.
 
-3. **`src/contexts/AuthContext.tsx`** — no changes needed
+Technical notes
 
-## What this fixes
-- Order tracking page shows correct data immediately after reopening the app
-- Realtime updates continue working after backgrounding
-- No stale auth tokens causing empty/failed queries
-- 60s Live Activity sync poll runs consistently without resets
-
+- The biggest code-level issue I found is not just auth refresh itself; it is that some resume handlers refresh auth and then immediately keep using stale render-time values.
+- The biggest tracking-level issue I found is that order status subscription was improved, but the driver-location/live map subscriptions were not fully brought into the same resume-safe pattern.
+- The biggest persistence-level issue I found is that native session durability is still weaker than it should be because there is no explicit native-backed restore path yet.
