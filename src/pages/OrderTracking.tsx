@@ -258,28 +258,25 @@ export default function OrderTracking() {
               hasShownCashbackToast.current = true;
             }
 
+            // Update state cleanly — no async side-effects inside the updater
             setOrder(prev => {
               if (!prev) return null;
-              const updated = { ...prev, ...nextOrder } as Order;
-
-              if (!isGuestRef.current && liveActivityStarted.current) {
-                const isTerminal = ['delivered', 'cancelled'].includes(updated.status);
-                if (isTerminal) {
-                  void endOrderLiveActivity(updated.id);
-                  liveActivityStarted.current = false;
-                } else {
-                  void updateOrderLiveActivity({
-                    orderId: updated.id,
-                    orderType: updated.order_type,
-                    status: updated.status,
-                    statusMessage: getStatusMessageForOrder(updated),
-                    etaMinutes: computeEtaMinutes(updated),
-                  });
-                }
-              }
-
-              return updated;
+              return { ...prev, ...nextOrder } as Order;
             });
+
+            // Sync Live Activity OUTSIDE the state updater
+            if (!isGuestRef.current && liveActivityStarted.current) {
+              // Build merged order from current ref + payload for LA sync
+              const mergedStatus = newStatus || orderStatusRef.current || '';
+              const isTerminal = ['delivered', 'cancelled'].includes(mergedStatus);
+              if (isTerminal) {
+                void endOrderLiveActivity(orderId!);
+                liveActivityStarted.current = false;
+              } else {
+                // Use a small delay to let React state settle, then sync from latest state
+                setTimeout(() => syncLiveActivity(), 50);
+              }
+            }
 
             if (statusChanged) {
               void (async () => {
@@ -319,7 +316,19 @@ export default function OrderTracking() {
       if (orderStatusRef.current && ['delivered', 'cancelled'].includes(orderStatusRef.current)) return;
 
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        let currentSession: any = null;
+        try {
+          const { data } = await supabase.auth.getSession();
+          currentSession = data?.session;
+        } catch (authErr) {
+          console.warn('[OrderTracking] Auth getSession failed (non-fatal), retrying...', authErr);
+          // Retry once after a short delay
+          await new Promise(r => setTimeout(r, 1000));
+          try {
+            const { data } = await supabase.auth.getSession();
+            currentSession = data?.session;
+          } catch { /* give up */ }
+        }
         if (!currentSession?.user) return;
 
         const { data: freshOrder, error: freshOrderError } = await supabase
