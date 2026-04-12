@@ -231,7 +231,7 @@ export default function OrderTracking() {
     if (!orderId) return;
 
     const channel = supabase
-      .channel(`order-status-${orderId}`)
+      .channel(`order-status-${orderId}-${resumeCounter}`)
       .on(
         'postgres_changes',
         {
@@ -244,16 +244,16 @@ export default function OrderTracking() {
           console.log('Order status update:', payload);
           if (payload.new) {
             const newStatus = (payload.new as any).status;
-            const oldStatus = order?.status;
+            const oldStatus = orderStatusRef.current;
             
             // Only show toast for terminal statuses (Live Activity handles the rest)
             if (newStatus !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(newStatus)) {
-              showStatusChangeToast(newStatus, order?.order_type || 'delivery', order?.order_number || '');
+              showStatusChangeToast(newStatus, (payload.new as any).order_type || 'delivery', (payload.new as any).order_number || '');
             }
             
             // Show cashback toast when order is delivered
             if (newStatus === 'delivered' && oldStatus !== 'delivered' && !hasShownCashbackToast.current) {
-              const orderTotal = (payload.new as any).total || order?.total || 0;
+              const orderTotal = (payload.new as any).total || 0;
               showCashbackEarnedToast(orderTotal);
               hasShownCashbackToast.current = true;
             }
@@ -267,7 +267,7 @@ export default function OrderTracking() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId, order?.status, cashbackRate, resumeCounter]);
+  }, [orderId, resumeCounter]);
 
   // 60s polling for authenticated users — fetches fresh order data AND syncs Live Activity
   useEffect(() => {
