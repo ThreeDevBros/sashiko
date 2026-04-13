@@ -39,6 +39,16 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
+            // Configure the client ID before presenting
+            guard let clientId = self.getClientId() else {
+                print("[GoogleAuthPlugin] ERROR: No Google Client ID found. Set serverClientId in capacitor.config.ts or GIDClientID in Info.plist.")
+                call.reject("Google Sign-In not configured: missing client ID. Set serverClientId in capacitor.config.ts under plugins.GoogleAuth")
+                return
+            }
+
+            print("[GoogleAuthPlugin] Using client ID: \(clientId.prefix(20))...")
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+
             print("[GoogleAuthPlugin] Presenting from view controller: \(type(of: viewController))")
             GIDSignIn.sharedInstance.signIn(withPresenting: viewController) { result, error in
                 if let error = error {
