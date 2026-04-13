@@ -2,8 +2,13 @@
 // Replace the default Capacitor AppDelegate with this file.
 // It adds Firebase push notifications and manually registers the LiveActivity plugin.
 
+// AppDelegate.swift
+// Replace the default Capacitor AppDelegate with this file.
+// It adds Firebase push notifications, Google Sign-In, and the LiveActivity plugin.
+
 import UIKit
 import Capacitor
+import GoogleSignIn
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -14,14 +19,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Initialize Firebase + push notifications
         PushNotificationSetup.shared.configure(application: application)
 
-        // Register local LiveActivity plugin with the Capacitor bridge.
+        // Register local plugins with the Capacitor bridge.
         // Must be dispatched async so the bridge has finished initializing.
         DispatchQueue.main.async {
             if let bridge = (self.window?.rootViewController as? CAPBridgeViewController)?.bridge {
                 bridge.registerPluginInstance(LiveActivityPlugin())
-                print("[LiveActivity] Plugin manually registered with bridge")
+                bridge.registerPluginInstance(GoogleAuthPlugin())
+                print("[Plugins] LiveActivity + GoogleAuth registered with bridge")
             } else {
-                print("[LiveActivity] WARNING: Could not find Capacitor bridge to register plugin")
+                print("[Plugins] WARNING: Could not find Capacitor bridge to register plugins")
             }
         }
 
@@ -35,6 +41,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {}
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        // Handle Google Sign-In callback
+        if GIDSignIn.sharedInstance.handle(url) {
+            return true
+        }
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
