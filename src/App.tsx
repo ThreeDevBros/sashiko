@@ -405,8 +405,10 @@ const AppContent = () => {
   }, [showLoadingScreen, branding, branch]);
 
   const handleRetry = useCallback(() => {
+    hasBootstrapped.current = false;
     setConnectionFailed(false);
     setShowLoadingScreen(true);
+    setBootstrapComplete(false);
     setMinTimeElapsed(false);
     qc.invalidateQueries();
     setTimeout(() => setMinTimeElapsed(true), 1200);
