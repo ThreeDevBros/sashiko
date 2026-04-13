@@ -64,8 +64,8 @@ import StaffReport from "./pages/staff/StaffReport";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 3,
-      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+      retry: 1,
+      retryDelay: 1500,
       networkMode: 'always',
       refetchOnReconnect: 'always',
       staleTime: 2 * 60 * 1000,
@@ -368,7 +368,7 @@ const AppContent = () => {
         setShowLoadingScreen(false);
         setBootstrapComplete(true);
       }
-    }, 10000);
+    }, 6000);
     return () => clearTimeout(timer);
   }, [showLoadingScreen]);
 

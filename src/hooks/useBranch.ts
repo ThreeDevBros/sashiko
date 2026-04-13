@@ -13,41 +13,42 @@ import { subscribeToResume } from '@/lib/lifecycleManager';
 
 /**
  * Geocode a branch address to get lat/lng when coordinates are missing.
+ * Fire-and-forget: updates query cache when done but doesn't block.
  */
-const geocodeBranchAddress = async (branch: Branch): Promise<Branch> => {
-  if (branch.latitude && branch.longitude) return branch;
-  if (!branch.address) return branch;
+const geocodeBranchAddressAsync = (branch: Branch, queryClient: ReturnType<typeof useQueryClient>, queryKey: string[]) => {
+  if (branch.latitude && branch.longitude) return;
+  if (!branch.address) return;
 
-  try {
-    const searchAddress = branch.city 
-      ? `${branch.address}, ${branch.city}` 
-      : branch.address;
+  (async () => {
+    try {
+      const searchAddress = branch.city 
+        ? `${branch.address}, ${branch.city}` 
+        : branch.address;
 
-    const { data, error } = await supabase.functions.invoke('geocode-location', {
-      body: { address: searchAddress },
-    });
-
-    if (error || !data?.latitude || !data?.longitude) return branch;
-
-    const updatedBranch = {
-      ...branch,
-      latitude: data.latitude,
-      longitude: data.longitude,
-    };
-
-    supabase
-      .from('branches')
-      .update({ latitude: data.latitude, longitude: data.longitude })
-      .eq('id', branch.id)
-      .then(({ error: updateErr }) => {
-        if (updateErr) console.warn('Could not persist branch coordinates:', updateErr);
+      const { data, error } = await supabase.functions.invoke('geocode-location', {
+        body: { address: searchAddress },
       });
 
-    return updatedBranch;
-  } catch (err) {
-    console.warn('Failed to geocode branch address:', err);
-    return branch;
-  }
+      if (error || !data?.latitude || !data?.longitude) return;
+
+      // Update cache with coordinates
+      queryClient.setQueryData(queryKey, (old: any) => {
+        if (!old) return old;
+        return { ...old, branch: { ...old.branch, latitude: data.latitude, longitude: data.longitude } };
+      });
+
+      // Persist to DB (fire-and-forget)
+      supabase
+        .from('branches')
+        .update({ latitude: data.latitude, longitude: data.longitude })
+        .eq('id', branch.id)
+        .then(({ error: updateErr }) => {
+          if (updateErr) console.warn('Could not persist branch coordinates:', updateErr);
+        });
+    } catch (err) {
+      console.warn('Failed to geocode branch address:', err);
+    }
+  })();
 };
 
 const BRANCH_QUERY_KEY = ['branch-data'];
@@ -62,7 +63,7 @@ export const useBranch = () => {
       const savedBranchId = getSavedBranchId();
       console.log('[useBranch] Resolving branch, saved ID:', savedBranchId);
       
-      let data = await fetchBranchWithFallback(savedBranchId);
+      const data = await fetchBranchWithFallback(savedBranchId);
       
       if (!data) {
         throw new Error('No branch data available');
@@ -70,20 +71,38 @@ export const useBranch = () => {
       
       console.log('[useBranch] Branch resolved:', data.id, data.name);
       
-      // Geocode if needed
-      data = await geocodeBranchAddress(data);
-      
       // Always persist the valid branch ID
       saveBranchId(data.id);
       
-      const time = await calculateEstimatedTime();
-      
-      return { branch: data, estimatedTime: time };
+      // Return immediately with base estimated time — don't block on extra queries
+      return { branch: data, estimatedTime: APP_CONFIG.ESTIMATED_TIME_BASE };
     },
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  // After branch loads: geocode + estimated time in background (non-blocking)
+  const branchId = branchData?.branch?.id;
+  const hasGeocodedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!branchData?.branch || !branchId) return;
+
+    // Geocode once per branch
+    if (hasGeocodedRef.current !== branchId) {
+      hasGeocodedRef.current = branchId;
+      geocodeBranchAddressAsync(branchData.branch, queryClient, BRANCH_QUERY_KEY);
+    }
+
+    // Update estimated time in background
+    calculateEstimatedTime().then(time => {
+      queryClient.setQueryData(BRANCH_QUERY_KEY, (old: any) => {
+        if (!old) return old;
+        return { ...old, estimatedTime: time };
+      });
+    }).catch(() => { /* non-critical */ });
+  }, [branchId, branchData?.branch, queryClient]);
 
   // Resume counter to force realtime reconnect after backgrounding
   const [resumeCounter, setResumeCounter] = useState(0);
@@ -106,7 +125,6 @@ export const useBranch = () => {
   }, [queryClient]);
 
   // Real-time subscription for branch updates (pause status, etc.) — reconnects on resume
-  const branchId = branchData?.branch?.id;
   useEffect(() => {
     if (!branchId) return;
 
