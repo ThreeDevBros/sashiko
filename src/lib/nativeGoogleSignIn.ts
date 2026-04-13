@@ -58,6 +58,18 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       return { error: new Error('No ID token received from Google') };
     }
 
+    // Clear any stale PKCE/nonce state that may linger from a previous web OAuth attempt.
+    // If a nonce exists in storage but the native ID token has none, Supabase rejects the request.
+    try {
+      const storageKeys = Object.keys(localStorage);
+      for (const key of storageKeys) {
+        if (key.includes('code_verifier') || key.includes('nonce')) {
+          console.log('[GoogleSignIn] Clearing stale auth key:', key);
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {}
+
     console.log('[GoogleSignIn] Exchanging ID token for app session');
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
