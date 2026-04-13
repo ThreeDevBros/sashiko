@@ -15,6 +15,7 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
     if (!Capacitor.isNativePlatform()) return;
 
     let cleaned = false;
+    console.log('[Push] Hook mounted');
 
     // ── Validate FCM token format ──
     const isValidFcmToken = (token: string): boolean => {
@@ -125,24 +126,32 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
       await PushNotifications.register();
     };
 
-    // Register immediately (guest support)
-    registerPush();
+    void registerPush().catch((error) => {
+      console.error('[Push] registerPush failed:', error);
+    });
 
     // After a short delay, try reading the FCM token the native side saved
     const tokenTimer = setTimeout(() => {
-      if (!cleaned) persistToken();
+      if (!cleaned) {
+        void persistToken().catch((error) => {
+          console.error('[Push] Delayed token persistence failed:', error);
+        });
+      }
     }, 2000);
 
     // On sign-in, link the token to the user
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' && !cleaned) {
-        console.log('[Push] Auth SIGNED_IN — linking FCM token to user');
-        await persistToken();
+        console.log('[Push] Auth SIGNED_IN — scheduling FCM token link');
+        void persistToken().catch((error) => {
+          console.error('[Push] Failed to link FCM token after sign-in:', error);
+        });
       }
     });
 
     return () => {
       cleaned = true;
+      console.log('[Push] Hook cleanup — removing listeners');
       clearTimeout(tokenTimer);
       subscription.unsubscribe();
       PushNotifications.removeAllListeners();
