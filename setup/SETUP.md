@@ -97,6 +97,8 @@ Copy the files from this `/setup/swift/` folder into `ios/App/App/` using Xcode.
 | `GenericAttributes.swift` | Shared `ActivityAttributes` struct for Live Activities. Must be added to **both** App and Widget targets. |
 | `LiveActivityPlugin.swift` | Custom Capacitor plugin for Live Activity lifecycle. |
 | `LiveActivityPlugin.m` | Objective-C bridge for the Live Activity plugin. |
+| `GoogleAuthPlugin.swift` | Custom Capacitor plugin for native Google Sign-In. |
+| `GoogleAuthPlugin.m` | Objective-C bridge for the Google Auth plugin. |
 
 ### Important: Do NOT replace Capacitor's AppDelegate
 
@@ -129,7 +131,41 @@ Delete any other auto-generated widget files (e.g., `OrderTrackingWidget.swift`,
 
 ---
 
-## Step 5: Capabilities & Info.plist
+## Step 5: Google Sign-In Setup
+
+### 5a. Add Google Sign-In Pod
+
+Edit `ios/App/Podfile` and add this line inside the `target 'App'` block (alongside Firebase pods):
+
+```ruby
+pod 'GoogleSignIn', '~> 8.0'
+```
+
+Then reinstall pods:
+
+```bash
+cd ios/App
+pod install --repo-update
+cd ../..
+```
+
+### 5b. Configure URL Scheme
+
+1. Open `GoogleService-Info.plist` and find the `REVERSED_CLIENT_ID` value (e.g., `com.googleusercontent.apps.123456789-abcdef`)
+2. In Xcode, select the **App** target → **Info** tab → **URL Types**
+3. Click **+** and paste the `REVERSED_CLIENT_ID` as the **URL Scheme**
+
+### 5c. Set the Web Client ID
+
+In `capacitor.config.ts`, replace `YOUR_WEB_CLIENT_ID` with your **Web** OAuth Client ID from Google Cloud Console → APIs & Services → Credentials. This is the **Web application** type client (not the iOS client), because Supabase validates the ID token against the web client ID.
+
+### 5d. Configure Supabase Google Provider
+
+Ensure Google is enabled as an auth provider in your Lovable Cloud settings with the same **Web Client ID** and **Client Secret**.
+
+---
+
+## Step 6: Capabilities & Info.plist
 
 ### Main App Target
 
@@ -259,7 +295,7 @@ npx cap add ios && npx cap sync ios
 # Xcode 26 fix (if needed)
 sed -i '' 's/objectVersion = 70;/objectVersion = 77;/' ios/App/App.xcodeproj/project.pbxproj
 
-# Add Firebase pods to ios/App/Podfile, then:
+# Add Firebase + Google Sign-In pods to ios/App/Podfile, then:
 cd ios/App && pod install && cd ../..
 
 npx cap open ios
@@ -268,8 +304,10 @@ npx cap open ios
 Then in Xcode:
 1. Replace `AppDelegate.swift` with the version from `setup/swift/`
 2. Add `GenericAttributes.swift`, `LiveActivityPlugin.swift`, `LiveActivityPlugin.m`
-3. Add Widget Extension → replace Live Activity UI with `OrderTrackingWidgetLiveActivity.swift`
-4. Add `GoogleService-Info.plist`
-5. Add capabilities: Push Notifications, Background Modes (Remote notifications)
-6. Add `NSSupportsLiveActivities = YES` to Info.plist
-7. Select device → **Cmd + R**
+3. Add `GoogleAuthPlugin.swift`, `GoogleAuthPlugin.m`
+4. Add Widget Extension → replace Live Activity UI with `OrderTrackingWidgetLiveActivity.swift`
+5. Add `GoogleService-Info.plist`
+6. Add capabilities: Push Notifications, Background Modes (Remote notifications)
+7. Add `NSSupportsLiveActivities = YES` to Info.plist
+8. Add `REVERSED_CLIENT_ID` URL Scheme (from GoogleService-Info.plist)
+9. Select device → **Cmd + R**
