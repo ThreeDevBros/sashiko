@@ -8,23 +8,24 @@ import type { Branch } from '@/types';
  */
 export const fetchBranch = async (branchId?: string, signal?: AbortSignal): Promise<Branch | null> => {
   if (branchId) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('branches')
       .select('*')
       .eq('is_active', true)
-      .eq('id', branchId)
-      .abortSignal(signal!)
-      .maybeSingle();
+      .eq('id', branchId);
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query.maybeSingle();
     
     if (error) throw error;
     return data;
   } else {
-    const { data, error } = await supabase
+    let query = supabase
       .from('branches')
       .select('*')
       .eq('is_active', true)
-      .abortSignal(signal!)
       .limit(1);
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query;
     
     if (error) throw error;
     return data?.[0] || null;
