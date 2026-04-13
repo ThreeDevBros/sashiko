@@ -584,7 +584,7 @@ export default function Address() {
     return (
       <div className="fixed inset-0 bg-background z-50 flex flex-col">
         {/* Back Button - Floating */}
-        <div className="absolute top-4 left-4 z-10">
+        <div className="absolute top-4 left-4 z-10 pt-safe">
           <BackButton onClick={() => setViewMode('add_search')} />
         </div>
 
