@@ -1,80 +1,134 @@
 
-Problem found
+Deep investigation result
 
-The app-wide resume fix is still incomplete because only `/order-tracking` follows the full native reopen pattern.
+Do I know what the issue is? Yes.
 
-What `/order-tracking` does right:
-- waits for `isAuthReady && !isAuthRecovering`
-- reloads its own data on `subscribeToResume(...)`
-- uses a fresh `supabase.auth.getSession()` before protected reads
-- reconnects realtime with a `resumeCounter`
+This is not mainly a backend or token-refresh failure anymore. The evidence points to a client-side lifecycle race:
 
-What the rest of the app does wrong:
-- the root app refreshes auth and invalidates React Query, but many screens do not use React Query for protected data
-- several customer flows still run one-off `useEffect` fetches with `auth.getUser()` or `getSession()` and no resume retry
-- those effects can run during native session restoration, see “no user”, set empty state, and never rerun
+- Resume is firing: console shows `Visibility resume fired`
+- Auth is refreshing: console shows `TOKEN_REFRESHED has session` and `SIGNED_IN has session`
+- Core public data can recover: `useBranch` resolves the branch successfully after resume
+- Auth logs also show successful `/token` refreshes and `/user` 200 responses
 
-That explains why:
-- `/order-tracking` recovers
-- home banners, reservations, addresses, and other pages go empty after reopen
-- navigating later still feels broken because the earlier empty state was never repaired
+So the real problem is:
 
-Fix plan
+1. The root app still keeps the normal UI mounted while auth recovery is happening  
+   In `src/App.tsx`, once `bootstrapComplete` becomes true, the app tree stays rendered even during later `isAuthRecovering` windows. That means screens can keep running effects during native reopen/cold restore.
 
-1. Make app resume behave like a mini re-bootstrap
-- In `src/App.tsx`, treat native/web resume as a temporary recovery phase
-- keep showing the loading gate while `refreshSession()` is running
-- after a successful resume refresh, invalidate queries and remount the routed app tree so one-shot page effects run again with a restored session
+2. Most of the app still uses fragile one-shot auth reads  
+   Many customer flows still do `supabase.auth.getUser()` or single `getSession()` calls, then early-return / set empty state / redirect if no user is present at that exact moment. After native reopen or kill+restore, that moment is often too early.
 
-2. Expose a global “resume/auth generation” from auth state
-- In `src/contexts/AuthContext.tsx`, add a counter/version that increments after initial restore and after every successful resume refresh
-- use that version in the root app to force remount of pages after reopen
-- this applies the `/order-tracking` recovery behavior to the whole app, not just one page
+3. Those loaders usually do not retry on resume  
+   `/order-tracking` works because it does all 3 things correctly:
+   - waits for `isAuthReady && !isAuthRecovering`
+   - reloads on `subscribeToResume(...)`
+   - uses a fresh session before protected reads
+   - reconnects realtime using `resumeCounter`
 
-3. Replace fragile auth reads in customer-facing screens
-Update the hot paths that currently break on reopen so they wait for auth recovery to finish and use a fresh session:
-- `src/components/ActiveReservationBanner.tsx`
-- `src/pages/ReservationHistory.tsx`
-- `src/components/checkout/AddressSelector.tsx`
-- `src/hooks/useDeliveryValidation.ts`
-- `src/hooks/useSavedCards.ts`
-- `src/pages/Auth.tsx`
+Why the rest of the app breaks
 
-For these:
-- stop using `auth.getUser()` as the first gate during reopen
-- use `isAuthReady`, `isAuthRecovering`, and a fresh `auth.getSession()` / context user
-- rerun their load logic when the new auth-resume version changes
+The rest of the app is only partially using that pattern, so after reopen it can enter a “half-restored” state:
+- auth is valid again
+- but some screens already concluded “no user”
+- some queries cached empty results
+- some pages redirected or stayed empty
+- some dialogs/pages loaded once and never retried
 
-4. Keep the already-working pattern as the standard
-- Leave `src/pages/OrderTracking.tsx` as the reference implementation
-- keep `subscribeToResume` for screens that own imperative/realtime data
-- use the new root remount/auth-version pattern so pages without custom resume code still recover correctly
+Concrete weak spots found
 
-5. Do a final pass on the homepage + menu path
-- verify `Index`, `ActiveOrderBanner`, `useBranch`, and `MenuDisplay` all re-evaluate correctly after the root remount
-- ensure current order banner, branch data, and menu queries all refetch after reopen instead of staying on stale empty state
+Customer-facing files still vulnerable to this pattern:
+- `src/pages/Address.tsx` — checks session once, redirects to `/auth` if it misses restore timing
+- `src/pages/Checkout.tsx` — payment-intent init still uses `getUser()` and can early-return
+- `src/components/checkout/CheckoutForm.tsx` — several `getUser()`-based flows
+- `src/components/checkout/AddressSelector.tsx` — loads once, can end up empty and stay empty
+- `src/components/DeliveryLocationSelector.tsx` — loads on open only, no resume-aware rerun
+- `src/hooks/useSavedCards.ts` — returns `[]` when session is temporarily unavailable, which can cache a false empty state
+- `src/hooks/useDeliveryValidation.ts` — runs protected logic without auth lifecycle gating
+- `src/components/booking/BookingDialog.tsx` — prefill uses `getUser()` once on open
+- `src/hooks/useRoleRedirect.ts` and parts of `src/pages/Auth.tsx` — still do their own auth probing outside the main auth lifecycle
 
-Files to modify
+Root cause in one sentence
+
+`/order-tracking` works because it is fully resume-aware; the rest of the app is still a mix of old one-shot auth loaders and newer recovery logic, so native iOS reopen/kill restore leaves the app in inconsistent local state.
+
+Plan to fix it
+
+1. Rebuild the root recovery gate in `src/App.tsx`
+- Make the routed app tree pause/unmount during every auth recovery, not only during first bootstrap
+- Re-enter the loading gate on native reopen/cold restore
+- Only re-show routes after session recovery is fully settled
+- Then invalidate queries and remount routes
+
+2. Standardize one app-wide “auth is safe to query now” rule
+- Use `isAuthReady && !isAuthRecovering && !!user` as the only allowed condition for protected reads
+- Stop letting individual screens guess auth readiness for themselves
+- Add a small shared helper/hook for this so the pattern is reused consistently
+
+3. Replace resume-fragile `getUser()` usage in customer flows
+- Swap `getUser()` for context user or a fresh `getSession()` only after auth is settled
+- Ensure protected loaders rerun when `authVersion` changes
+- Fix the critical customer path first:
+  - home banners/current order
+  - address page
+  - checkout
+  - saved cards
+  - booking dialog
+
+4. Make non-React-Query loaders resume-aware like `/order-tracking`
+For imperative/local-state loaders:
+- rerun on `authVersion`
+- or subscribe to `subscribeToResume(...)` when they own important state
+- never permanently set empty state from a transient “no user yet” result
+
+5. Fix false-empty React Query caches
+- Gate authenticated queries with `enabled`
+- include `user?.id` / `authVersion` in query keys where needed
+- avoid returning `[]` during recovery and treating it as real data
+
+6. Clean up auth-driven redirects
+- Prevent `/auth` redirects during restore windows
+- Make role redirect / auth page rely on the shared auth context instead of separate probing
+
+Files to update
+
+Primary:
 - `src/App.tsx`
 - `src/contexts/AuthContext.tsx`
-- `src/components/ActiveReservationBanner.tsx`
-- `src/pages/ReservationHistory.tsx`
-- `src/components/checkout/AddressSelector.tsx`
-- `src/hooks/useDeliveryValidation.ts`
-- `src/hooks/useSavedCards.ts`
-- `src/pages/Auth.tsx`
 
-Technical details
+Customer-critical audit:
+- `src/pages/Address.tsx`
+- `src/pages/Checkout.tsx`
+- `src/components/checkout/CheckoutForm.tsx`
+- `src/components/checkout/AddressSelector.tsx`
+- `src/components/DeliveryLocationSelector.tsx`
+- `src/hooks/useSavedCards.ts`
+- `src/hooks/useDeliveryValidation.ts`
+- `src/components/booking/BookingDialog.tsx`
+- `src/components/ActiveOrderBanner.tsx`
+- `src/components/ActiveReservationBanner.tsx`
+- `src/pages/Auth.tsx`
+- `src/hooks/useRoleRedirect.ts`
+
+Technical detail
 
 ```text
-Current behavior:
-resume -> refresh auth -> invalidate queries
-but mounted pages keep their old local empty state
+Current:
+resume -> refresh token succeeds
+       -> app UI stays mounted during recovery
+       -> some screens run getUser/getSession too early
+       -> they store empty/redirect state
+       -> no retry
+       -> app looks broken
 
-Planned behavior:
-resume -> set auth recovering -> refresh auth -> bump auth version
-       -> invalidate queries -> remount app tree
-       -> all pages rerun after session is safely restored
+Target:
+resume -> app enters global recovery gate
+       -> session fully restored
+       -> queries invalidated + routes remounted
+       -> protected loaders run only after auth is settled
+       -> imperative screens rerun on authVersion / resume
+       -> app recovers consistently like /order-tracking
 ```
 
-This is the closest app-wide equivalent to the logic that already works in `/order-tracking`, and it fixes the real gap: root invalidation alone cannot recover pages that fetch protected data imperatively and never retry.
+This should solve both cases the user described:
+- close and reopen from background
+- kill and reopen on native iOS
