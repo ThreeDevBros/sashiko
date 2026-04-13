@@ -138,15 +138,30 @@ let pushTokenListenerRegistered = false;
  * Start a Live Activity for an order and register the push token.
  * Cleans up any stale tokens for this user+order before starting.
  */
+// Module-level guard to prevent concurrent starts for the same order
+const _startingOrders = new Set<string>();
+
 export async function startOrderLiveActivity(data: LiveActivityData): Promise<string | null> {
   try {
     if (!data.orderId) {
       console.warn('[LiveActivity] startOrderLiveActivity called without orderId — skipping');
       return null;
     }
+
+    // Prevent duplicate starts for the same order (e.g. from remounts)
+    if (_startingOrders.has(data.orderId)) {
+      console.log('[LiveActivity] Start already in-flight for order:', data.orderId, '— updating instead');
+      await updateOrderLiveActivity(data);
+      return null;
+    }
+    _startingOrders.add(data.orderId);
+
     console.log('[LiveActivity] startOrderLiveActivity called for order:', data.orderId);
     const plugin = await getLiveActivityPlugin();
-    if (!plugin) return null;
+    if (!plugin) {
+      _startingOrders.delete(data.orderId);
+      return null;
+    }
 
     await restoreLiveActivityMappings();
 
