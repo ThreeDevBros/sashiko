@@ -1,56 +1,80 @@
 
+Problem found
 
-# Plan: Unify Dynamic Island Expanded View with Lock Screen Layout
+The app-wide resume fix is still incomplete because only `/order-tracking` follows the full native reopen pattern.
 
-## Problem
-The expanded Dynamic Island (long press) uses a cramped `leading`/`trailing` split layout that clips the status message text. The lock screen/notification centre version has a much better layout with the icon circle, full status text, and ETA counter side by side.
+What `/order-tracking` does right:
+- waits for `isAuthReady && !isAuthRecovering`
+- reloads its own data on `subscribeToResume(...)`
+- uses a fresh `supabase.auth.getSession()` before protected reads
+- reconnects realtime with a `resumeCounter`
 
-## Fix
+What the rest of the app does wrong:
+- the root app refreshes auth and invalidates React Query, but many screens do not use React Query for protected data
+- several customer flows still run one-off `useEffect` fetches with `auth.getUser()` or `getSession()` and no resume retry
+- those effects can run during native session restoration, see “no user”, set empty state, and never rerun
 
-Replace the three `DynamicIslandExpandedRegion` blocks (leading, trailing, bottom) with a single `.bottom` region that replicates the exact same `HStack` layout used in the lock screen view — status icon in a colored circle, full status message, and ETA minutes on the right.
+That explains why:
+- `/order-tracking` recovers
+- home banners, reservations, addresses, and other pages go empty after reopen
+- navigating later still feels broken because the earlier empty state was never repaired
 
-### `setup/swift/OrderTrackingWidgetLiveActivity.swift`
+Fix plan
 
-Replace the expanded region (lines 63–84) with:
+1. Make app resume behave like a mini re-bootstrap
+- In `src/App.tsx`, treat native/web resume as a temporary recovery phase
+- keep showing the loading gate while `refreshSession()` is running
+- after a successful resume refresh, invalidate queries and remount the routed app tree so one-shot page effects run again with a restored session
 
-```swift
-DynamicIslandExpandedRegion(.bottom) {
-    HStack(spacing: 14) {
-        ZStack {
-            Circle()
-                .fill(statusColor(status).opacity(0.15))
-                .frame(width: 46, height: 46)
-            Image(systemName: statusIcon(status))
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(statusColor(status))
-        }
+2. Expose a global “resume/auth generation” from auth state
+- In `src/contexts/AuthContext.tsx`, add a counter/version that increments after initial restore and after every successful resume refresh
+- use that version in the root app to force remount of pages after reopen
+- this applies the `/order-tracking` recovery behavior to the whole app, not just one page
 
-        Text(statusMessage)
-            .font(.subheadline)
-            .fontWeight(.semibold)
-            .foregroundColor(.primary)
-            .lineLimit(2)
+3. Replace fragile auth reads in customer-facing screens
+Update the hot paths that currently break on reopen so they wait for auth recovery to finish and use a fresh session:
+- `src/components/ActiveReservationBanner.tsx`
+- `src/pages/ReservationHistory.tsx`
+- `src/components/checkout/AddressSelector.tsx`
+- `src/hooks/useDeliveryValidation.ts`
+- `src/hooks/useSavedCards.ts`
+- `src/pages/Auth.tsx`
 
-        Spacer()
+For these:
+- stop using `auth.getUser()` as the first gate during reopen
+- use `isAuthReady`, `isAuthRecovering`, and a fresh `auth.getSession()` / context user
+- rerun their load logic when the new auth-resume version changes
 
-        if !etaText.isEmpty, let mins = Int(etaText), mins > 0 {
-            VStack(spacing: 1) {
-                Text("\(mins)")
-                    .font(.title2)
-                    .fontWeight(.heavy)
-                    .foregroundColor(statusColor(status))
-                Text("min")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .frame(minWidth: 48)
-        }
-    }
-}
+4. Keep the already-working pattern as the standard
+- Leave `src/pages/OrderTracking.tsx` as the reference implementation
+- keep `subscribeToResume` for screens that own imperative/realtime data
+- use the new root remount/auth-version pattern so pages without custom resume code still recover correctly
+
+5. Do a final pass on the homepage + menu path
+- verify `Index`, `ActiveOrderBanner`, `useBranch`, and `MenuDisplay` all re-evaluate correctly after the root remount
+- ensure current order banner, branch data, and menu queries all refetch after reopen instead of staying on stale empty state
+
+Files to modify
+- `src/App.tsx`
+- `src/contexts/AuthContext.tsx`
+- `src/components/ActiveReservationBanner.tsx`
+- `src/pages/ReservationHistory.tsx`
+- `src/components/checkout/AddressSelector.tsx`
+- `src/hooks/useDeliveryValidation.ts`
+- `src/hooks/useSavedCards.ts`
+- `src/pages/Auth.tsx`
+
+Technical details
+
+```text
+Current behavior:
+resume -> refresh auth -> invalidate queries
+but mounted pages keep their old local empty state
+
+Planned behavior:
+resume -> set auth recovering -> refresh auth -> bump auth version
+       -> invalidate queries -> remount app tree
+       -> all pages rerun after session is safely restored
 ```
 
-Empty the `.leading` and `.trailing` regions (required by API but can contain `EmptyView()`).
-
-### One file modified
-- `setup/swift/OrderTrackingWidgetLiveActivity.swift`
-
+This is the closest app-wide equivalent to the logic that already works in `/order-tracking`, and it fixes the real gap: root invalidation alone cannot recover pages that fetch protected data imperatively and never retry.
