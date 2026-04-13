@@ -21,6 +21,7 @@ import { usePushNotifications } from "./hooks/usePushNotifications";
 import { prefetchSavedCards } from './hooks/useSavedCards';
 import { handleGlobalResume } from "@/lib/lifecycleManager";
 import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
+import { AppRuntimeListeners } from "./components/AppRuntimeListeners";
 import Index from "./pages/Index";
 import Order from "./pages/Order";
 import Cart from "./pages/Cart";
