@@ -137,6 +137,9 @@ const AppRoutes = () => {
 
   useEffect(() => {
     if (!isAuthReady) return;
+    // Don't redirect signed-in users to auth page
+    if (user) return;
+    
     const hasVisited = localStorage.getItem('hasVisited');
     const hasCompletedOnboarding = localStorage.getItem('hasCompletedOnboarding');
     
@@ -147,7 +150,7 @@ const AppRoutes = () => {
       localStorage.setItem('hasVisited', 'true');
       navigate('/auth');
     }
-  }, [location.pathname, navigate, isAuthReady]);
+  }, [location.pathname, navigate, isAuthReady, user]);
   
   return (
     <>
@@ -388,13 +391,18 @@ const AppContent = () => {
       if (showLoadingScreen && !hasBootstrapped.current) {
         console.warn('[App] Safety timeout — forcing bootstrap complete');
         hasBootstrapped.current = true;
-        setConnectionFailed(false);
+        // If we have NO data at all, show connection failed screen
+        const hasAnyData = !!branding || !!branch;
+        if (!hasAnyData) {
+          console.warn('[App] No data available — showing connection failed');
+          setConnectionFailed(true);
+        }
         setShowLoadingScreen(false);
         setBootstrapComplete(true);
       }
     }, 3000);
     return () => clearTimeout(timer);
-  }, [showLoadingScreen]);
+  }, [showLoadingScreen, branding, branch]);
 
   const handleRetry = useCallback(() => {
     setConnectionFailed(false);
