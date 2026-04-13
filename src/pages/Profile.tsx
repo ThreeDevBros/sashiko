@@ -182,7 +182,21 @@ export default function Profile() {
     } catch (error: any) { toast({ title: 'Deletion failed', description: error.message, variant: 'destructive' }); } finally { setSaving(false); }
   };
 
-  if (loading) return <LoadingScreen show={true} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen pb-20">
+        <main className="container mx-auto px-4 py-8 max-w-2xl">
+          <div className="mb-6"><BackButton /></div>
+          <div className="h-8 w-40 bg-muted animate-pulse rounded mb-6" />
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map(i => (
+              <Card key={i}><CardContent className="p-4"><div className="h-16 bg-muted animate-pulse rounded" /></CardContent></Card>
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   const currency = branding?.currency || 'EUR';
   const isGuest = !user;

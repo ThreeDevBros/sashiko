@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatOrderDisplayNumber } from '@/lib/orderNumber';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { DriverLayout } from '@/components/driver/DriverLayout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +29,11 @@ export default function DriverActiveDelivery() {
   const [lastDriverLocation, setLastDriverLocation] = useState<Date | null>(null);
   const { toast } = useToast();
 
+  // Import useAuth at the top level
+  const { user: authUser, isAuthReady } = useAuth();
+
   useEffect(() => {
+    if (!isAuthReady) return;
     loadActiveOrders();
 
     const channel = supabase
@@ -40,12 +45,11 @@ export default function DriverActiveDelivery() {
 
     // Poll driver_locations to show last update time from global tracker
     const locationPoll = setInterval(async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!authUser) return;
       const { data } = await supabase
         .from('driver_locations')
         .select('updated_at')
-        .eq('driver_id', user.id)
+        .eq('driver_id', authUser.id)
         .order('updated_at', { ascending: false })
         .limit(1);
       if (data && data.length > 0) {
@@ -57,17 +61,16 @@ export default function DriverActiveDelivery() {
       supabase.removeChannel(channel);
       clearInterval(locationPoll);
     };
-  }, []);
+  }, [isAuthReady, authUser?.id]);
 
   const loadActiveOrders = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!authUser) { setLoading(false); return; }
 
       const { data } = await supabase
         .from('orders')
         .select('*')
-        .eq('driver_id', user.id)
+        .eq('driver_id', authUser.id)
         .eq('status', 'out_for_delivery')
         .order('created_at', { ascending: true });
 
