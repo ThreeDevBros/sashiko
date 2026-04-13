@@ -244,6 +244,15 @@ const AppContent = () => {
     void restoreLiveActivityMappings();
   }, []);
 
+  // Shared resume handler: refresh session, notify subscribers, invalidate queries
+  const doResume = useCallback(async () => {
+    const didRun = await handleGlobalResume(refreshSession);
+    if (didRun) {
+      queryClient.invalidateQueries();
+    }
+  }, [refreshSession]);
+
+  // Native iOS/Android: appStateChange
   useEffect(() => {
     let disposed = false;
     let removeListener: (() => void) | null = null;
@@ -256,11 +265,8 @@ const AppContent = () => {
         const { App: CapApp } = await import('@capacitor/app');
         const listener = await CapApp.addListener('appStateChange', async ({ isActive }) => {
           if (!isActive) return;
-
-          console.log('[AppLifecycle] Resume fired — notifying 1 listener');
-          await handleGlobalResume(refreshSession);
-          // Force all queries to refetch with the fresh session
-          queryClient.invalidateQueries();
+          console.log('[AppLifecycle] Native resume fired');
+          await doResume();
         });
 
         if (disposed) {
@@ -280,7 +286,19 @@ const AppContent = () => {
       disposed = true;
       removeListener?.();
     };
-  }, [refreshSession]);
+  }, [doResume]);
+
+  // Web / PWA fallback: visibilitychange
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[AppLifecycle] Visibility resume fired');
+        void doResume();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [doResume]);
   
   // Auto-detect location on every app launch (deferred until bootstrap is complete)
   useEffect(() => {
