@@ -377,7 +377,22 @@ const AppContent = () => {
       setShowLoadingScreen(false);
       setBootstrapComplete(true);
     }
-  }, [isAuthReady, isAuthRecovering, brandingLoading, branchLoading, brandingError, branchError, branding, branch, minTimeElapsed]);
+  }, [isAuthReady, brandingLoading, branchLoading, brandingError, branchError, branding, branch, minTimeElapsed]);
+
+  // Global safety timeout — never stay stuck on loading screen
+  useEffect(() => {
+    if (!showLoadingScreen) return;
+    const timer = setTimeout(() => {
+      if (showLoadingScreen && !hasBootstrapped.current) {
+        console.warn('[App] Safety timeout — forcing bootstrap complete');
+        hasBootstrapped.current = true;
+        setConnectionFailed(false);
+        setShowLoadingScreen(false);
+        setBootstrapComplete(true);
+      }
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, [showLoadingScreen]);
 
   const handleRetry = useCallback(() => {
     setConnectionFailed(false);
