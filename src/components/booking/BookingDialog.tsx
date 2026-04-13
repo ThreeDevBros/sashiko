@@ -62,7 +62,8 @@ export const BookingDialog = ({
     if (!open) return;
     
     const prefillUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
 
       setGuestEmail(prev => prev || user.email || '');

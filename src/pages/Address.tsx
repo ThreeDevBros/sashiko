@@ -14,6 +14,7 @@ import { AddressSearchPicker } from '@/components/address/AddressSearchPicker';
 import { BackButton } from '@/components/BackButton';
 import LoadingScreen from '@/components/LoadingScreen';
 import { getAddressIcon } from '@/lib/addressIcons';
+import { useAuth } from '@/contexts/AuthContext';
 
 type ViewMode = 'list' | 'add_search' | 'add_manual_map' | 'add_manual_form' | 'add_label' | 'edit';
 
@@ -28,6 +29,7 @@ export default function Address() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { user: authUser, isAuthReady } = useAuth();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -46,9 +48,17 @@ export default function Address() {
     longitude: null as number | null,
   });
 
+  // Use auth context instead of one-shot getSession to avoid race on resume
   useEffect(() => {
-    checkUser();
-  }, []);
+    if (!isAuthReady) return;
+    if (!authUser) {
+      setLoading(false);
+      navigate('/auth');
+      return;
+    }
+    setUser(authUser);
+    setLoading(false);
+  }, [isAuthReady, authUser]);
 
   useEffect(() => {
     if (user?.id) {
@@ -76,18 +86,7 @@ export default function Address() {
     }
   }, [user?.id, addresses, searchParams, deepLinkHandled]);
 
-  const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      setLoading(false);
-      navigate('/auth');
-      return;
-    }
-
-    setUser(session.user);
-    setLoading(false);
-  };
+  // checkUser is now handled by the auth context effect above
 
   const fetchAddresses = async () => {
     try {

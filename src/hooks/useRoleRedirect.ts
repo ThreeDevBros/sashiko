@@ -55,8 +55,8 @@ export const useRoleRedirect = () => {
 
   const fetchRoles = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         setRoles(null);
         setLoading(false);
         return;
@@ -64,7 +64,7 @@ export const useRoleRedirect = () => {
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user.id);
+        .eq('user_id', session.user.id);
       
       setRoles(roleData?.map(r => r.role) || []);
     } catch {
