@@ -10,6 +10,8 @@ interface AuthContextType {
   isAuthRecovering: boolean;
   /** Force-refresh the session (e.g. on app resume). Returns the refreshed session. */
   refreshSession: () => Promise<Session | null>;
+  /** Increments after initial restore and after every successful resume refresh. Use as a React key to force remount. */
+  authVersion: number;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthReady: false,
   isAuthRecovering: false,
   refreshSession: async () => null,
+  authVersion: 0,
 });
 
 export const useAuth = () => useContext(AuthContext);
