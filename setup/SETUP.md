@@ -295,7 +295,7 @@ npx cap add ios && npx cap sync ios
 # Xcode 26 fix (if needed)
 sed -i '' 's/objectVersion = 70;/objectVersion = 77;/' ios/App/App.xcodeproj/project.pbxproj
 
-# Add Firebase pods to ios/App/Podfile, then:
+# Add Firebase + Google Sign-In pods to ios/App/Podfile, then:
 cd ios/App && pod install && cd ../..
 
 npx cap open ios
@@ -304,8 +304,10 @@ npx cap open ios
 Then in Xcode:
 1. Replace `AppDelegate.swift` with the version from `setup/swift/`
 2. Add `GenericAttributes.swift`, `LiveActivityPlugin.swift`, `LiveActivityPlugin.m`
-3. Add Widget Extension → replace Live Activity UI with `OrderTrackingWidgetLiveActivity.swift`
-4. Add `GoogleService-Info.plist`
-5. Add capabilities: Push Notifications, Background Modes (Remote notifications)
-6. Add `NSSupportsLiveActivities = YES` to Info.plist
-7. Select device → **Cmd + R**
+3. Add `GoogleAuthPlugin.swift`, `GoogleAuthPlugin.m`
+4. Add Widget Extension → replace Live Activity UI with `OrderTrackingWidgetLiveActivity.swift`
+5. Add `GoogleService-Info.plist`
+6. Add capabilities: Push Notifications, Background Modes (Remote notifications)
+7. Add `NSSupportsLiveActivities = YES` to Info.plist
+8. Add `REVERSED_CLIENT_ID` URL Scheme (from GoogleService-Info.plist)
+9. Select device → **Cmd + R**
