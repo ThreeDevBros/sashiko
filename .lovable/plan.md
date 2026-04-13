@@ -1,50 +1,58 @@
 
 
-## Plan: Fix Slow Page Loads — Deduplicate useBranch Side Effects
+## Diagnosis: App Stuck on Loading Screen
 
-### Root cause
+### Root cause identified
 
-`useBranch()` is called from 14 components. Each call creates its own:
-- **60-second interval** polling `calculateEstimatedTime` (a database query)
-- **Realtime channel** subscription to the `branches` table
-- **Resume listener**
+The database is currently experiencing **connection timeouts** (confirmed: the metadata query returned "Connection terminated due to connection timeout"). This causes the `useBranch` query to hang indefinitely during startup.
 
-When 5-8 of these components are mounted simultaneously (e.g. Index + BottomNav + BranchInfoPill + FloatingBranchWidget + MenuDisplay), you get 5-8 parallel database polls every 60 seconds, 5-8 duplicate realtime connections, and cascading "Failed to fetch" errors that compound with retries.
+The app's bootstrap gate in `AppContent` waits for **both** branding and branch queries to settle before dismissing the loading screen:
 
-### Changes
+```text
+Bootstrap flow:
+  Auth ready ─────────────── OK (fast, ~200ms)
+  Branding query ─────────── OK (instant from localStorage cache via initialData)
+  Branch query ───────────── HANGING (database timeout, no initialData/cache)
+  Min time elapsed ───────── OK (1.2s)
+  
+  Result: branchLoading stays TRUE → bootstrap gate never opens
+  Only the 6-second safety timeout eventually forces the app to load
+```
 
-**1. Move all side effects out of `useBranch` hook into a single provider** (`src/hooks/useBranch.ts`)
+On the published site, the safety timeout fires after 6 seconds and the Auth page appears. In the preview, the same 6-second delay applies. On native iOS, the experience is even worse because network conditions compound the database latency.
 
-- Remove the `useEffect` for the 60-second `calculateEstimatedTime` interval from the hook
-- Remove the `useEffect` for the realtime channel subscription from the hook  
-- Remove the `useEffect` for the resume listener from the hook
-- Keep only the `useQuery` call and event listener for `branchChanged`
-- Create a single `BranchRealtimeManager` component (rendered once in `App.tsx`) that owns:
-  - One realtime subscription
-  - One 60-second estimated time interval
-  - One resume listener
+### What needs to change
 
-**2. Make `calculateEstimatedTime` failures silent** (`src/lib/branch.ts`)
+**1. Cache branch data like branding is cached** (primary fix)
+- Add `localStorage` caching for branch data in `useBranch`, identical to how `useBranding` uses `cached-branding-full` as `initialData`
+- This makes `branchLoading` start as `false` on repeat visits, so bootstrap completes instantly
+- Fresh data still fetches in the background via React Query's `refetchOnMount: true`
 
-- The function already catches errors, but the interval keeps retrying every 60s even during network outages
-- Add a simple backoff: if the last call failed, skip the next interval tick
+**2. Reduce the safety timeout from 6s to 3s**
+- 6 seconds is far too long for a splash screen
+- With cached data for both branding and branch, the timeout rarely fires anyway
+- 3 seconds is a reasonable maximum for cold-start (first-ever visit with no cache)
 
-**3. Debounce the geocode calls** (`src/App.tsx`, `src/hooks/useNearestBranch.ts`)
+**3. Add fetch timeout to the branch query**
+- Wrap `fetchBranchWithFallback` in an `AbortController` with a 5-second timeout
+- This prevents the query from hanging for 30+ seconds on database connection issues
+- React Query's retry (1 attempt, 1.5s delay) will try once more, then settle as error
 
-- Both `AppContent` and `useNearestBranch` call `geocode-location` on startup
-- Guard the `AppContent` location detection to skip if `useNearestBranch` already ran (check localStorage for existing location data before invoking the edge function)
+**4. Make bootstrap non-blocking when at least one data source is available**
+- Currently: waits for BOTH branding AND branch to settle
+- Change: proceed as soon as auth is ready AND at least one of (branding, branch) has data (from cache or fetch)
+- This way even on a completely cold start, the app shows as soon as branding loads (which is fast)
 
 ### Files to modify
 
-- `src/hooks/useBranch.ts` — strip side effects, keep only query + cache reads
-- `src/components/BranchRealtimeManager.tsx` — new file, singleton side-effect owner
-- `src/App.tsx` — mount `BranchRealtimeManager` once; guard duplicate geocode call
-- `src/lib/branch.ts` — add failure backoff to `calculateEstimatedTime`
+- `src/hooks/useBranch.ts` — add localStorage caching and initialData, add fetch timeout
+- `src/App.tsx` — reduce safety timeout to 3s, relax bootstrap gate condition
+- `src/lib/branch.ts` — add AbortController timeout to `fetchBranch` / `fetchBranchWithFallback`
 
 ### Expected result
 
-- Only **1** realtime channel for branch updates (instead of 5-8)
-- Only **1** interval polling estimated time (instead of 5-8)
-- No duplicate geocode edge function calls on startup
-- Pages load without waiting for failed network requests to timeout and retry
+- **Repeat visits**: App loads instantly (0-200ms) from cached branding + branch data
+- **First visit**: App loads within 1.5-3 seconds even if database is slow
+- **Database down**: App shows within 3 seconds via safety timeout, with cached data if available
+- **Native iOS**: Same improvements apply, no more indefinite loading screen
 
