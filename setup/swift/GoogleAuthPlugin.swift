@@ -9,6 +9,8 @@ import GoogleSignIn
 
 @objc(GoogleAuthPlugin)
 public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
+    private let buildMarker = "2026-04-13-load-config-v3"
+
     public let identifier = "GoogleAuthPlugin"
     public let jsName = "GoogleAuth"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -16,22 +18,49 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "signOut", returnType: CAPPluginReturnPromise),
     ]
 
+    public override func load() {
+        super.load()
+        print("[GoogleAuthPlugin] load() build=\(buildMarker)")
+        _ = configureGoogleSignInIfPossible(context: "plugin-load")
+    }
+
+    private func sanitizeClientId(_ value: String?) -> String? {
+        guard let value, !value.isEmpty, !value.contains("YOUR_") else {
+            return nil
+        }
+
+        return value
+    }
+
     /// Read the Web Client ID from capacitor.config.ts → plugins.GoogleAuth.serverClientId
     private func getClientId() -> String? {
         // Try Capacitor plugin config first
-        if let configId = getConfigValue("serverClientId") as? String, !configId.isEmpty,
-           !configId.contains("YOUR_") {
+        if let configId = sanitizeClientId(getConfigValue("serverClientId") as? String) {
+            print("[GoogleAuthPlugin] Resolved client ID from Capacitor config build=\(buildMarker)")
             return configId
         }
         // Fall back to Info.plist
-        if let plistId = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String, !plistId.isEmpty {
+        if let plistId = sanitizeClientId(Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String) {
+            print("[GoogleAuthPlugin] Resolved client ID from Info.plist build=\(buildMarker)")
             return plistId
         }
         return nil
     }
 
+    @discardableResult
+    private func configureGoogleSignInIfPossible(context: String) -> Bool {
+        guard let clientId = getClientId() else {
+            print("[GoogleAuthPlugin] No valid client ID found during \(context). build=\(buildMarker)")
+            return false
+        }
+
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+        print("[GoogleAuthPlugin] Configured Google Sign-In during \(context) with client ID prefix: \(clientId.prefix(20))... build=\(buildMarker)")
+        return true
+    }
+
     @objc func signIn(_ call: CAPPluginCall) {
-        print("[GoogleAuthPlugin] signIn called")
+        print("[GoogleAuthPlugin] signIn called build=\(buildMarker)")
         DispatchQueue.main.async {
             guard let viewController = self.bridge?.viewController else {
                 print("[GoogleAuthPlugin] No view controller available")
@@ -39,17 +68,16 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
-            // Configure the client ID before presenting
-            guard let clientId = self.getClientId() else {
+            let hasConfiguration = GIDSignIn.sharedInstance.configuration != nil
+            print("[GoogleAuthPlugin] Existing configuration before sign-in: \(hasConfiguration) build=\(self.buildMarker)")
+
+            guard hasConfiguration || self.configureGoogleSignInIfPossible(context: "sign-in") else {
                 print("[GoogleAuthPlugin] ERROR: No Google Client ID found. Set serverClientId in capacitor.config.ts or GIDClientID in Info.plist.")
                 call.reject("Google Sign-In not configured: missing client ID. Set serverClientId in capacitor.config.ts under plugins.GoogleAuth")
                 return
             }
 
-            print("[GoogleAuthPlugin] Using client ID: \(clientId.prefix(20))...")
-            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
-
-            print("[GoogleAuthPlugin] Presenting from view controller: \(type(of: viewController))")
+            print("[GoogleAuthPlugin] Presenting from view controller: \(type(of: viewController)) build=\(self.buildMarker)")
             GIDSignIn.sharedInstance.signIn(withPresenting: viewController) { result, error in
                 if let error = error {
                     let nsError = error as NSError
