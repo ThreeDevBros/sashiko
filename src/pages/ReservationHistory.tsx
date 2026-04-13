@@ -158,7 +158,24 @@ const ReservationHistory = () => {
     setSheetOpen(true);
   };
 
-  if (loading) return <LoadingScreen show={true} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background pb-8">
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
+          <div className="mb-6"><BackButton /></div>
+          <div className="mb-8">
+            <div className="h-8 w-56 bg-muted animate-pulse rounded mb-2" />
+            <div className="h-4 w-72 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <Card key={i}><CardContent className="p-4"><div className="h-20 bg-muted animate-pulse rounded" /></CardContent></Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-8">
