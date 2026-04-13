@@ -24,9 +24,10 @@ import { AppRuntimeListeners } from "./components/AppRuntimeListeners";
 import { BranchRealtimeManager } from "./components/BranchRealtimeManager";
 // Critical pages — loaded eagerly for instant navigation
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
 import Order from "./pages/Order";
 import NotFound from "./pages/NotFound";
+
+const Auth = lazy(() => import("./pages/Auth"));
 
 // All other pages — lazy-loaded on first visit
 const Cart = lazy(() => import("./pages/Cart"));
