@@ -10,8 +10,8 @@ export interface SavedCard {
 }
 
 const fetchSavedCards = async (): Promise<SavedCard[]> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return [];
 
   const { data, error } = await supabase.functions.invoke('get-saved-cards');
   if (error) {

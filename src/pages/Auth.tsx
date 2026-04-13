@@ -73,8 +73,8 @@ const Auth = () => {
 
     const redirectByRole = async () => {
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
       
       // Fetch roles to determine redirect
       const { data: roleData } = await supabase

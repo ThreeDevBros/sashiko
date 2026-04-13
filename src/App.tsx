@@ -75,7 +75,7 @@ const queryClient = new QueryClient({
 const AppRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAuthReady, isAuthRecovering } = useAuth();
+  const { user, isAuthReady, isAuthRecovering, authVersion } = useAuth();
   usePushNotifications(navigate);
 
   // Handle deep links from Live Activity taps (sashiko://order-tracking/:id)
@@ -224,7 +224,7 @@ const AppRoutes = () => {
 const AppContent = () => {
   const { branding, isLoading: brandingLoading, isError: brandingError } = useBranding();
   const { branch, loading: branchLoading, error: branchError } = useBranch();
-  const { isAuthReady, isAuthRecovering, user, refreshSession } = useAuth();
+  const { isAuthReady, isAuthRecovering, user, refreshSession, authVersion } = useAuth();
   const qc = useQueryClient();
   
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
@@ -421,7 +421,7 @@ const AppContent = () => {
           <BrowserRouter>
             <ScrollToTop />
             <PageTransitionProvider>
-              <AppRoutes />
+              <AppRoutes key={`auth-v${authVersion}`} />
             </PageTransitionProvider>
           </BrowserRouter>
         </div>
