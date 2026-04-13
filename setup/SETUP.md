@@ -97,6 +97,8 @@ Copy the files from this `/setup/swift/` folder into `ios/App/App/` using Xcode.
 | `GenericAttributes.swift` | Shared `ActivityAttributes` struct for Live Activities. Must be added to **both** App and Widget targets. |
 | `LiveActivityPlugin.swift` | Custom Capacitor plugin for Live Activity lifecycle. |
 | `LiveActivityPlugin.m` | Objective-C bridge for the Live Activity plugin. |
+| `GoogleAuthPlugin.swift` | Custom Capacitor plugin for native Google Sign-In. |
+| `GoogleAuthPlugin.m` | Objective-C bridge for the Google Auth plugin. |
 
 ### Important: Do NOT replace Capacitor's AppDelegate
 
