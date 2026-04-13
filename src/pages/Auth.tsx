@@ -180,11 +180,20 @@ const Auth = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    console.log('[Auth] Google sign-in tapped');
     try {
       const { error } = await nativeGoogleSignIn();
-      if (error) throw error;
+      if (error) {
+        console.error('[Auth] Google sign-in returned error:', {
+          message: error.message,
+          stack: error.stack,
+        });
+        throw error;
+      }
+      console.log('[Auth] Google sign-in completed without immediate error');
     } catch (error: any) {
-      toast.error("Failed to sign in with Google. Please try again.");
+      console.error('[Auth] Google sign-in failed:', error);
+      toast.error(`Google sign-in failed: ${error?.message ?? 'Unknown error'}`);
     }
   };
 

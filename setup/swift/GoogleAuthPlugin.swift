@@ -15,16 +15,19 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     @objc func signIn(_ call: CAPPluginCall) {
+        print("[GoogleAuthPlugin] signIn called")
         DispatchQueue.main.async {
             guard let viewController = self.bridge?.viewController else {
+                print("[GoogleAuthPlugin] No view controller available")
                 call.reject("No view controller available")
                 return
             }
 
+            print("[GoogleAuthPlugin] Presenting from view controller: \(type(of: viewController))")
             GIDSignIn.sharedInstance.signIn(withPresenting: viewController) { result, error in
                 if let error = error {
                     let nsError = error as NSError
-                    // User cancelled — code -5 is GIDSignInError.canceled
+                    print("[GoogleAuthPlugin] signIn error code=\(nsError.code) message=\(error.localizedDescription)")
                     if nsError.code == -5 || nsError.code == GIDSignInError.canceled.rawValue {
                         call.reject("The user canceled the sign-in flow.", "12501")
                         return
@@ -33,12 +36,15 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
                     return
                 }
 
+                print("[GoogleAuthPlugin] signIn callback success, has user: \(result?.user != nil)")
                 guard let user = result?.user,
                       let idToken = user.idToken?.tokenString else {
+                    print("[GoogleAuthPlugin] Missing ID token in result")
                     call.reject("No ID token received from Google")
                     return
                 }
 
+                print("[GoogleAuthPlugin] Received tokens for email: \(user.profile?.email ?? "unknown")")
                 call.resolve([
                     "authentication": [
                         "idToken": idToken,
@@ -55,6 +61,7 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func signOut(_ call: CAPPluginCall) {
+        print("[GoogleAuthPlugin] signOut called")
         GIDSignIn.sharedInstance.signOut()
         call.resolve()
     }
