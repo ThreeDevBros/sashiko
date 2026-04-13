@@ -78,7 +78,12 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         let serverClientId = getServerClientId()
-        print("[GoogleAuthPlugin] Configuring GIDSignIn during \(context) – iOS prefix: \(iosClientId.prefix(20))… server: \(serverClientId?.prefix(20) ?? "nil") build=\(buildMarker)")
+        
+        if serverClientId == nil {
+            print("[GoogleAuthPlugin] ⚠️ WARNING: No serverClientId found! The ID token audience will be the iOS client ID, which Supabase will reject. Add SERVER_CLIENT_ID to GoogleService-Info.plist or set serverClientId in capacitor.config.ts. build=\(buildMarker)")
+        }
+        
+        print("[GoogleAuthPlugin] Configuring GIDSignIn during \(context) – iOS: \(iosClientId.prefix(30))… server: \(serverClientId?.prefix(30) ?? "⚠️ NIL") build=\(buildMarker)")
 
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(
             clientID: iosClientId,
