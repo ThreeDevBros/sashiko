@@ -411,10 +411,9 @@ const AppContent = () => {
 
   return (
     <>
-      {/* Only render app tree after bootstrap is complete AND auth is not recovering.
-          During resume recovery, hide routes to prevent components from reading stale auth.
-          When recovery finishes, authVersion bumps and routes remount fresh. */}
-      {bootstrapComplete && !isAuthRecovering && (
+      {/* Render app tree after bootstrap completes. Auth recovery no longer gates the UI —
+          the authVersion key forces a clean remount when the session is restored. */}
+      {bootstrapComplete && (
         <div>
           <Toaster />
           <Sonner />
@@ -428,7 +427,7 @@ const AppContent = () => {
           </BrowserRouter>
         </div>
       )}
-      {(showLoadingScreen || (bootstrapComplete && isAuthRecovering)) && <LoadingScreen show={true} />}
+      {showLoadingScreen && <LoadingScreen show={true} />}
     </>
   );
 };

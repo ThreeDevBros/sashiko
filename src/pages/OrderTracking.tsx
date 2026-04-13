@@ -84,6 +84,10 @@ interface OrderItem {
   } | null;
 }
 
+// Module-level set to track which orders already have a Live Activity started.
+// Survives component remounts caused by authVersion key changes.
+const _startedActivities = new Set<string>();
+
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -195,7 +199,16 @@ export default function OrderTracking() {
   }, [orderId, user]);
 
   // Start/update/end iOS Live Activity when order loads or status changes
+  // Use module-level set to survive remounts caused by authVersion key changes
   const liveActivityStarted = useRef(false);
+
+  // On mount, check if this order already has a started activity (survives remount)
+  useEffect(() => {
+    if (order?.id && _startedActivities.has(order.id)) {
+      liveActivityStarted.current = true;
+    }
+  }, [order?.id]);
+
   useEffect(() => {
     console.log('[LiveActivity] useEffect fired — order:', order?.id, 'status:', order?.status, 'isGuest:', isGuest);
     if (!order || isGuest) return;
@@ -214,6 +227,7 @@ export default function OrderTracking() {
         if (!supported) return;
         startOrderLiveActivity(laData);
         liveActivityStarted.current = true;
+        _startedActivities.add(order.id);
       });
     } else if (isActive && liveActivityStarted.current) {
       // Update existing activity with new status/ETA
@@ -221,6 +235,7 @@ export default function OrderTracking() {
     } else if (!isActive && liveActivityStarted.current) {
       endOrderLiveActivity(order.id);
       liveActivityStarted.current = false;
+      _startedActivities.delete(order.id);
     }
   }, [order?.id, order?.status, order?.estimated_ready_at, isGuest]);
 

@@ -138,15 +138,30 @@ let pushTokenListenerRegistered = false;
  * Start a Live Activity for an order and register the push token.
  * Cleans up any stale tokens for this user+order before starting.
  */
+// Module-level guard to prevent concurrent starts for the same order
+const _startingOrders = new Set<string>();
+
 export async function startOrderLiveActivity(data: LiveActivityData): Promise<string | null> {
   try {
     if (!data.orderId) {
       console.warn('[LiveActivity] startOrderLiveActivity called without orderId — skipping');
       return null;
     }
+
+    // Prevent duplicate starts for the same order (e.g. from remounts)
+    if (_startingOrders.has(data.orderId)) {
+      console.log('[LiveActivity] Start already in-flight for order:', data.orderId, '— updating instead');
+      await updateOrderLiveActivity(data);
+      return null;
+    }
+    _startingOrders.add(data.orderId);
+
     console.log('[LiveActivity] startOrderLiveActivity called for order:', data.orderId);
     const plugin = await getLiveActivityPlugin();
-    if (!plugin) return null;
+    if (!plugin) {
+      _startingOrders.delete(data.orderId);
+      return null;
+    }
 
     await restoreLiveActivityMappings();
 
@@ -180,20 +195,17 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
           const { data: { session } } = await supabase.auth.getSession();
           const userId = session?.user?.id;
           if (userId) {
-            await supabase
-              .from('live_activity_tokens')
-              .delete()
-              .eq('user_id', userId)
-              .eq('order_id', orderId);
-
-            const { error } = await supabase.from('live_activity_tokens').insert({
-              user_id: userId,
-              order_id: orderId,
-              push_token: event.token,
-              platform: 'ios',
-            });
+            const { error } = await supabase.from('live_activity_tokens').upsert(
+              {
+                user_id: userId,
+                order_id: orderId,
+                push_token: event.token,
+                platform: 'ios',
+              },
+              { onConflict: 'user_id,order_id' }
+            );
             if (error) {
-              console.error('[LiveActivity] Token insert error:', error);
+              console.error('[LiveActivity] Token upsert error:', error);
             } else {
               console.log('[LiveActivity] Token persisted for order:', orderId);
             }
@@ -219,8 +231,10 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
     }
 
     console.log('[LiveActivity] Activity started, activityId:', result.activityId);
+    _startingOrders.delete(data.orderId);
     return result.activityId;
   } catch (err) {
+    _startingOrders.delete(data.orderId);
     console.error('[LiveActivity] Failed to start Live Activity:', err);
     return null;
   }
