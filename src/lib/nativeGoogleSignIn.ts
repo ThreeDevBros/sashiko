@@ -3,6 +3,41 @@ import { lovable } from '@/integrations/lovable';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
+ * Generate a random nonce string.
+ */
+function generateRawNonce(length = 32): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const values = new Uint8Array(length);
+  crypto.getRandomValues(values);
+  return Array.from(values, (v) => chars[v % chars.length]).join('');
+}
+
+/**
+ * SHA-256 hash a string and return lowercase hex digest.
+ */
+async function sha256Hex(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Check whether a JWT payload contains a nonce claim (without exposing secrets).
+ */
+function jwtHasNonce(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return false;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof payload.nonce === 'string' && payload.nonce.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Performs native Google Sign In on iOS/Android via Capacitor,
  * then exchanges the ID token with Supabase.
  * Falls back to direct Supabase OAuth on web.
@@ -44,8 +79,16 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       return { error: new Error('GoogleAuth plugin not available') };
     }
 
-    console.log('[GoogleSignIn] Invoking native GoogleAuth.signIn()');
-    const result = await GoogleAuth.signIn();
+    // Generate nonce pair: raw stays in JS, SHA-256 digest goes to native plugin
+    const rawNonce = generateRawNonce();
+    const nonceDigest = await sha256Hex(rawNonce);
+    console.log('[GoogleSignIn] Nonce generated', {
+      rawNonceLength: rawNonce.length,
+      nonceDigestPrefix: nonceDigest.substring(0, 8) + '…',
+    });
+
+    console.log('[GoogleSignIn] Invoking native GoogleAuth.signIn() with nonce');
+    const result = await GoogleAuth.signIn({ nonce: nonceDigest });
     console.log('[GoogleSignIn] Native plugin result received', {
       hasAuthentication: Boolean(result?.authentication),
       hasIdToken: Boolean(result?.authentication?.idToken),
@@ -58,33 +101,14 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       return { error: new Error('No ID token received from Google') };
     }
 
-    // The Supabase JS client can retain stale PKCE / nonce state from a previous
-    // web-based OAuth attempt. When signInWithIdToken is called, the client may
-    // attach that stale nonce to the request even though the native ID token has
-    // no matching nonce — causing the "nonce mismatch" 400 error.
-    // Fix: sign out locally first to wipe all internal GoTrue state, then exchange.
-    try {
-      console.log('[GoogleSignIn] Clearing local auth state before token exchange');
-      await supabase.auth.signOut({ scope: 'local' });
-    } catch (signOutErr) {
-      console.warn('[GoogleSignIn] Local signOut failed (non-fatal):', signOutErr);
-    }
-
-    // Also clear any lingering PKCE keys from localStorage
-    try {
-      const storageKeys = Object.keys(localStorage);
-      for (const key of storageKeys) {
-        if (key.includes('code_verifier') || key.includes('nonce') || key.includes('flow-type')) {
-          console.log('[GoogleSignIn] Clearing stale auth key:', key);
-          localStorage.removeItem(key);
-        }
-      }
-    } catch {}
+    const tokenHasNonce = jwtHasNonce(idToken);
+    console.log('[GoogleSignIn] ID token nonce claim present:', tokenHasNonce);
 
     console.log('[GoogleSignIn] Exchanging ID token for app session');
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
+      nonce: rawNonce,
     });
 
     console.log('[GoogleSignIn] Token exchange finished', {

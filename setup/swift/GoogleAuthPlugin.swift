@@ -10,13 +10,21 @@
 // The iOS client ID is used for the native sign-in UI.
 // The Web/server client ID is sent as the audience so Supabase can validate
 // the returned ID token.
+//
+// Nonce flow:
+//   JS generates rawNonce, computes sha256(rawNonce) = nonceDigest,
+//   passes nonceDigest to signIn(). The plugin forwards it to GIDSignIn
+//   so the returned ID token includes nonce = nonceDigest.
+//   JS then calls signInWithIdToken(token, nonce: rawNonce) — Supabase
+//   validates sha256(rawNonce) == id_token.nonce.
 
 import Capacitor
 import GoogleSignIn
+import CryptoKit
 
 @objc(GoogleAuthPlugin)
 public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let buildMarker = "2026-04-13-dual-client-v1"
+    private let buildMarker = "2026-04-13-nonce-v1"
 
     public let identifier = "GoogleAuthPlugin"
     public let jsName = "GoogleAuth"
@@ -95,7 +103,9 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     // MARK: – plugin methods
 
     @objc func signIn(_ call: CAPPluginCall) {
-        print("[GoogleAuthPlugin] signIn called build=\(buildMarker)")
+        let nonceDigest = call.getString("nonce")
+        print("[GoogleAuthPlugin] signIn called nonce=\(nonceDigest != nil ? "present(\(nonceDigest!.prefix(8))…)" : "nil") build=\(buildMarker)")
+        
         DispatchQueue.main.async {
             guard let vc = self.bridge?.viewController else {
                 call.reject("No view controller available")
@@ -111,38 +121,50 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             print("[GoogleAuthPlugin] Presenting sign-in from \(type(of: vc)) build=\(self.buildMarker)")
-            GIDSignIn.sharedInstance.signIn(withPresenting: vc) { result, error in
-                if let error = error {
-                    let ns = error as NSError
-                    print("[GoogleAuthPlugin] signIn error code=\(ns.code) msg=\(error.localizedDescription)")
-                    if ns.code == -5 || ns.code == GIDSignInError.canceled.rawValue {
-                        call.reject("The user canceled the sign-in flow.", "12501")
-                        return
-                    }
-                    call.reject(error.localizedDescription)
-                    return
+            
+            // Use the nonce-capable sign-in overload when a nonce digest is provided
+            if let nonce = nonceDigest {
+                GIDSignIn.sharedInstance.signIn(withPresenting: vc, hint: nil, additionalScopes: nil, nonce: nonce) { result, error in
+                    self.handleSignInResult(result: result, error: error, call: call)
                 }
-
-                guard let user = result?.user,
-                      let idToken = user.idToken?.tokenString else {
-                    call.reject("No ID token received from Google")
-                    return
+            } else {
+                GIDSignIn.sharedInstance.signIn(withPresenting: vc) { result, error in
+                    self.handleSignInResult(result: result, error: error, call: call)
                 }
-
-                print("[GoogleAuthPlugin] Success – email: \(user.profile?.email ?? "?") build=\(self.buildMarker)")
-                call.resolve([
-                    "authentication": [
-                        "idToken": idToken,
-                        "accessToken": user.accessToken.tokenString,
-                    ],
-                    "email": user.profile?.email ?? "",
-                    "familyName": user.profile?.familyName ?? "",
-                    "givenName": user.profile?.givenName ?? "",
-                    "id": user.userID ?? "",
-                    "name": user.profile?.name ?? "",
-                ])
             }
         }
+    }
+    
+    private func handleSignInResult(result: GIDSignInResult?, error: Error?, call: CAPPluginCall) {
+        if let error = error {
+            let ns = error as NSError
+            print("[GoogleAuthPlugin] signIn error code=\(ns.code) msg=\(error.localizedDescription)")
+            if ns.code == -5 || ns.code == GIDSignInError.canceled.rawValue {
+                call.reject("The user canceled the sign-in flow.", "12501")
+                return
+            }
+            call.reject(error.localizedDescription)
+            return
+        }
+
+        guard let user = result?.user,
+              let idToken = user.idToken?.tokenString else {
+            call.reject("No ID token received from Google")
+            return
+        }
+
+        print("[GoogleAuthPlugin] Success – email: \(user.profile?.email ?? "?") build=\(self.buildMarker)")
+        call.resolve([
+            "authentication": [
+                "idToken": idToken,
+                "accessToken": user.accessToken.tokenString,
+            ],
+            "email": user.profile?.email ?? "",
+            "familyName": user.profile?.familyName ?? "",
+            "givenName": user.profile?.givenName ?? "",
+            "id": user.userID ?? "",
+            "name": user.profile?.name ?? "",
+        ])
     }
 
     @objc func signOut(_ call: CAPPluginCall) {

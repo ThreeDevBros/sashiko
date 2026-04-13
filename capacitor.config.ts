@@ -7,7 +7,9 @@ const config: CapacitorConfig = {
   plugins: {
     GoogleAuth: {
       scopes: ['profile', 'email'],
-      serverClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+      // serverClientId is read from GoogleService-Info.plist → SERVER_CLIENT_ID
+      // so you don't need to hardcode it here. Only set this if you want to
+      // override the plist value explicitly.
       forceCodeForRefreshToken: true,
     },
   },
