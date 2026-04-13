@@ -21,6 +21,7 @@ import { prefetchSavedCards } from './hooks/useSavedCards';
 import { handleGlobalResume } from "@/lib/lifecycleManager";
 import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
 import { AppRuntimeListeners } from "./components/AppRuntimeListeners";
+import { BranchRealtimeManager } from "./components/BranchRealtimeManager";
 import Index from "./pages/Index";
 import Order from "./pages/Order";
 import Cart from "./pages/Cart";
@@ -282,6 +283,13 @@ const AppContent = () => {
   useEffect(() => {
     if (!bootstrapComplete) return;
     
+    // Skip if useNearestBranch already cached location data
+    const existingLocation = localStorage.getItem('currentLocationData');
+    if (existingLocation) {
+      console.log('[App] Location already cached, skipping duplicate geocode');
+      return;
+    }
+
     const detectLocation = async () => {
       if (!navigator.geolocation) return;
       
@@ -409,6 +417,7 @@ const AppContent = () => {
         <div>
           <Toaster />
           <Sonner />
+          <BranchRealtimeManager />
           <GlobalDriverTracker />
           <PhonePromptDialog />
           <BrowserRouter>
