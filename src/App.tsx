@@ -38,6 +38,7 @@ import DriverDashboard from "./pages/DriverDashboard";
 import DriverOrders from "./pages/driver/DriverOrders";
 import DriverActiveDelivery from "./pages/driver/DriverActiveDelivery";
 import NotFound from "./pages/NotFound";
+import AccountDeletion from "./pages/AccountDeletion";
 import LegalPage from "./pages/LegalPage";
 import Dashboard from "./pages/admin/Dashboard";
 import MenuManagement from "./pages/admin/MenuManagement";
@@ -161,6 +162,7 @@ const AppRoutes = () => {
               <Route path="/profile" element={<AnimatedPage><Profile /></AnimatedPage>} />
               <Route path="/profile/address" element={<AnimatedPage><Address /></AnimatedPage>} />
               <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
+              <Route path="/account/delete" element={<AnimatedPage><AccountDeletion /></AnimatedPage>} />
               <Route path="/legal/:type" element={<AnimatedPage><LegalPage /></AnimatedPage>} />
               <Route path="/checkout/success" element={<AnimatedPage><CheckoutSuccess /></AnimatedPage>} />
               <Route path="/admin" element={<AnimatedPage><Dashboard /></AnimatedPage>} />
