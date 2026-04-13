@@ -70,10 +70,11 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       }
     } catch {}
 
-    console.log('[GoogleSignIn] Exchanging ID token for app session');
+    console.log('[GoogleSignIn] Exchanging ID token for app session (nonce: undefined)');
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
+      nonce: undefined,
     });
 
     console.log('[GoogleSignIn] Token exchange finished', {
