@@ -52,10 +52,20 @@ serve(async (req) => {
     };
 
     for (const order of orders) {
-      const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
-      const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
-      const transitMinutes = (order.order_type === 'delivery' && order.delivery_transit_minutes) ? order.delivery_transit_minutes : 0;
-      const etaMinutes = prepMinutes + transitMinutes;
+      const isDelivery = order.order_type === 'delivery';
+      const transitMinutes = (isDelivery && order.delivery_transit_minutes) ? order.delivery_transit_minutes : 0;
+      const status = order.last_push_status || '';
+      let etaMinutes: number;
+
+      if (status === 'out_for_delivery') {
+        etaMinutes = transitMinutes;
+      } else if (status === 'ready') {
+        etaMinutes = isDelivery ? transitMinutes + 5 : 0;
+      } else {
+        const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
+        const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
+        etaMinutes = prepMinutes + transitMinutes;
+      }
 
       const { data: laTokens } = await supabase
         .from('live_activity_tokens')

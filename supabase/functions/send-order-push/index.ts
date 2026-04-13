@@ -91,13 +91,21 @@ serve(async (req) => {
     const isTerminalStatus = ['delivered', 'cancelled'].includes(new_status);
     const title = isTerminalStatus ? `Order ${orderLabel}` : `Order ${orderLabel} Update`;
 
-    // Compute ETA = prep time remaining + delivery transit time
+    // Compute ETA — status-aware to match in-app DeliveryTimeEstimate UI
     let etaMinutes: number | null = null;
-    if (order.estimated_ready_at && !isTerminalStatus) {
-      const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
-      const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
-      const transitMinutes = (order.order_type === 'delivery' && order.delivery_transit_minutes) ? order.delivery_transit_minutes : 0;
-      etaMinutes = prepMinutes + transitMinutes;
+    if (!isTerminalStatus) {
+      const isDelivery = order.order_type === 'delivery';
+      const transitMinutes = (isDelivery && order.delivery_transit_minutes) ? order.delivery_transit_minutes : 0;
+
+      if (new_status === 'out_for_delivery') {
+        etaMinutes = transitMinutes || null;
+      } else if (new_status === 'ready') {
+        etaMinutes = isDelivery ? transitMinutes + 5 : 0;
+      } else if (order.estimated_ready_at) {
+        const diffMs = new Date(order.estimated_ready_at).getTime() - Date.now();
+        const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
+        etaMinutes = prepMinutes + transitMinutes;
+      }
     }
 
     // Build body with ETA
