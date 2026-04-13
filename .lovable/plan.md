@@ -1,32 +1,44 @@
 
 
-# Plan: Fix App Resume, Live Activity Title, and Delivered Push
+# Plan: Apply OrderTracking Resume Pattern App-Wide
 
-## Issue 1: App broken after close/reopen
+## Problem
 
-**Root cause**: When the app resumes from background, `handleGlobalResume` refreshes the session but **never invalidates the React Query cache**. All queries remain stale with old data. Pages show stale/empty content, and new fetches don't trigger.
+When the app resumes from background on native iOS, only the `/order-tracking` page works because it has its own direct data refetch and realtime reconnection via `subscribeToResume`. The rest of the app relies on `queryClient.invalidateQueries()` in App.tsx, but this only refetches **active (mounted)** queries. When the user navigates away from OrderTracking to the homepage, the homepage queries mount fresh but may fail because:
 
-Additionally, there are **two competing native `appStateChange` listeners** — one in `App.tsx` (line 257) and one in `useAppLifecycle.ts` (`initGlobalListener`). Both fire on resume, creating race conditions.
+1. The Supabase Realtime WebSocket may be stale/disconnected after backgrounding — individual components reconnect via `resumeCounter` from `subscribeToResume`, but the global resume handler doesn't force Realtime reconnection
+2. There is **no web `visibilitychange` fallback** in App.tsx — the resume handler only works for native `appStateChange`, so if the native event is missed, nothing recovers
+3. `handleGlobalResume` has a 1-second lock — if a second resume event fires during that window, it's silently skipped but `queryClient.invalidateQueries()` still runs (potentially with an un-refreshed session)
 
-**Fix** (`src/App.tsx`):
-- After `handleGlobalResume(refreshSession)` completes, call `queryClient.invalidateQueries()` to force all active queries to refetch with the fresh session.
+## Solution
 
-## Issue 2: Live Activity title disappears when ETA updates
+### 1. Add `visibilitychange` web fallback in App.tsx
 
-**Root cause**: In `OrderTracking.tsx` line 236, the `handleRemainingMinutesChange` callback sends `statusMessage: ''` (empty string) to the Live Activity. This overwrites the title on every countdown tick.
+Add a `document.addEventListener('visibilitychange')` that runs the same resume logic. Use a shared throttle to prevent double-firing when both native `appStateChange` and `visibilitychange` trigger on the same resume.
 
-**Fix** (`src/pages/OrderTracking.tsx`):
-- Change `statusMessage: ''` to `statusMessage: getStatusMessageForOrder(currentOrder)` so the title is always included with ETA-only updates.
+### 2. Guard `invalidateQueries` behind `handleGlobalResume` success
 
-## Issue 3: Remove "Your Order has been delivered" FCM push
+`handleGlobalResume` currently returns `void`. Change it to return `boolean` indicating whether it actually ran (vs. was skipped due to lock). Only call `queryClient.invalidateQueries()` if it actually refreshed the session.
 
-**Root cause**: In `send-order-push/index.ts` lines 118-141, FCM push notifications are sent for all terminal statuses (`delivered` and `cancelled`). Since the Live Activity already alerts the user on delivery, the FCM banner is redundant.
+### 3. Force Supabase Realtime reconnection after resume
 
-**Fix** (`supabase/functions/send-order-push/index.ts`):
-- Only send FCM push for `cancelled` status, skip it for `delivered`.
+After session refresh, call `supabase.removeAllChannels()` is too aggressive. Instead, dispatch a global event (`appResumed`) that components can listen to for reconnection. But since components already use `subscribeToResume` for this, the real fix is ensuring `handleGlobalResume` always fires its subscribers — the issue is the 1-second lock preventing re-entry.
+
+Reduce the lock timeout from 1000ms to 100ms, which still deduplicates rapid-fire events but doesn't block legitimate resume events that come slightly delayed.
 
 ## Files to modify
-- `src/App.tsx` — Add `queryClient.invalidateQueries()` after resume session refresh
-- `src/pages/OrderTracking.tsx` — Fix empty `statusMessage` in ETA tick callback
-- `supabase/functions/send-order-push/index.ts` — Skip FCM for `delivered` status
+
+- **`src/lib/lifecycleManager.ts`** — Return `boolean` from `handleGlobalResume`; reduce lock timeout from 1000ms to 100ms
+- **`src/App.tsx`** — Add `visibilitychange` listener alongside native handler; only invalidate queries when resume actually ran
+
+## Technical details
+
+```text
+Before:
+  appStateChange → handleGlobalResume (may skip if locked) → invalidateQueries (always runs)
+
+After:
+  appStateChange OR visibilitychange → handleGlobalResume → invalidateQueries (only if session refreshed)
+  Lock reduced to 100ms to prevent true duplicate events only
+```
 
