@@ -180,20 +180,17 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
           const { data: { session } } = await supabase.auth.getSession();
           const userId = session?.user?.id;
           if (userId) {
-            await supabase
-              .from('live_activity_tokens')
-              .delete()
-              .eq('user_id', userId)
-              .eq('order_id', orderId);
-
-            const { error } = await supabase.from('live_activity_tokens').insert({
-              user_id: userId,
-              order_id: orderId,
-              push_token: event.token,
-              platform: 'ios',
-            });
+            const { error } = await supabase.from('live_activity_tokens').upsert(
+              {
+                user_id: userId,
+                order_id: orderId,
+                push_token: event.token,
+                platform: 'ios',
+              },
+              { onConflict: 'user_id,order_id' }
+            );
             if (error) {
-              console.error('[LiveActivity] Token insert error:', error);
+              console.error('[LiveActivity] Token upsert error:', error);
             } else {
               console.log('[LiveActivity] Token persisted for order:', orderId);
             }

@@ -84,6 +84,10 @@ interface OrderItem {
   } | null;
 }
 
+// Module-level set to track which orders already have a Live Activity started.
+// Survives component remounts caused by authVersion key changes.
+const _startedActivities = new Set<string>();
+
 export default function OrderTracking() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
