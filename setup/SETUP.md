@@ -131,7 +131,41 @@ Delete any other auto-generated widget files (e.g., `OrderTrackingWidget.swift`,
 
 ---
 
-## Step 5: Capabilities & Info.plist
+## Step 5: Google Sign-In Setup
+
+### 5a. Add Google Sign-In Pod
+
+Edit `ios/App/Podfile` and add this line inside the `target 'App'` block (alongside Firebase pods):
+
+```ruby
+pod 'GoogleSignIn', '~> 8.0'
+```
+
+Then reinstall pods:
+
+```bash
+cd ios/App
+pod install --repo-update
+cd ../..
+```
+
+### 5b. Configure URL Scheme
+
+1. Open `GoogleService-Info.plist` and find the `REVERSED_CLIENT_ID` value (e.g., `com.googleusercontent.apps.123456789-abcdef`)
+2. In Xcode, select the **App** target → **Info** tab → **URL Types**
+3. Click **+** and paste the `REVERSED_CLIENT_ID` as the **URL Scheme**
+
+### 5c. Set the Web Client ID
+
+In `capacitor.config.ts`, replace `YOUR_WEB_CLIENT_ID` with your **Web** OAuth Client ID from Google Cloud Console → APIs & Services → Credentials. This is the **Web application** type client (not the iOS client), because Supabase validates the ID token against the web client ID.
+
+### 5d. Configure Supabase Google Provider
+
+Ensure Google is enabled as an auth provider in your Lovable Cloud settings with the same **Web Client ID** and **Client Secret**.
+
+---
+
+## Step 6: Capabilities & Info.plist
 
 ### Main App Target
 
