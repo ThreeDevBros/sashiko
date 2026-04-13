@@ -62,25 +62,43 @@ struct OrderTrackingWidgetLiveActivity: Widget {
             return DynamicIsland {
                 // Expanded — shown on long press
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 6) {
-                        Image(systemName: statusIcon(status))
-                            .foregroundColor(statusColor(status))
+                    EmptyView()
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    EmptyView()
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(statusColor(status).opacity(0.15))
+                                .frame(width: 46, height: 46)
+                            Image(systemName: statusIcon(status))
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(statusColor(status))
+                        }
+
                         Text(statusMessage)
                             .font(.subheadline)
                             .fontWeight(.semibold)
+                            .foregroundColor(.primary)
                             .lineLimit(2)
+
+                        Spacer()
+
+                        if !etaText.isEmpty, let mins = Int(etaText), mins > 0 {
+                            VStack(spacing: 1) {
+                                Text("\(mins)")
+                                    .font(.title2)
+                                    .fontWeight(.heavy)
+                                    .foregroundColor(statusColor(status))
+                                Text("min")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(minWidth: 48)
+                        }
                     }
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    if !etaText.isEmpty, let mins = Int(etaText), mins > 0 {
-                        Text("~\(mins) min")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(statusColor(status))
-                    }
-                }
-                DynamicIslandExpandedRegion(.bottom) {
-                    EmptyView()
                 }
             } compactLeading: {
                 // App icon in compact leading
