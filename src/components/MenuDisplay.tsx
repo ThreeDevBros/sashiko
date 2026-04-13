@@ -204,7 +204,7 @@ export const MenuDisplay = () => {
     return (
       <div className="space-y-4">
         {/* Sticky skeleton */}
-        <div className="fixed left-0 right-0 top-0 md:top-14 z-40 bg-background py-3 border-b border-border">
+        <div className="fixed left-0 right-0 top-safe md:top-14 z-40 bg-background py-3 border-b border-border">
           <div className="flex gap-2 px-4 overflow-x-auto">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="h-10 w-28 bg-muted rounded-full flex-shrink-0 animate-pulse" />
@@ -258,7 +258,7 @@ export const MenuDisplay = () => {
   return (
     <div className="relative">
       {/* Fixed Category Bar */}
-      <div className="sticky top-0 md:top-14 z-40 bg-background border-b border-border shadow-sm">
+      <div className="sticky top-safe md:top-14 z-40 bg-background border-b border-border shadow-sm">
         <div 
           ref={categoryScrollRef} 
           className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide"
@@ -299,7 +299,7 @@ export const MenuDisplay = () => {
             <section 
               key={category.id} 
               id={`category-${category.id}`} 
-              className="scroll-mt-[52px] md:scroll-mt-[68px]"
+              className="scroll-mt-safe md:scroll-mt-[68px]"
             >
               <h2 
                 className="text-2xl font-bold mb-4 text-foreground"

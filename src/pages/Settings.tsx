@@ -95,7 +95,7 @@ export default function Settings() {
   const selectedLang = LANGUAGE_OPTIONS.find(o => o.value === language);
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 pt-safe">
       <FloatingBranchWidget />
       <main className="container mx-auto px-4 py-8 max-w-2xl">
         <div className="mb-6">

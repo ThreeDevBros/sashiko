@@ -590,7 +590,7 @@ export default function TableBooking() {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-20 sm:pb-24 overflow-x-hidden">
+    <div className="min-h-screen bg-background pb-20 sm:pb-24 overflow-x-hidden pt-safe">
       <div className="container mx-auto px-4 py-4 sm:py-8 max-w-full">
         <BackButton />
         <div className="mb-6 sm:mb-8">

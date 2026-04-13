@@ -437,7 +437,7 @@ export default function Address() {
   if (viewMode === 'list') {
     return (
       <div className="min-h-screen bg-background pb-24">
-        <div className="sticky top-0 bg-background border-b border-border z-10 px-4 py-4">
+        <div className="sticky top-0 bg-background border-b border-border z-10 px-4 py-4 pt-safe">
           <div className="max-w-4xl mx-auto">
             <BackButton />
           </div>
@@ -559,7 +559,7 @@ export default function Address() {
   if (viewMode === 'add_search') {
     return (
       <div className="min-h-screen bg-background pb-24">
-        <div className="sticky top-0 bg-background border-b border-border z-10 px-4 py-4">
+        <div className="sticky top-0 bg-background border-b border-border z-10 px-4 py-4 pt-safe">
           <div className="max-w-4xl mx-auto">
             <BackButton onClick={() => setViewMode('list')} />
             <h1 className="text-2xl font-bold text-foreground mt-4">Add New Address</h1>
@@ -584,7 +584,7 @@ export default function Address() {
     return (
       <div className="fixed inset-0 bg-background z-50 flex flex-col">
         {/* Back Button - Floating */}
-        <div className="absolute top-4 left-4 z-10">
+        <div className="absolute top-4 left-4 z-10 pt-safe">
           <BackButton onClick={() => setViewMode('add_search')} />
         </div>
 

@@ -32,7 +32,8 @@ const Order = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <header className="bg-background pt-4 pb-3 px-4">
+      <header className="bg-background pt-safe pb-3 px-4">
+        <div className="pt-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <BackButton />
@@ -52,6 +53,7 @@ const Order = () => {
           onClick={() => setBranchDialogOpen(true)}
           variant="hero"
         />
+        </div>
       </header>
 
       {/* Busy Banner */}

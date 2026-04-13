@@ -120,7 +120,7 @@ const OrderHistory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background pb-8">
+      <div className="min-h-screen bg-background pb-8 pt-safe">
         <div className="container mx-auto px-4 py-8 max-w-2xl">
           <div className="mb-6"><BackButton /></div>
           <div className="mb-8">

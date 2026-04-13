@@ -215,7 +215,7 @@ const BranchMenu = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border pt-safe">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-center gap-4">
           {branding?.logo_url && (
             <img src={branding.logo_url} alt="Logo" className="h-16 w-16 object-contain flex-shrink-0" />

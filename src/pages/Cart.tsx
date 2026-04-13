@@ -155,7 +155,7 @@ const Cart = () => {
       <FloatingBranchWidget />
       
       {/* Header */}
-      <div className="bg-background border-b sticky top-0 z-10">
+      <div className="bg-background border-b sticky top-0 z-10 pt-safe">
         <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
           <BackButton />
           <div className="flex-1 text-center">
