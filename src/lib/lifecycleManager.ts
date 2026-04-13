@@ -12,10 +12,14 @@ export function subscribeToResume(callback: ResumeCallback) {
   };
 }
 
-export async function handleGlobalResume(refreshSession: () => Promise<unknown>) {
+/**
+ * Refreshes the auth session and notifies all resume subscribers.
+ * Returns `true` if the handler actually ran, `false` if it was skipped (dedup lock).
+ */
+export async function handleGlobalResume(refreshSession: () => Promise<unknown>): Promise<boolean> {
   if (isHandlingGlobalResume) {
     console.log('[AppLifecycle] Resume skipped — handler already running');
-    return;
+    return false;
   }
 
   isHandlingGlobalResume = true;
@@ -32,10 +36,12 @@ export async function handleGlobalResume(refreshSession: () => Promise<unknown>)
     await Promise.allSettled(
       callbacks.map((callback) => Promise.resolve().then(() => callback()))
     );
+    return true;
   } finally {
+    // Short lock to deduplicate rapid-fire events only (native + visibility)
     resumeUnlockTimer = setTimeout(() => {
       isHandlingGlobalResume = false;
       resumeUnlockTimer = null;
-    }, 1000);
+    }, 100);
   }
 }
