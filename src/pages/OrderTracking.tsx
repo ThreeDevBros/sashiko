@@ -131,15 +131,25 @@ export default function OrderTracking() {
     loadCashbackRate();
   }, [orderId, isAuthReady, isAuthRecovering]);
 
-  // Helper to compute ETA minutes (prep + transit, matching server-side logic)
+  // Helper to compute ETA minutes — status-aware to match DeliveryTimeEstimate UI
   const computeEtaMinutes = useCallback((o: Order | null): number | null => {
-    if (!o?.estimated_ready_at) return null;
+    if (!o) return null;
+    const status = o.status;
+    const isDelivery = o.order_type === 'delivery';
+    const transitMinutes = isDelivery && o.delivery_transit_minutes ? o.delivery_transit_minutes : 0;
+
+    // Out for delivery: only transit time matters (food already picked up)
+    if (status === 'out_for_delivery') return transitMinutes || null;
+
+    // Ready: delivery = transit + 5min driver pickup buffer; pickup = 0
+    if (status === 'ready') {
+      return isDelivery ? transitMinutes + 5 : 0;
+    }
+
+    // All other active statuses: prep remaining + transit
+    if (!o.estimated_ready_at) return null;
     const diffMs = new Date(o.estimated_ready_at).getTime() - Date.now();
     const prepMinutes = Math.max(0, Math.ceil(diffMs / 60000));
-    // Add delivery transit minutes for delivery orders (same as server-side update-order-eta)
-    const transitMinutes = o.order_type === 'delivery' && o.delivery_transit_minutes
-      ? o.delivery_transit_minutes
-      : 0;
     return prepMinutes + transitMinutes;
   }, []);
 
