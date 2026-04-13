@@ -206,11 +206,8 @@ export const CheckoutForm = ({
     
     const loadPaymentData = async () => {
       try {
-        const {
-          data: {
-            user
-          }
-        } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user) return;
         
         // Load preferred payment method
@@ -360,11 +357,8 @@ export const CheckoutForm = ({
       if (paymentType === 'cash') {
         // Cash on delivery - create order directly without payment
         console.log('Creating cash on delivery order...');
-        const {
-          data: {
-            user
-          }
-        } = await supabase.auth.getUser();
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const user = currentSession?.user ?? null;
 
         // For authenticated users, fetch profile data instead of relying on user_metadata
         let authGuestInfo = null;
