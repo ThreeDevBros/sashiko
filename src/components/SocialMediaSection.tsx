@@ -22,7 +22,6 @@ const PLATFORM_ICONS: Record<string, any> = {
   threads: FaThreads,
   pinterest: FaPinterestP,
   whatsapp: FaWhatsapp,
-  whatsapp: FaWhatsapp,
   telegram: FaTelegram,
 };
 
