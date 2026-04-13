@@ -351,8 +351,10 @@ const AppContent = () => {
     if (!isAuthReady) return; // Auth not restored yet — keep waiting
     if (!minTimeElapsed) return; // Still in splash min time
     
+    // Proceed if queries settled OR we already have data (from cache/initialData)
+    const hasData = !!branding || !!branch;
     const coreDataSettled = !brandingLoading && !branchLoading;
-    if (!coreDataSettled) return; // Core queries still in flight / retrying
+    if (!coreDataSettled && !hasData) return; // Still loading with no cached data
     
     const bothErrored = brandingError && branchError;
     
@@ -382,7 +384,7 @@ const AppContent = () => {
         setShowLoadingScreen(false);
         setBootstrapComplete(true);
       }
-    }, 6000);
+    }, 3000);
     return () => clearTimeout(timer);
   }, [showLoadingScreen]);
 
