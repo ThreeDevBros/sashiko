@@ -1,37 +1,44 @@
 
 
-# Fix: Live Activity ETA Mismatch with Order Tracking UI
+# Fix: ETA Mismatch Between LiveOrderCountdown and Live Activity
 
-## Problem
+## Problem 1: ETA Mismatch
 
-The Live Activity ETA calculation (`computeEtaMinutes` in OrderTracking.tsx and server-side functions) always uses `prepMinutes + transitMinutes` regardless of order status. But the in-app `DeliveryTimeEstimate` component uses status-aware logic:
+The `computeEtaMinutes` function (used for Live Activity pushes on status changes) and `LiveOrderCountdown` (used for the in-app countdown AND the per-tick Live Activity sync via `handleRemainingMinutesChange`) use **different formulas**:
 
-- **`ready` status**: UI shows `transitMinutes + 5` (driver pickup buffer), Live Activity shows `0 + transitMinutes`
-- **`out_for_delivery` status**: UI shows only `transitMinutes`, Live Activity shows `prepMinutes(≈0) + transitMinutes` (identical when prep is 0, but could differ if `estimated_ready_at` is in the past producing 0)
-- The `+5 min driver pickup` buffer in `ready` status is never reflected in the Live Activity
+| Status | `computeEtaMinutes` (Live Activity) | `LiveOrderCountdown` (in-app + tick sync) |
+|---|---|---|
+| `ready` + delivery | `transitMinutes + 5` | `transitMinutes ?? 15` (no +5) |
+| `out_for_delivery` | `transitMinutes \|\| null` | `transitMinutes ?? 15` |
 
-## Fix
+So on every status change, the Live Activity gets `transitMinutes + 5` via the server push, but then immediately the countdown tick overrides it with `transitMinutes` (no +5) via `handleRemainingMinutesChange`. The value bounces.
 
-Make `computeEtaMinutes` status-aware to match the `DeliveryTimeEstimate` component logic. Apply the same fix to both server-side functions.
+**Fix**: Update `LiveOrderCountdown` to add the +5 driver pickup buffer for `ready` + delivery, matching `computeEtaMinutes` and `DeliveryTimeEstimate`.
 
-### 1. `src/pages/OrderTracking.tsx` — Update `computeEtaMinutes`
+## Problem 2: Mapping Bloat (39+ entries)
 
-Add status-aware branching:
-- `out_for_delivery`: return only `transitMinutes` (food is already on the way, prep time irrelevant)
-- `ready` + delivery: return `transitMinutes + 5` (driver pickup buffer)
-- `ready` + pickup: return `0`
-- All other active statuses: return `prepMinutes + transitMinutes` (current behavior)
+The `liveactivity_id_map` in Preferences keeps growing because entries are never pruned except on `endActivity`. On every app restart, old stale entries accumulate. This doesn't directly cause duplicate Live Activities (the Swift plugin handles that), but it's wasteful.
 
-### 2. `supabase/functions/send-order-push/index.ts` — Same status-aware ETA
+**Fix**: When restoring mappings, cap at a reasonable size (keep only the most recent entries).
 
-Update the ETA computation (lines 95-101) to use the same status-aware logic based on `new_status`.
+## Files to modify
 
-### 3. `supabase/functions/update-order-eta/index.ts` — Same status-aware ETA
+1. **`src/components/order/LiveOrderCountdown.tsx`** — Add +5 buffer for `ready` + delivery status in `remainingMinutes` calculation (line 67)
+2. **`src/lib/nativeLiveActivity.ts`** — Prune old mapping entries during restore if count > 10
 
-Update the ETA computation (lines 55-58) to use status-aware logic based on `order.last_push_status`.
+## Technical detail
 
-### Files to modify
-- `src/pages/OrderTracking.tsx` — `computeEtaMinutes` function
-- `supabase/functions/send-order-push/index.ts` — ETA calculation block
-- `supabase/functions/update-order-eta/index.ts` — ETA calculation block
+```text
+Before (ready + delivery):
+  computeEtaMinutes → transitMinutes + 5
+  LiveOrderCountdown → transitMinutes (no +5)
+  handleRemainingMinutesChange → sends transitMinutes to Live Activity
+  → Live Activity shows wrong ETA, bouncing between two values
+
+After:
+  computeEtaMinutes → transitMinutes + 5  
+  LiveOrderCountdown → (transitMinutes ?? 15) + 5
+  handleRemainingMinutesChange → sends transitMinutes + 5 to Live Activity
+  → All sources agree
+```
 
