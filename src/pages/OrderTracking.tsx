@@ -857,7 +857,7 @@ export default function OrderTracking() {
     const isCustomerCancelled = reason.toLowerCase().includes('customer');
     
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-background flex flex-col pt-safe">
         {/* Compact header */}
         <div className="bg-card border-b">
           <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
@@ -937,7 +937,7 @@ export default function OrderTracking() {
   return (
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
-      <div className="bg-card border-b sticky top-0 z-20">
+      <div className="bg-card border-b sticky top-0 z-20 pt-safe">
         <div className="container max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">

@@ -86,7 +86,7 @@ export default function CheckoutSuccess() {
 
   if (error) {
     return (
-      <main className="container mx-auto px-4 py-12">
+      <main className="container mx-auto px-4 py-12 pt-safe">
         <div className="max-w-2xl mx-auto">
           <div className="mb-6">
             <BackButton />
@@ -119,7 +119,7 @@ export default function CheckoutSuccess() {
   }
 
   return (
-    <main className="container mx-auto px-4 py-12">
+    <main className="container mx-auto px-4 py-12 pt-safe">
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <BackButton />

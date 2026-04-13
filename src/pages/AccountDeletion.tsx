@@ -133,7 +133,7 @@ export default function AccountDeletion() {
   };
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 pt-safe">
       <main className="container mx-auto px-4 py-8 max-w-md">
         <div className="mb-6">
           <BackButton />
