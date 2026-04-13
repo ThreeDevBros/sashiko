@@ -173,6 +173,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('[Auth] Session restore error:', err);
       } finally {
         setIsAuthReady(true);
+        setAuthVersion(v => v + 1);
       }
     };
 
