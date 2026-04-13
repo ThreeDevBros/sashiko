@@ -155,17 +155,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (nativeSession) {
           console.log('[Auth] No web session, restoring from native storage');
           try {
-            const { data: { session: restored }, error } = await supabase.auth.setSession({
+            const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+            const setSessionPromise = supabase.auth.setSession({
               access_token: nativeSession.access_token,
               refresh_token: nativeSession.refresh_token,
             });
-            if (!error && restored) {
+            const result = await Promise.race([setSessionPromise, timeoutPromise]);
+            if (result && result.data?.session) {
               console.log('[Auth] Restored from native storage successfully');
-              setSession(restored);
-              setUser(restored.user);
+              setSession(result.data.session);
+              setUser(result.data.session.user);
             } else {
-              console.warn('[Auth] Native session restore failed:', error?.message);
-              // Clear corrupted native session
+              console.warn('[Auth] Native session restore failed or timed out');
               saveSessionToNative(null);
             }
           } catch (setErr) {
