@@ -75,12 +75,13 @@ const Auth = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
+        const currentUser = session.user;
       
       // Fetch roles to determine redirect
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user.id);
+        .eq('user_id', currentUser.id);
       
       const roles = roleData?.map(r => r.role) || [];
       const { getRoleBasedRoute } = await import('@/hooks/useRoleRedirect');
