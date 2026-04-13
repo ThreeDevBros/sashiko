@@ -101,6 +101,16 @@ async function writeStoredMapping(map: Record<string, string>) {
 
 export async function restoreLiveActivityMappings(): Promise<Record<string, string>> {
   mappingCache = await readStoredMapping();
+  // Prune stale entries — keep only the 10 most recent (by insertion order)
+  const keys = Object.keys(mappingCache);
+  if (keys.length > 20) {
+    const toKeep = keys.slice(-20);
+    const pruned: Record<string, string> = {};
+    for (const k of toKeep) pruned[k] = mappingCache[k];
+    mappingCache = pruned;
+    await writeStoredMapping(mappingCache);
+    console.log('[LiveActivity] Pruned mapping from', keys.length, 'to', toKeep.length, 'entries');
+  }
   console.log('[LiveActivity] Restored mapping entries:', Object.keys(mappingCache).length);
   return mappingCache;
 }

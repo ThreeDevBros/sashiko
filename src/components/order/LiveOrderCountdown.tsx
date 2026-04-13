@@ -62,9 +62,9 @@ export function LiveOrderCountdown({
       return transitMinutes ?? 15;
     }
 
-    // For ready + delivery, transit time only
+    // For ready + delivery, transit time + 5 min driver pickup buffer
     if (status === 'ready' && orderType === 'delivery') {
-      return transitMinutes ?? 15;
+      return (transitMinutes ?? 15) + 5;
     }
 
     // For confirmed/preparing: prep + transit (delivery) or prep only
