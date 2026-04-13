@@ -17,7 +17,6 @@ import { PhonePromptDialog } from "./components/PhonePromptDialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
-import { usePushNotifications } from "./hooks/usePushNotifications";
 import { prefetchSavedCards } from './hooks/useSavedCards';
 import { handleGlobalResume } from "@/lib/lifecycleManager";
 import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
@@ -76,31 +75,7 @@ const queryClient = new QueryClient({
 const AppRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAuthReady, isAuthRecovering, authVersion } = useAuth();
-  usePushNotifications(navigate);
-
-  // Handle deep links from Live Activity taps (sashiko://order-tracking/:id)
-  useEffect(() => {
-    let cleanup: (() => void) | undefined;
-    (async () => {
-      try {
-        const { Capacitor } = await import('@capacitor/core');
-        if (Capacitor.getPlatform() === 'web') return;
-        const { App: CapApp } = await import('@capacitor/app');
-        const listener = await CapApp.addListener('appUrlOpen', (event: { url: string }) => {
-          console.log('[DeepLink] URL opened:', event.url);
-          const match = event.url.match(/sashiko:\/\/order-tracking\/([a-f0-9-]+)/i);
-          if (match?.[1]) {
-            navigate(`/order-tracking/${match[1]}`);
-          }
-        });
-        cleanup = () => listener.remove();
-      } catch (err) {
-        console.log('[DeepLink] Not available:', err);
-      }
-    })();
-    return () => cleanup?.();
-  }, [navigate]);
+  const { user, isAuthReady, isAuthRecovering } = useAuth();
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isStaffRoute = location.pathname.startsWith('/staff');
   const isDriverRoute = location.pathname.startsWith('/driver');
@@ -435,6 +410,7 @@ const AppContent = () => {
           <GlobalDriverTracker />
           <PhonePromptDialog />
           <BrowserRouter>
+            <AppRuntimeListeners />
             <ScrollToTop />
             <PageTransitionProvider>
               <AppRoutes key={`auth-v${authVersion}`} />
