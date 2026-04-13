@@ -1,15 +1,22 @@
 // GoogleAuthPlugin.swift
 // Custom Capacitor plugin for native Google Sign-In on iOS.
 // Uses Google Sign-In SDK directly — no npm dependency needed.
-// Reads serverClientId from Capacitor config (GoogleAuth.serverClientId)
-// so you don't need to manually edit Info.plist.
+//
+// Client ID resolution:
+//   • iOS Client ID  → GoogleService-Info.plist → CLIENT_ID
+//   • Web Client ID  → capacitor.config.ts → plugins.GoogleAuth.serverClientId
+//                      (fallback: GoogleService-Info.plist → SERVER_CLIENT_ID)
+//
+// The iOS client ID is used for the native sign-in UI.
+// The Web/server client ID is sent as the audience so Supabase can validate
+// the returned ID token.
 
 import Capacitor
 import GoogleSignIn
 
 @objc(GoogleAuthPlugin)
 public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
-    private let buildMarker = "2026-04-13-load-config-v3"
+    private let buildMarker = "2026-04-13-dual-client-v1"
 
     public let identifier = "GoogleAuthPlugin"
     public let jsName = "GoogleAuth"
@@ -21,68 +28,89 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     public override func load() {
         super.load()
         print("[GoogleAuthPlugin] load() build=\(buildMarker)")
-        _ = configureGoogleSignInIfPossible(context: "plugin-load")
+        _ = configureIfPossible(context: "plugin-load")
     }
 
-    private func sanitizeClientId(_ value: String?) -> String? {
-        guard let value, !value.isEmpty, !value.contains("YOUR_") else {
-            return nil
+    // MARK: – helpers
+
+    private func sanitize(_ value: String?) -> String? {
+        guard let v = value, !v.isEmpty, !v.contains("YOUR_") else { return nil }
+        return v
+    }
+
+    /// iOS client ID from GoogleService-Info.plist → CLIENT_ID
+    private func getIOSClientId() -> String? {
+        if let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+           let dict = NSDictionary(contentsOfFile: plistPath),
+           let clientId = sanitize(dict["CLIENT_ID"] as? String) {
+            print("[GoogleAuthPlugin] iOS client ID from plist prefix: \(clientId.prefix(20))… build=\(buildMarker)")
+            return clientId
         }
-
-        return value
+        // Fallback: GIDClientID in Info.plist
+        if let clientId = sanitize(Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String) {
+            print("[GoogleAuthPlugin] iOS client ID from Info.plist GIDClientID build=\(buildMarker)")
+            return clientId
+        }
+        return nil
     }
 
-    /// Read the Web Client ID from capacitor.config.ts → plugins.GoogleAuth.serverClientId
-    private func getClientId() -> String? {
-        // Try Capacitor plugin config first
-        if let configId = sanitizeClientId(getConfigValue("serverClientId") as? String) {
-            print("[GoogleAuthPlugin] Resolved client ID from Capacitor config build=\(buildMarker)")
+    /// Web / server client ID – needed so the ID token audience matches what Supabase expects.
+    /// Priority: capacitor.config.ts → GoogleService-Info.plist → nil
+    private func getServerClientId() -> String? {
+        if let configId = sanitize(getConfigValue("serverClientId") as? String) {
+            print("[GoogleAuthPlugin] Server client ID from Capacitor config build=\(buildMarker)")
             return configId
         }
-        // Fall back to Info.plist
-        if let plistId = sanitizeClientId(Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String) {
-            print("[GoogleAuthPlugin] Resolved client ID from Info.plist build=\(buildMarker)")
-            return plistId
+        if let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+           let dict = NSDictionary(contentsOfFile: plistPath),
+           let serverId = sanitize(dict["SERVER_CLIENT_ID"] as? String) {
+            print("[GoogleAuthPlugin] Server client ID from plist build=\(buildMarker)")
+            return serverId
         }
         return nil
     }
 
     @discardableResult
-    private func configureGoogleSignInIfPossible(context: String) -> Bool {
-        guard let clientId = getClientId() else {
-            print("[GoogleAuthPlugin] No valid client ID found during \(context). build=\(buildMarker)")
+    private func configureIfPossible(context: String) -> Bool {
+        guard let iosClientId = getIOSClientId() else {
+            print("[GoogleAuthPlugin] No iOS client ID found during \(context). build=\(buildMarker)")
             return false
         }
 
-        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
-        print("[GoogleAuthPlugin] Configured Google Sign-In during \(context) with client ID prefix: \(clientId.prefix(20))... build=\(buildMarker)")
+        let serverClientId = getServerClientId()
+        print("[GoogleAuthPlugin] Configuring GIDSignIn during \(context) – iOS prefix: \(iosClientId.prefix(20))… server: \(serverClientId?.prefix(20) ?? "nil") build=\(buildMarker)")
+
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+            clientID: iosClientId,
+            serverClientID: serverClientId
+        )
         return true
     }
+
+    // MARK: – plugin methods
 
     @objc func signIn(_ call: CAPPluginCall) {
         print("[GoogleAuthPlugin] signIn called build=\(buildMarker)")
         DispatchQueue.main.async {
-            guard let viewController = self.bridge?.viewController else {
-                print("[GoogleAuthPlugin] No view controller available")
+            guard let vc = self.bridge?.viewController else {
                 call.reject("No view controller available")
                 return
             }
 
-            let hasConfiguration = GIDSignIn.sharedInstance.configuration != nil
-            print("[GoogleAuthPlugin] Existing configuration before sign-in: \(hasConfiguration) build=\(self.buildMarker)")
+            let hasConfig = GIDSignIn.sharedInstance.configuration != nil
+            print("[GoogleAuthPlugin] Existing config before signIn: \(hasConfig) build=\(self.buildMarker)")
 
-            guard hasConfiguration || self.configureGoogleSignInIfPossible(context: "sign-in") else {
-                print("[GoogleAuthPlugin] ERROR: No Google Client ID found. Set serverClientId in capacitor.config.ts or GIDClientID in Info.plist.")
-                call.reject("Google Sign-In not configured: missing client ID. Set serverClientId in capacitor.config.ts under plugins.GoogleAuth")
+            guard hasConfig || self.configureIfPossible(context: "sign-in") else {
+                call.reject("Google Sign-In not configured: missing CLIENT_ID in GoogleService-Info.plist")
                 return
             }
 
-            print("[GoogleAuthPlugin] Presenting from view controller: \(type(of: viewController)) build=\(self.buildMarker)")
-            GIDSignIn.sharedInstance.signIn(withPresenting: viewController) { result, error in
+            print("[GoogleAuthPlugin] Presenting sign-in from \(type(of: vc)) build=\(self.buildMarker)")
+            GIDSignIn.sharedInstance.signIn(withPresenting: vc) { result, error in
                 if let error = error {
-                    let nsError = error as NSError
-                    print("[GoogleAuthPlugin] signIn error code=\(nsError.code) message=\(error.localizedDescription)")
-                    if nsError.code == -5 || nsError.code == GIDSignInError.canceled.rawValue {
+                    let ns = error as NSError
+                    print("[GoogleAuthPlugin] signIn error code=\(ns.code) msg=\(error.localizedDescription)")
+                    if ns.code == -5 || ns.code == GIDSignInError.canceled.rawValue {
                         call.reject("The user canceled the sign-in flow.", "12501")
                         return
                     }
@@ -90,15 +118,13 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
                     return
                 }
 
-                print("[GoogleAuthPlugin] signIn callback success, has user: \(result?.user != nil)")
                 guard let user = result?.user,
                       let idToken = user.idToken?.tokenString else {
-                    print("[GoogleAuthPlugin] Missing ID token in result")
                     call.reject("No ID token received from Google")
                     return
                 }
 
-                print("[GoogleAuthPlugin] Received tokens for email: \(user.profile?.email ?? "unknown")")
+                print("[GoogleAuthPlugin] Success – email: \(user.profile?.email ?? "?") build=\(self.buildMarker)")
                 call.resolve([
                     "authentication": [
                         "idToken": idToken,
@@ -115,7 +141,6 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func signOut(_ call: CAPPluginCall) {
-        print("[GoogleAuthPlugin] signOut called")
         GIDSignIn.sharedInstance.signOut()
         call.resolve()
     }

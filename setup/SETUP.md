@@ -157,8 +157,12 @@ cd ../..
 2. In Xcode, select the **App** target → **Info** tab → **URL Types**
 3. Click **+** and paste the `REVERSED_CLIENT_ID` as the **URL Scheme**
 
-### 5c. Set the Web Client ID
+### 5c. Set the Web Client ID (two options)
 
+**Option A (recommended — no code changes needed):**
+In the Firebase Console, your iOS app's `GoogleService-Info.plist` already contains a `SERVER_CLIENT_ID` field if you created a matching Web Client in Google Cloud Console. The plugin reads it automatically — no need to touch `capacitor.config.ts`.
+
+**Option B (explicit override):**
 In `capacitor.config.ts`, replace `YOUR_WEB_CLIENT_ID` with your **Web** OAuth Client ID from Google Cloud Console → APIs & Services → Credentials. This is the **Web application** type client (not the iOS client), because Supabase validates the ID token against the web client ID.
 
 ### 5d. Configure Supabase Google Provider
