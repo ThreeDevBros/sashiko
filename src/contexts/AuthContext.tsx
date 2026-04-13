@@ -62,6 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isAuthRecovering, setIsAuthRecovering] = useState(false);
+  const [authVersion, setAuthVersion] = useState(0);
   const initialized = useRef(false);
 
   // Single-flight guard for refreshSession
@@ -106,6 +107,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       } finally {
         setIsAuthRecovering(false);
+        setAuthVersion(v => v + 1);
         refreshPromise.current = null;
       }
     };
@@ -180,7 +182,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, isAuthReady, isAuthRecovering, refreshSession }}>
+    <AuthContext.Provider value={{ user, session, isAuthReady, isAuthRecovering, refreshSession, authVersion }}>
       {children}
     </AuthContext.Provider>
   );
