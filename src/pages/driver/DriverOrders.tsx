@@ -45,9 +45,8 @@ export default function DriverOrders() {
   const loadOrders = useCallback(async () => {
     if (!isAuthReady || isAuthRecovering) return;
 
-    // Always get fresh session to avoid stale user references
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    const currentUser = currentSession?.user;
+    // Use auth context user instead of direct getSession to avoid race conditions
+    const currentUser = user;
     if (!currentUser) {
       setLoading(false);
       return;

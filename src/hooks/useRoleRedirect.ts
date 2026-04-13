@@ -1,25 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Determines the correct home route based on user roles.
  * Staff-only users → /staff, Drivers → /driver, Admins → / (full access)
  */
 export const getRoleBasedRoute = (roles: string[]): string => {
-  // Admins and managers get full access
   if (roles.includes('admin') || roles.includes('manager') || roles.includes('branch_manager')) {
     return '/';
   }
-  // Delivery drivers go to driver panel
   if (roles.includes('delivery')) {
     return '/driver';
   }
-  // Staff go to staff panel
   if (roles.includes('staff')) {
     return '/staff';
   }
-  // Regular users
   return '/';
 };
 
@@ -27,19 +24,15 @@ export const getRoleBasedRoute = (roles: string[]): string => {
  * Returns true if the user with the given roles is allowed on the given path.
  */
 export const isRouteAllowedForRoles = (path: string, roles: string[]): boolean => {
-  // Admins/managers have full access
   if (roles.includes('admin') || roles.includes('manager') || roles.includes('branch_manager')) {
     return true;
   }
-  // Regular users (no special roles) have full customer access
   if (roles.length === 0 || (roles.length === 1 && roles.includes('user'))) {
     return true;
   }
-  // Staff-only users can only access /staff/*, /auth
   if (roles.includes('staff') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('branch_manager')) {
     return path === '/auth' || path.startsWith('/staff');
   }
-  // Delivery-only users can only access /driver/*, /driver-dashboard, /auth
   if (roles.includes('delivery') && !roles.includes('admin') && !roles.includes('manager') && !roles.includes('branch_manager')) {
     return path === '/auth' || path.startsWith('/driver');
   }
@@ -48,23 +41,24 @@ export const isRouteAllowedForRoles = (path: string, roles: string[]): boolean =
 
 /**
  * Hook that fetches user roles and returns the appropriate redirect route.
+ * Uses useAuth() context instead of direct getSession() to avoid race conditions.
  */
 export const useRoleRedirect = () => {
+  const { user, isAuthReady } = useAuth();
   const [roles, setRoles] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchRoles = async () => {
+    if (!user) {
+      setRoles(null);
+      setLoading(false);
+      return;
+    }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        setRoles(null);
-        setLoading(false);
-        return;
-      }
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', session.user.id);
+        .eq('user_id', user.id);
       
       setRoles(roleData?.map(r => r.role) || []);
     } catch {
@@ -75,8 +69,9 @@ export const useRoleRedirect = () => {
   };
 
   useEffect(() => {
+    if (!isAuthReady) return;
     fetchRoles();
-  }, []);
+  }, [isAuthReady, user?.id]);
 
   return { roles, loading, fetchRoles };
 };

@@ -55,8 +55,7 @@ const ReservationHistory = () => {
 
   const fetchReservations = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user ?? null;
+      const user = authUser;
       if (user) {
         const { data, error } = await supabase
           .from("table_reservations")

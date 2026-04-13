@@ -209,7 +209,7 @@ const AppRoutes = () => {
 const AppContent = () => {
   const { branding, isLoading: brandingLoading, isError: brandingError } = useBranding();
   const { branch, loading: branchLoading, error: branchError } = useBranch();
-  const { isAuthReady, isAuthRecovering, user, refreshSession, authVersion } = useAuth();
+  const { isAuthReady, isAuthRecovering, user, refreshSession } = useAuth();
   const qc = useQueryClient();
   
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
@@ -229,13 +229,21 @@ const AppContent = () => {
     void restoreLiveActivityMappings();
   }, []);
 
-  // Shared resume handler: refresh session, notify subscribers, invalidate queries
+  // Track previous user ID to avoid unnecessary query invalidation on resume
+  const prevUserIdRef = useRef<string | null>(null);
+
+  // Shared resume handler: refresh session, notify subscribers, selectively invalidate queries
   const doResume = useCallback(async () => {
     const didRun = await handleGlobalResume(refreshSession);
     if (didRun) {
-      queryClient.invalidateQueries();
+      // Only invalidate queries if user identity actually changed
+      const currentUserId = user?.id ?? null;
+      if (prevUserIdRef.current !== currentUserId) {
+        prevUserIdRef.current = currentUserId;
+        queryClient.invalidateQueries();
+      }
     }
-  }, [refreshSession]);
+  }, [refreshSession, user?.id]);
 
   // Native iOS/Android: appStateChange
   useEffect(() => {
@@ -432,7 +440,7 @@ const AppContent = () => {
             <AppRuntimeListeners />
             <ScrollToTop />
             <PageTransitionProvider>
-              <AppRoutes key={`auth-v${authVersion}`} />
+              <AppRoutes />
             </PageTransitionProvider>
           </BrowserRouter>
         </div>

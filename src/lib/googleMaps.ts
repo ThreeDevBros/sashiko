@@ -1,8 +1,20 @@
 import { supabase } from '@/integrations/supabase/client';
 
+const CACHE_KEY = 'cached-google-maps-api-key';
+
 let apiKey: string | null = null;
 let mapsReady = false;
 let initPromise: Promise<string> | null = null;
+
+// Restore from localStorage on module load
+try {
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (cached) apiKey = cached;
+} catch {}
+
+function cacheApiKey(key: string) {
+  try { localStorage.setItem(CACHE_KEY, key); } catch {}
+}
 
 /**
  * Centralized Google Maps loader.
@@ -24,12 +36,19 @@ export async function loadGoogleMaps(_libraries?: string[]): Promise<string> {
     try {
       // 1. Fetch the key from the edge function (only once)
       if (!apiKey) {
-        const { data, error } = await supabase.functions.invoke('get-public-keys', {
-          body: { key_type: 'GOOGLE_MAPS_API_KEY' },
-        });
-        if (error) throw new Error(`Failed to fetch Google Maps API key: ${error.message}`);
-        if (!data?.key) throw new Error('No Google Maps API key configured.');
-        apiKey = data.key;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        try {
+          const { data, error } = await supabase.functions.invoke('get-public-keys', {
+            body: { key_type: 'GOOGLE_MAPS_API_KEY' },
+          });
+          if (error) throw new Error(`Failed to fetch Google Maps API key: ${error.message}`);
+          if (!data?.key) throw new Error('No Google Maps API key configured.');
+          apiKey = data.key;
+          cacheApiKey(apiKey);
+        } finally {
+          clearTimeout(timeout);
+        }
       }
 
       // 2. If google.maps is already on the page (hot-reload, back-nav), done

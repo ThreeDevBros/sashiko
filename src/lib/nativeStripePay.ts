@@ -40,6 +40,13 @@ interface NativePayResult {
 let pluginInitialized = false;
 let publishableKey: string | null = null;
 
+const STRIPE_KEY_CACHE = 'cached-stripe-publishable-key';
+// Restore from localStorage on module load
+try {
+  const cached = localStorage.getItem(STRIPE_KEY_CACHE);
+  if (cached) publishableKey = cached;
+} catch {}
+
 /**
  * Check if native wallet payment is supported on this platform.
  */
@@ -76,14 +83,20 @@ export async function initializeNativeStripe(): Promise<boolean> {
   try {
     // Fetch publishable key if not cached
     if (!publishableKey) {
-      const { data, error } = await supabase.functions.invoke('get-public-keys', {
-        body: { key_type: 'STRIPE_PUBLISHABLE_KEY' },
-      });
-      if (error || !data?.key) {
-        console.error('Failed to fetch Stripe publishable key');
+      try {
+        const { data, error } = await supabase.functions.invoke('get-public-keys', {
+          body: { key_type: 'STRIPE_PUBLISHABLE_KEY' },
+        });
+        if (error || !data?.key) {
+          console.error('Failed to fetch Stripe publishable key');
+          return false;
+        }
+        publishableKey = data.key;
+        try { localStorage.setItem(STRIPE_KEY_CACHE, publishableKey); } catch {}
+      } catch (e) {
+        console.error('Failed to fetch Stripe publishable key:', e);
         return false;
       }
-      publishableKey = data.key;
     }
 
     await StripePlugin.initialize({
