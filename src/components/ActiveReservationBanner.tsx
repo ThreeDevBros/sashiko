@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, CalendarCheck, X, ArrowRight } from 'lucide-react';
 import {
@@ -19,6 +20,7 @@ const SHOW_STATUSES = ['pending', 'confirmed', 'rejected'];
 export const ActiveReservationBanner = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user, isAuthReady, isAuthRecovering } = useAuth();
   const [reservation, setReservation] = useState<any>(null);
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
@@ -34,10 +36,10 @@ export const ActiveReservationBanner = () => {
   };
 
   useEffect(() => {
+    if (!isAuthReady || isAuthRecovering) return;
     let cancelled = false;
 
     const fetchReservation = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         if (!cancelled) setReservation(null);
         return;
@@ -78,7 +80,7 @@ export const ActiveReservationBanner = () => {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [dismissedIds]);
+  }, [dismissedIds, user, isAuthReady, isAuthRecovering]);
 
   const handleTap = () => {
     if (!reservation) return;

@@ -10,6 +10,8 @@ interface AuthContextType {
   isAuthRecovering: boolean;
   /** Force-refresh the session (e.g. on app resume). Returns the refreshed session. */
   refreshSession: () => Promise<Session | null>;
+  /** Increments after initial restore and after every successful resume refresh. Use as a React key to force remount. */
+  authVersion: number;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthReady: false,
   isAuthRecovering: false,
   refreshSession: async () => null,
+  authVersion: 0,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -59,6 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isAuthRecovering, setIsAuthRecovering] = useState(false);
+  const [authVersion, setAuthVersion] = useState(0);
   const initialized = useRef(false);
 
   // Single-flight guard for refreshSession
@@ -103,6 +107,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       } finally {
         setIsAuthRecovering(false);
+        setAuthVersion(v => v + 1);
         refreshPromise.current = null;
       }
     };
@@ -168,6 +173,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('[Auth] Session restore error:', err);
       } finally {
         setIsAuthReady(true);
+        setAuthVersion(v => v + 1);
       }
     };
 
@@ -177,7 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, isAuthReady, isAuthRecovering, refreshSession }}>
+    <AuthContext.Provider value={{ user, session, isAuthReady, isAuthRecovering, refreshSession, authVersion }}>
       {children}
     </AuthContext.Provider>
   );
