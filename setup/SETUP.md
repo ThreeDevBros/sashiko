@@ -80,6 +80,8 @@ cd ../..
 
 Copy the files from this `/setup/swift/` folder into `ios/App/App/` using Xcode.
 
+> Important: these are manual native files. If `setup/swift/GoogleAuthPlugin.swift` changes later, you must replace the copied file in Xcode too — `npx cap sync ios` will not overwrite it for you.
+
 ### How to add files in Xcode
 
 1. Open `ios/App/App.xcworkspace` in Xcode
@@ -218,6 +220,8 @@ npm run build
 npx cap sync ios
 npx cap open ios
 ```
+
+If Google Sign-In still crashes after a code change, first replace `GoogleAuthPlugin.swift` and `GoogleAuthPlugin.m` in the Xcode project with the latest `/setup/swift/` versions, then rebuild.
 
 1. Select your **physical iOS device** in Xcode
 2. Build and run (**Cmd + R**)
