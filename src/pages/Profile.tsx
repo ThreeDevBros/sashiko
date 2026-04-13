@@ -352,27 +352,13 @@ export default function Profile() {
                   </DialogContent>
                 </Dialog>
 
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-destructive hover:text-destructive">
-                      <Trash2 className="mr-2 h-4 w-4" /> {t('profile.deleteAccount')}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('profile.deleteConfirmTitle')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t('profile.deleteConfirmDesc')}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('profile.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteAccount} disabled={saving} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        {saving ? t('profile.deleting') : t('profile.deleteAccount')}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-destructive hover:text-destructive"
+                  onClick={() => navigate('/account/delete')}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Proceed to Account Deletion
+                </Button>
               </SettingsSection>
             </>
           )}
