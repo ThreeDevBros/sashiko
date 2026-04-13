@@ -143,6 +143,8 @@ Edit `ios/App/Podfile` and add this line inside the `target 'App'` block (alongs
 pod 'GoogleSignIn', '~> 8.0'
 ```
 
+> **Important:** Version 8.0+ is required for the nonce-capable `signIn(withPresenting:hint:additionalScopes:nonce:)` API. Earlier versions do not support custom nonces and will cause a "nonce mismatch" error with Supabase.
+
 Then reinstall pods:
 
 ```bash
@@ -157,13 +159,11 @@ cd ../..
 2. In Xcode, select the **App** target → **Info** tab → **URL Types**
 3. Click **+** and paste the `REVERSED_CLIENT_ID` as the **URL Scheme**
 
-### 5c. Set the Web Client ID (two options)
+### 5c. Set the Web Client ID
 
-**Option A (recommended — no code changes needed):**
-In the Firebase Console, your iOS app's `GoogleService-Info.plist` already contains a `SERVER_CLIENT_ID` field if you created a matching Web Client in Google Cloud Console. The plugin reads it automatically — no need to touch `capacitor.config.ts`.
+In the Firebase Console, your iOS app's `GoogleService-Info.plist` already contains a `SERVER_CLIENT_ID` field if you created a matching Web Client in Google Cloud Console. The plugin reads it automatically — **no need to edit `capacitor.config.ts`**.
 
-**Option B (explicit override):**
-In `capacitor.config.ts`, replace `YOUR_WEB_CLIENT_ID` with your **Web** OAuth Client ID from Google Cloud Console → APIs & Services → Credentials. This is the **Web application** type client (not the iOS client), because Supabase validates the ID token against the web client ID.
+If you need to override the plist value, you can optionally add `serverClientId` in the `plugins.GoogleAuth` section of `capacitor.config.ts`. Otherwise, leave it out to avoid placeholder confusion.
 
 ### 5d. Configure Supabase Google Provider
 
@@ -225,7 +225,7 @@ npx cap sync ios
 npx cap open ios
 ```
 
-If Google Sign-In still crashes after a code change, first replace `GoogleAuthPlugin.swift` and `GoogleAuthPlugin.m` in the Xcode project with the latest `/setup/swift/` versions, then rebuild.
+If Google Sign-In still crashes or gives a nonce error after a code change, replace `GoogleAuthPlugin.swift` and `GoogleAuthPlugin.m` in the Xcode project with the latest `/setup/swift/` versions, then rebuild. These files are **not** synced by `npx cap sync`.
 
 1. Select your **physical iOS device** in Xcode
 2. Build and run (**Cmd + R**)
