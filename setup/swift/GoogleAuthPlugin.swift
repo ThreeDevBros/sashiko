@@ -1,6 +1,8 @@
 // GoogleAuthPlugin.swift
 // Custom Capacitor plugin for native Google Sign-In on iOS.
 // Uses Google Sign-In SDK directly — no npm dependency needed.
+// Reads serverClientId from Capacitor config (GoogleAuth.serverClientId)
+// so you don't need to manually edit Info.plist.
 
 import Capacitor
 import GoogleSignIn
@@ -13,6 +15,20 @@ public class GoogleAuthPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "signIn", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "signOut", returnType: CAPPluginReturnPromise),
     ]
+
+    /// Read the Web Client ID from capacitor.config.ts → plugins.GoogleAuth.serverClientId
+    private func getClientId() -> String? {
+        // Try Capacitor plugin config first
+        if let configId = getConfigValue("serverClientId") as? String, !configId.isEmpty,
+           !configId.contains("YOUR_") {
+            return configId
+        }
+        // Fall back to Info.plist
+        if let plistId = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String, !plistId.isEmpty {
+            return plistId
+        }
+        return nil
+    }
 
     @objc func signIn(_ call: CAPPluginCall) {
         print("[GoogleAuthPlugin] signIn called")
