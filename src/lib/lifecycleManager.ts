@@ -29,19 +29,27 @@ export async function handleGlobalResume(refreshSession: () => Promise<unknown>)
     resumeUnlockTimer = null;
   }
 
+  const startedAt = Date.now();
+  console.log('[AppLifecycle] Resume started — subscribers:', resumeSubscribers.size);
+
   try {
-    await refreshSession();
+    const refreshedSession = await refreshSession();
+    console.log('[AppLifecycle] Session refresh settled — has session:', !!refreshedSession);
 
     const callbacks = Array.from(resumeSubscribers);
-    await Promise.allSettled(
+    const callbackResults = await Promise.allSettled(
       callbacks.map((callback) => Promise.resolve().then(() => callback()))
     );
+
+    const rejectedCount = callbackResults.filter((result) => result.status === 'rejected').length;
+    console.log('[AppLifecycle] Resume callbacks settled — total:', callbacks.length, 'rejected:', rejectedCount, 'durationMs:', Date.now() - startedAt);
     return true;
   } finally {
     // Short lock to deduplicate rapid-fire events only (native + visibility)
     resumeUnlockTimer = setTimeout(() => {
       isHandlingGlobalResume = false;
       resumeUnlockTimer = null;
+      console.log('[AppLifecycle] Resume lock released');
     }, 100);
   }
 }
