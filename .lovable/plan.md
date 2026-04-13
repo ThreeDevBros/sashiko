@@ -1,44 +1,56 @@
 
 
-# Plan: Apply OrderTracking Resume Pattern App-Wide
+# Plan: Unify Dynamic Island Expanded View with Lock Screen Layout
 
 ## Problem
+The expanded Dynamic Island (long press) uses a cramped `leading`/`trailing` split layout that clips the status message text. The lock screen/notification centre version has a much better layout with the icon circle, full status text, and ETA counter side by side.
 
-When the app resumes from background on native iOS, only the `/order-tracking` page works because it has its own direct data refetch and realtime reconnection via `subscribeToResume`. The rest of the app relies on `queryClient.invalidateQueries()` in App.tsx, but this only refetches **active (mounted)** queries. When the user navigates away from OrderTracking to the homepage, the homepage queries mount fresh but may fail because:
+## Fix
 
-1. The Supabase Realtime WebSocket may be stale/disconnected after backgrounding — individual components reconnect via `resumeCounter` from `subscribeToResume`, but the global resume handler doesn't force Realtime reconnection
-2. There is **no web `visibilitychange` fallback** in App.tsx — the resume handler only works for native `appStateChange`, so if the native event is missed, nothing recovers
-3. `handleGlobalResume` has a 1-second lock — if a second resume event fires during that window, it's silently skipped but `queryClient.invalidateQueries()` still runs (potentially with an un-refreshed session)
+Replace the three `DynamicIslandExpandedRegion` blocks (leading, trailing, bottom) with a single `.bottom` region that replicates the exact same `HStack` layout used in the lock screen view — status icon in a colored circle, full status message, and ETA minutes on the right.
 
-## Solution
+### `setup/swift/OrderTrackingWidgetLiveActivity.swift`
 
-### 1. Add `visibilitychange` web fallback in App.tsx
+Replace the expanded region (lines 63–84) with:
 
-Add a `document.addEventListener('visibilitychange')` that runs the same resume logic. Use a shared throttle to prevent double-firing when both native `appStateChange` and `visibilitychange` trigger on the same resume.
+```swift
+DynamicIslandExpandedRegion(.bottom) {
+    HStack(spacing: 14) {
+        ZStack {
+            Circle()
+                .fill(statusColor(status).opacity(0.15))
+                .frame(width: 46, height: 46)
+            Image(systemName: statusIcon(status))
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(statusColor(status))
+        }
 
-### 2. Guard `invalidateQueries` behind `handleGlobalResume` success
+        Text(statusMessage)
+            .font(.subheadline)
+            .fontWeight(.semibold)
+            .foregroundColor(.primary)
+            .lineLimit(2)
 
-`handleGlobalResume` currently returns `void`. Change it to return `boolean` indicating whether it actually ran (vs. was skipped due to lock). Only call `queryClient.invalidateQueries()` if it actually refreshed the session.
+        Spacer()
 
-### 3. Force Supabase Realtime reconnection after resume
-
-After session refresh, call `supabase.removeAllChannels()` is too aggressive. Instead, dispatch a global event (`appResumed`) that components can listen to for reconnection. But since components already use `subscribeToResume` for this, the real fix is ensuring `handleGlobalResume` always fires its subscribers — the issue is the 1-second lock preventing re-entry.
-
-Reduce the lock timeout from 1000ms to 100ms, which still deduplicates rapid-fire events but doesn't block legitimate resume events that come slightly delayed.
-
-## Files to modify
-
-- **`src/lib/lifecycleManager.ts`** — Return `boolean` from `handleGlobalResume`; reduce lock timeout from 1000ms to 100ms
-- **`src/App.tsx`** — Add `visibilitychange` listener alongside native handler; only invalidate queries when resume actually ran
-
-## Technical details
-
-```text
-Before:
-  appStateChange → handleGlobalResume (may skip if locked) → invalidateQueries (always runs)
-
-After:
-  appStateChange OR visibilitychange → handleGlobalResume → invalidateQueries (only if session refreshed)
-  Lock reduced to 100ms to prevent true duplicate events only
+        if !etaText.isEmpty, let mins = Int(etaText), mins > 0 {
+            VStack(spacing: 1) {
+                Text("\(mins)")
+                    .font(.title2)
+                    .fontWeight(.heavy)
+                    .foregroundColor(statusColor(status))
+                Text("min")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            .frame(minWidth: 48)
+        }
+    }
+}
 ```
+
+Empty the `.leading` and `.trailing` regions (required by API but can contain `EmptyView()`).
+
+### One file modified
+- `setup/swift/OrderTrackingWidgetLiveActivity.swift`
 
