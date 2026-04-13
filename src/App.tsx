@@ -357,7 +357,6 @@ const AppContent = () => {
   // Bootstrap gate: wait for auth + core data
   useEffect(() => {
     if (!isAuthReady) return; // Auth not restored yet — keep waiting
-    if (isAuthRecovering) return; // Auth recovery in-flight — keep waiting
     if (!minTimeElapsed) return; // Still in splash min time
     
     const coreDataSettled = !brandingLoading && !branchLoading;
