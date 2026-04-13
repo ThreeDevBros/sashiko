@@ -58,23 +58,33 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       return { error: new Error('No ID token received from Google') };
     }
 
-    // Clear any stale PKCE/nonce state that may linger from a previous web OAuth attempt.
-    // If a nonce exists in storage but the native ID token has none, Supabase rejects the request.
+    // The Supabase JS client can retain stale PKCE / nonce state from a previous
+    // web-based OAuth attempt. When signInWithIdToken is called, the client may
+    // attach that stale nonce to the request even though the native ID token has
+    // no matching nonce — causing the "nonce mismatch" 400 error.
+    // Fix: sign out locally first to wipe all internal GoTrue state, then exchange.
+    try {
+      console.log('[GoogleSignIn] Clearing local auth state before token exchange');
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (signOutErr) {
+      console.warn('[GoogleSignIn] Local signOut failed (non-fatal):', signOutErr);
+    }
+
+    // Also clear any lingering PKCE keys from localStorage
     try {
       const storageKeys = Object.keys(localStorage);
       for (const key of storageKeys) {
-        if (key.includes('code_verifier') || key.includes('nonce')) {
+        if (key.includes('code_verifier') || key.includes('nonce') || key.includes('flow-type')) {
           console.log('[GoogleSignIn] Clearing stale auth key:', key);
           localStorage.removeItem(key);
         }
       }
     } catch {}
 
-    console.log('[GoogleSignIn] Exchanging ID token for app session (nonce: undefined)');
+    console.log('[GoogleSignIn] Exchanging ID token for app session');
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
-      nonce: undefined,
     });
 
     console.log('[GoogleSignIn] Token exchange finished', {
