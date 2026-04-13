@@ -231,8 +231,10 @@ export async function startOrderLiveActivity(data: LiveActivityData): Promise<st
     }
 
     console.log('[LiveActivity] Activity started, activityId:', result.activityId);
+    _startingOrders.delete(data.orderId);
     return result.activityId;
   } catch (err) {
+    _startingOrders.delete(data.orderId);
     console.error('[LiveActivity] Failed to start Live Activity:', err);
     return null;
   }

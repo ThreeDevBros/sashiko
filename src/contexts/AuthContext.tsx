@@ -75,7 +75,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const doRefresh = async (): Promise<Session | null> => {
       setIsAuthRecovering(true);
       try {
-        const { data: { session: s }, error } = await supabase.auth.refreshSession();
+        // Add a timeout so the app never gets stuck in recovering state
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
+        const refreshPromiseInner = supabase.auth.refreshSession();
+        
+        const result = await Promise.race([refreshPromiseInner, timeoutPromise.then(() => ({ data: { session: null as Session | null }, error: new Error('Timeout') }))]);
+        const { data: { session: s }, error } = result;
+        
         if (error) {
           console.warn('[Auth] refreshSession failed, falling back to cached:', error.message);
           const { data: { session: cached } } = await supabase.auth.getSession();
