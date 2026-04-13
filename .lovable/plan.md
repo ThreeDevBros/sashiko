@@ -1,44 +1,75 @@
 
+Goal: fix the persistent native iOS Google sign-in failure by handling nonce correctly instead of trying to clear auth state after the fact.
 
-# Fix: ETA Mismatch Between LiveOrderCountdown and Live Activity
+What I found
+- The Google native flow is now working up to account selection and token return.
+- The failure happens only at `supabase.auth.signInWithIdToken(...)`.
+- The key error is: `Passed nonce and nonce in id_token should either both exist or not.`
+- The iOS system logs (`usermanagerd`, `runningboard`, resume events) are noise here, not the root cause.
 
-## Problem 1: ETA Mismatch
+Root cause
+- `setup/swift/GoogleAuthPlugin.swift` calls Google sign-in without supplying a controlled nonce.
+- Modern Google iOS sign-in can return an ID token containing a nonce claim.
+- `src/lib/nativeGoogleSignIn.ts` sends the ID token to `signInWithIdToken` without the matching raw nonce.
+- Clearing local storage and calling local sign-out cannot fix this, because the nonce is inside the returned Google token itself.
 
-The `computeEtaMinutes` function (used for Live Activity pushes on status changes) and `LiveOrderCountdown` (used for the in-app countdown AND the per-tick Live Activity sync via `handleRemainingMinutesChange`) use **different formulas**:
+Planned fix
+1. Update the native Google plugin to support nonce input
+- Change `GoogleAuthPlugin.signIn()` to accept a nonce value from JS.
+- Use the Google iOS sign-in API overload that supports passing a nonce.
+- Return the normal auth payload plus lightweight debug metadata if needed.
 
-| Status | `computeEtaMinutes` (Live Activity) | `LiveOrderCountdown` (in-app + tick sync) |
-|---|---|---|
-| `ready` + delivery | `transitMinutes + 5` | `transitMinutes ?? 15` (no +5) |
-| `out_for_delivery` | `transitMinutes \|\| null` | `transitMinutes ?? 15` |
+2. Generate a proper nonce pair in JS
+- In `src/lib/nativeGoogleSignIn.ts`, generate:
+  - `rawNonce`
+  - `nonceDigest = sha256(rawNonce)` as lowercase hex
+- Pass `nonceDigest` into the native Google plugin.
+- Keep `rawNonce` in JS only.
 
-So on every status change, the Live Activity gets `transitMinutes + 5` via the server push, but then immediately the countdown tick overrides it with `transitMinutes` (no +5) via `handleRemainingMinutesChange`. The value bounces.
+3. Exchange the token with the matching raw nonce
+- Call:
+  - `supabase.auth.signInWithIdToken({ provider: 'google', token: idToken, nonce: rawNonce })`
+- Remove the current workaround logic that signs out locally and clears storage keys before exchange, since it is masking the real issue and causes the extra `SIGNED_OUT` churn in logs.
 
-**Fix**: Update `LiveOrderCountdown` to add the +5 driver pickup buffer for `ready` + delivery, matching `computeEtaMinutes` and `DeliveryTimeEstimate`.
+4. Add safe diagnostics
+- Log only whether the returned JWT payload contains a nonce claim, not the token itself.
+- Log whether a raw nonce was generated and whether a digest was sent to native.
+- This makes future failures obvious without exposing secrets.
 
-## Problem 2: Mapping Bloat (39+ entries)
+5. Align native setup docs
+- Update `setup/SETUP.md` to require a GoogleSignIn iOS version that supports custom nonce cleanly.
+- Document that after repo changes the copied native plugin file in Xcode must be replaced again.
+- Keep `SERVER_CLIENT_ID` sourced from the plist so `capacitor.config.ts` does not need repeated edits.
 
-The `liveactivity_id_map` in Preferences keeps growing because entries are never pruned except on `endActivity`. On every app restart, old stale entries accumulate. This doesn't directly cause duplicate Live Activities (the Swift plugin handles that), but it's wasteful.
+Files to update
+- `src/lib/nativeGoogleSignIn.ts`
+- `setup/swift/GoogleAuthPlugin.swift`
+- `setup/SETUP.md`
+- Possibly `capacitor.config.ts` only for cleanup/removing the placeholder confusion, not as the core fix
 
-**Fix**: When restoring mappings, cap at a reasonable size (keep only the most recent entries).
-
-## Files to modify
-
-1. **`src/components/order/LiveOrderCountdown.tsx`** — Add +5 buffer for `ready` + delivery status in `remainingMinutes` calculation (line 67)
-2. **`src/lib/nativeLiveActivity.ts`** — Prune old mapping entries during restore if count > 10
-
-## Technical detail
-
+Technical details
 ```text
-Before (ready + delivery):
-  computeEtaMinutes → transitMinutes + 5
-  LiveOrderCountdown → transitMinutes (no +5)
-  handleRemainingMinutesChange → sends transitMinutes to Live Activity
-  → Live Activity shows wrong ETA, bouncing between two values
+JS
+  rawNonce -------------------------------> signInWithIdToken(... nonce: rawNonce)
+  sha256(rawNonce) -> nonceDigest --------> native Google sign-in
 
-After:
-  computeEtaMinutes → transitMinutes + 5  
-  LiveOrderCountdown → (transitMinutes ?? 15) + 5
-  handleRemainingMinutesChange → sends transitMinutes + 5 to Live Activity
-  → All sources agree
+Native Google SDK
+  signIn(nonce: nonceDigest)
+      -> Google returns id_token with nonce claim = nonceDigest
+
+Backend validation
+  sha256(rawNonce) == id_token.nonce
+  -> session accepted
 ```
 
+Important note
+- If the current installed Google iOS pod does not expose the nonce-capable API cleanly, I will also update the setup instructions to move to the newer supported GoogleSignIn version before rebuilding.
+- As a fallback only, I can also plan a backend auth-setting change for iOS nonce skipping, but the primary fix should be the proper nonce flow above.
+
+Validation after implementation
+- Native Google prompt opens
+- Account can be selected
+- No `SIGNED_OUT` event before token exchange
+- `signInWithIdToken` returns session/user
+- Auth listener reports `SIGNED_IN`
+- Session survives resume as before
