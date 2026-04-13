@@ -6,13 +6,14 @@ import type { Branch } from '@/types';
  * Fetch branch by ID or first active branch.
  * Throws on network errors so React Query can retry.
  */
-export const fetchBranch = async (branchId?: string): Promise<Branch | null> => {
+export const fetchBranch = async (branchId?: string, signal?: AbortSignal): Promise<Branch | null> => {
   if (branchId) {
     const { data, error } = await supabase
       .from('branches')
       .select('*')
       .eq('is_active', true)
       .eq('id', branchId)
+      .abortSignal(signal!)
       .maybeSingle();
     
     if (error) throw error;
@@ -22,6 +23,7 @@ export const fetchBranch = async (branchId?: string): Promise<Branch | null> => 
       .from('branches')
       .select('*')
       .eq('is_active', true)
+      .abortSignal(signal!)
       .limit(1);
     
     if (error) throw error;
@@ -34,14 +36,44 @@ export const fetchBranch = async (branchId?: string): Promise<Branch | null> => 
  * Throws on network errors so React Query can retry.
  */
 export const fetchBranchWithFallback = async (savedBranchId?: string | null): Promise<Branch | null> => {
-  if (savedBranchId) {
-    const branch = await fetchBranch(savedBranchId);
-    if (branch) return branch;
-    // Saved ID was stale — clear it and fall back
-    console.warn('[branch] Saved branch ID is stale, falling back to first active branch');
-    localStorage.removeItem(STORAGE_KEYS.SELECTED_BRANCH);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  
+  try {
+    if (savedBranchId) {
+      const branch = await fetchBranch(savedBranchId, controller.signal);
+      if (branch) return branch;
+      console.warn('[branch] Saved branch ID is stale, falling back to first active branch');
+      localStorage.removeItem(STORAGE_KEYS.SELECTED_BRANCH);
+    }
+    return await fetchBranch(undefined, controller.signal);
+  } finally {
+    clearTimeout(timeout);
   }
-  return fetchBranch();
+};
+
+/**
+ * Get cached branch data from localStorage
+ */
+export const getCachedBranch = (): Branch | null => {
+  try {
+    const raw = localStorage.getItem('cached-branch-data');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.id && parsed.name) return parsed as Branch;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Cache branch data to localStorage
+ */
+export const cacheBranchData = (branch: Branch): void => {
+  try {
+    localStorage.setItem('cached-branch-data', JSON.stringify(branch));
+  } catch {}
 };
 
 /**

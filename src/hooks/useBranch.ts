@@ -4,7 +4,9 @@ import {
   fetchBranchWithFallback, 
   getSavedBranchId, 
   saveBranchId, 
-  calculateEstimatedTime 
+  calculateEstimatedTime,
+  getCachedBranch,
+  cacheBranchData,
 } from '@/lib/branch';
 import { APP_CONFIG } from '@/constants';
 import type { Branch } from '@/types';
@@ -54,6 +56,7 @@ const BRANCH_QUERY_KEY = ['branch-data'];
  */
 export const useBranch = () => {
   const queryClient = useQueryClient();
+  const cachedBranch = getCachedBranch();
 
   const { data: branchData, isLoading: loading, isError: error } = useQuery({
     queryKey: BRANCH_QUERY_KEY,
@@ -69,12 +72,15 @@ export const useBranch = () => {
       
       console.log('[useBranch] Branch resolved:', data.id, data.name);
       saveBranchId(data.id);
+      cacheBranchData(data);
       
       return { branch: data, estimatedTime: APP_CONFIG.ESTIMATED_TIME_BASE };
     },
+    initialData: cachedBranch ? { branch: cachedBranch, estimatedTime: APP_CONFIG.ESTIMATED_TIME_BASE } : undefined,
     staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
 
   // After branch loads: geocode + estimated time in background (once)
