@@ -1,75 +1,40 @@
 
-Goal: fix the persistent native iOS Google sign-in failure by handling nonce correctly instead of trying to clear auth state after the fact.
 
-What I found
-- The Google native flow is now working up to account selection and token return.
-- The failure happens only at `supabase.auth.signInWithIdToken(...)`.
-- The key error is: `Passed nonce and nonce in id_token should either both exist or not.`
-- The iOS system logs (`usermanagerd`, `runningboard`, resume events) are noise here, not the root cause.
+## Plan: Secure Account Deletion Flow
 
-Root cause
-- `setup/swift/GoogleAuthPlugin.swift` calls Google sign-in without supplying a controlled nonce.
-- Modern Google iOS sign-in can return an ID token containing a nonce claim.
-- `src/lib/nativeGoogleSignIn.ts` sends the ID token to `signInWithIdToken` without the matching raw nonce.
-- Clearing local storage and calling local sign-out cannot fix this, because the nonce is inside the returned Google token itself.
+### What changes
 
-Planned fix
-1. Update the native Google plugin to support nonce input
-- Change `GoogleAuthPlugin.signIn()` to accept a nonce value from JS.
-- Use the Google iOS sign-in API overload that supports passing a nonce.
-- Return the normal auth payload plus lightweight debug metadata if needed.
+**1. Replace "Delete Account" button with "Proceed to Account Deletion"**
+- In the Account Settings section of `src/pages/Profile.tsx`, replace the current `AlertDialog`-based delete button with a red "Proceed to Account Deletion" button that navigates to a new dedicated page.
 
-2. Generate a proper nonce pair in JS
-- In `src/lib/nativeGoogleSignIn.ts`, generate:
-  - `rawNonce`
-  - `nonceDigest = sha256(rawNonce)` as lowercase hex
-- Pass `nonceDigest` into the native Google plugin.
-- Keep `rawNonce` in JS only.
+**2. Create new Account Deletion page (`src/pages/AccountDeletion.tsx`)**
+- Full-page form requiring the user to enter:
+  - **Email** — validated against `user.email`
+  - **Phone number** — validated against the profile's saved phone
+  - **Password** — validated via `supabase.auth.signInWithPassword()` (re-authentication check)
+- Real-time field validation: each field shows a green checkmark or red error as the user types
+- The **"Delete My Account"** button stays greyed out / disabled until all three fields match
+- On press, a bottom sheet / drawer slides up with a **WARNING**:
+  - "All your personal information, credit points, reward balance, order history, and booking history will be permanently deleted and cannot be recovered."
+  - Two buttons: **"Delete My Account"** (red/destructive) and **"Go Back"** (outline)
+- If confirmed, calls the existing `delete-account` edge function, signs out, and redirects to `/auth`
 
-3. Exchange the token with the matching raw nonce
-- Call:
-  - `supabase.auth.signInWithIdToken({ provider: 'google', token: idToken, nonce: rawNonce })`
-- Remove the current workaround logic that signs out locally and clears storage keys before exchange, since it is masking the real issue and causes the extra `SIGNED_OUT` churn in logs.
+**3. Add route in `src/App.tsx`**
+- Add `/account/delete` route pointing to the new page (protected, requires auth)
 
-4. Add safe diagnostics
-- Log only whether the returned JWT payload contains a nonce claim, not the token itself.
-- Log whether a raw nonce was generated and whether a digest was sent to native.
-- This makes future failures obvious without exposing secrets.
+**4. Update edge function `supabase/functions/delete-account/index.ts`**
+- Before deleting the auth user, cascade-delete related data: `profiles`, `user_addresses`, `orders`, `order_items`, `reservations`, `cashback_transactions`, `user_roles`, `user_permissions`, `push_devices`, `saved_cards` — all rows matching the user ID
+- This ensures complete data removal from the system
 
-5. Align native setup docs
-- Update `setup/SETUP.md` to require a GoogleSignIn iOS version that supports custom nonce cleanly.
-- Document that after repo changes the copied native plugin file in Xcode must be replaced again.
-- Keep `SERVER_CLIENT_ID` sourced from the plist so `capacitor.config.ts` does not need repeated edits.
+### Technical details
 
-Files to update
-- `src/lib/nativeGoogleSignIn.ts`
-- `setup/swift/GoogleAuthPlugin.swift`
-- `setup/SETUP.md`
-- Possibly `capacitor.config.ts` only for cleanup/removing the placeholder confusion, not as the core fix
+- Password verification: call `supabase.auth.signInWithPassword({ email, password })` on the client to confirm credentials match before enabling the delete button. This does not create a new session if the user is already logged in.
+- The warning uses the `Drawer` component (bottom sheet) for mobile-friendly slide-up UX
+- No new i18n keys will be added for now (hardcoded English strings); can be internationalized later
 
-Technical details
-```text
-JS
-  rawNonce -------------------------------> signInWithIdToken(... nonce: rawNonce)
-  sha256(rawNonce) -> nonceDigest --------> native Google sign-in
+### Files to create/modify
+- `src/pages/AccountDeletion.tsx` — new page
+- `src/pages/Profile.tsx` — replace delete button with navigation button
+- `src/App.tsx` — add route
+- `supabase/functions/delete-account/index.ts` — add cascade data deletion
 
-Native Google SDK
-  signIn(nonce: nonceDigest)
-      -> Google returns id_token with nonce claim = nonceDigest
-
-Backend validation
-  sha256(rawNonce) == id_token.nonce
-  -> session accepted
-```
-
-Important note
-- If the current installed Google iOS pod does not expose the nonce-capable API cleanly, I will also update the setup instructions to move to the newer supported GoogleSignIn version before rebuilding.
-- As a fallback only, I can also plan a backend auth-setting change for iOS nonce skipping, but the primary fix should be the proper nonce flow above.
-
-Validation after implementation
-- Native Google prompt opens
-- Account can be selected
-- No `SIGNED_OUT` event before token exchange
-- `signInWithIdToken` returns session/user
-- Auth listener reports `SIGNED_IN`
-- Session survives resume as before
