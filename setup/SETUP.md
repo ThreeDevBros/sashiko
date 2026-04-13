@@ -140,10 +140,10 @@ Delete any other auto-generated widget files (e.g., `OrderTrackingWidget.swift`,
 Edit `ios/App/Podfile` and add this line inside the `target 'App'` block (alongside Firebase pods):
 
 ```ruby
-pod 'GoogleSignIn', '~> 8.0'
+pod 'GoogleSignIn', '~> 9.0'
 ```
 
-> **Important:** Version 8.0+ is required for the nonce-capable `signIn(withPresenting:hint:additionalScopes:nonce:)` API. Earlier versions do not support custom nonces and will cause a "nonce mismatch" error with Supabase.
+> **Important:** Version **9.0+** is required for the nonce-capable `signIn(withPresenting:hint:additionalScopes:nonce:)` API. Version 8.x does NOT support custom nonces and will cause a build error or "nonce mismatch" error with Supabase.
 
 Then reinstall pods:
 
