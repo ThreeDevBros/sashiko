@@ -14,7 +14,7 @@ import LoadingScreen from "./components/LoadingScreen";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { GlobalDriverTracker } from "./components/driver/GlobalDriverTracker";
 import { PhonePromptDialog } from "./components/PhonePromptDialog";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
 import { prefetchSavedCards } from './hooks/useSavedCards';
@@ -22,45 +22,49 @@ import { handleGlobalResume } from "@/lib/lifecycleManager";
 import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
 import { AppRuntimeListeners } from "./components/AppRuntimeListeners";
 import { BranchRealtimeManager } from "./components/BranchRealtimeManager";
+// Critical pages — loaded eagerly for instant navigation
 import Index from "./pages/Index";
 import Order from "./pages/Order";
-import Cart from "./pages/Cart";
-import Checkout from "./pages/Checkout";
-import OrderHistory from "./pages/OrderHistory";
-import ReservationHistory from "./pages/ReservationHistory";
-import Auth from "./pages/Auth";
-import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
-import CheckoutSuccess from "./pages/CheckoutSuccess";
-import TableBooking from "./pages/TableBooking";
-import Address from "./pages/Address";
-import OrderTracking from "./pages/OrderTracking";
-import DriverDashboard from "./pages/DriverDashboard";
-import DriverOrders from "./pages/driver/DriverOrders";
-import DriverActiveDelivery from "./pages/driver/DriverActiveDelivery";
 import NotFound from "./pages/NotFound";
-import AccountDeletion from "./pages/AccountDeletion";
-import LegalPage from "./pages/LegalPage";
-import Dashboard from "./pages/admin/Dashboard";
-import MenuManagement from "./pages/admin/MenuManagement";
-import BranchManagement from "./pages/admin/BranchManagement";
-import Customise from "./pages/admin/Customise";
-import CouponManagement from "./pages/admin/CouponManagement";
-import OrderManagement from "./pages/admin/OrderManagement";
-import UserManagement from "./pages/admin/UserManagement";
-import CustomerManagement from "./pages/admin/CustomerManagement";
-import ReservationManagement from "./pages/admin/ReservationManagement";
-import Configure from "./pages/admin/Configure";
-import StaffDashboard from "./pages/admin/StaffDashboard";
-import Statistics from "./pages/admin/Statistics";
-import Reports from "./pages/admin/Reports";
-import SocialMediaManagement from "./pages/admin/SocialMediaManagement";
-import QRCodeMenu from "./pages/admin/QRCodeMenu";
-import BranchMenu from "./pages/BranchMenu";
-import StaffOrders from "./pages/staff/StaffOrders";
-import StaffReservations from "./pages/staff/StaffReservations";
-import StaffOrderHistory from "./pages/staff/StaffOrderHistory";
-import StaffReport from "./pages/staff/StaffReport";
+
+const Auth = lazy(() => import("./pages/Auth"));
+
+// All other pages — lazy-loaded on first visit
+const Cart = lazy(() => import("./pages/Cart"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const OrderHistory = lazy(() => import("./pages/OrderHistory"));
+const ReservationHistory = lazy(() => import("./pages/ReservationHistory"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Settings = lazy(() => import("./pages/Settings"));
+const CheckoutSuccess = lazy(() => import("./pages/CheckoutSuccess"));
+const TableBooking = lazy(() => import("./pages/TableBooking"));
+const Address = lazy(() => import("./pages/Address"));
+const OrderTracking = lazy(() => import("./pages/OrderTracking"));
+const DriverDashboard = lazy(() => import("./pages/DriverDashboard"));
+const DriverOrders = lazy(() => import("./pages/driver/DriverOrders"));
+const DriverActiveDelivery = lazy(() => import("./pages/driver/DriverActiveDelivery"));
+const AccountDeletion = lazy(() => import("./pages/AccountDeletion"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
+const MenuManagement = lazy(() => import("./pages/admin/MenuManagement"));
+const BranchManagement = lazy(() => import("./pages/admin/BranchManagement"));
+const Customise = lazy(() => import("./pages/admin/Customise"));
+const CouponManagement = lazy(() => import("./pages/admin/CouponManagement"));
+const OrderManagement = lazy(() => import("./pages/admin/OrderManagement"));
+const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
+const CustomerManagement = lazy(() => import("./pages/admin/CustomerManagement"));
+const ReservationManagement = lazy(() => import("./pages/admin/ReservationManagement"));
+const Configure = lazy(() => import("./pages/admin/Configure"));
+const StaffDashboard = lazy(() => import("./pages/admin/StaffDashboard"));
+const Statistics = lazy(() => import("./pages/admin/Statistics"));
+const Reports = lazy(() => import("./pages/admin/Reports"));
+const SocialMediaManagement = lazy(() => import("./pages/admin/SocialMediaManagement"));
+const QRCodeMenu = lazy(() => import("./pages/admin/QRCodeMenu"));
+const BranchMenu = lazy(() => import("./pages/BranchMenu"));
+const StaffOrders = lazy(() => import("./pages/staff/StaffOrders"));
+const StaffReservations = lazy(() => import("./pages/staff/StaffReservations"));
+const StaffOrderHistory = lazy(() => import("./pages/staff/StaffOrderHistory"));
+const StaffReport = lazy(() => import("./pages/staff/StaffReport"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -150,50 +154,52 @@ const AppRoutes = () => {
       <div className="flex w-full min-h-screen">
         <div className="flex-1 w-full" style={{ overflowX: 'clip' }}>
           
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              <Route path="/" element={<AnimatedPage><Index /></AnimatedPage>} />
-              <Route path="/order" element={<AnimatedPage><Order /></AnimatedPage>} />
-              <Route path="/cart" element={<AnimatedPage><Cart /></AnimatedPage>} />
-              <Route path="/checkout" element={<AnimatedPage><Checkout /></AnimatedPage>} />
-              <Route path="/order-history" element={<AnimatedPage><OrderHistory /></AnimatedPage>} />
-              <Route path="/reservation-history" element={<AnimatedPage><ReservationHistory /></AnimatedPage>} />
-              <Route path="/book-table" element={<AnimatedPage><TableBooking /></AnimatedPage>} />
-              <Route path="/auth" element={<AnimatedPage><Auth /></AnimatedPage>} />
-              <Route path="/profile" element={<AnimatedPage><Profile /></AnimatedPage>} />
-              <Route path="/profile/address" element={<AnimatedPage><Address /></AnimatedPage>} />
-              <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
-              <Route path="/account/delete" element={<AnimatedPage><AccountDeletion /></AnimatedPage>} />
-              <Route path="/legal/:type" element={<AnimatedPage><LegalPage /></AnimatedPage>} />
-              <Route path="/checkout/success" element={<AnimatedPage><CheckoutSuccess /></AnimatedPage>} />
-              <Route path="/admin" element={<AnimatedPage><Dashboard /></AnimatedPage>} />
-              <Route path="/admin/menu" element={<AnimatedPage><MenuManagement /></AnimatedPage>} />
-              <Route path="/admin/branches" element={<AnimatedPage><BranchManagement /></AnimatedPage>} />
-              <Route path="/admin/customise" element={<AnimatedPage><Customise /></AnimatedPage>} />
-              <Route path="/admin/coupons" element={<AnimatedPage><CouponManagement /></AnimatedPage>} />
-              <Route path="/admin/orders" element={<AnimatedPage><OrderManagement /></AnimatedPage>} />
-              <Route path="/admin/reservations" element={<AnimatedPage><ReservationManagement /></AnimatedPage>} />
-              <Route path="/admin/users" element={<AnimatedPage><UserManagement /></AnimatedPage>} />
-              <Route path="/admin/customers" element={<AnimatedPage><CustomerManagement /></AnimatedPage>} />
-              <Route path="/admin/configure" element={<AnimatedPage><Configure /></AnimatedPage>} />
-              <Route path="/admin/staff" element={<AnimatedPage><StaffDashboard /></AnimatedPage>} />
-              <Route path="/admin/statistics" element={<AnimatedPage><Statistics /></AnimatedPage>} />
-              <Route path="/admin/reports" element={<AnimatedPage><Reports /></AnimatedPage>} />
-              <Route path="/admin/broadcast" element={<AnimatedPage><SocialMediaManagement /></AnimatedPage>} />
-              <Route path="/admin/social-media" element={<AnimatedPage><SocialMediaManagement /></AnimatedPage>} />
-              <Route path="/admin/qr-menu" element={<AnimatedPage><QRCodeMenu /></AnimatedPage>} />
-              <Route path="/qr-menu/:branchId" element={<BranchMenu />} />
-              <Route path="/staff" element={<AnimatedPage><StaffOrders /></AnimatedPage>} />
-              <Route path="/staff/reservations" element={<AnimatedPage><StaffReservations /></AnimatedPage>} />
-              <Route path="/staff/history" element={<AnimatedPage><StaffOrderHistory /></AnimatedPage>} />
-              <Route path="/staff/report" element={<AnimatedPage><StaffReport /></AnimatedPage>} />
-              <Route path="/order-tracking/:orderId" element={<AnimatedPage><OrderTracking /></AnimatedPage>} />
-              <Route path="/driver-dashboard" element={<AnimatedPage><DriverDashboard /></AnimatedPage>} />
-              <Route path="/driver" element={<DriverOrders />} />
-              <Route path="/driver/active" element={<DriverActiveDelivery />} />
-              <Route path="*" element={<AnimatedPage><NotFound /></AnimatedPage>} />
-            </Routes>
-          </AnimatePresence>
+          <Suspense fallback={null}>
+            <AnimatePresence mode="wait">
+              <Routes location={location} key={location.pathname}>
+                <Route path="/" element={<AnimatedPage><Index /></AnimatedPage>} />
+                <Route path="/order" element={<AnimatedPage><Order /></AnimatedPage>} />
+                <Route path="/cart" element={<AnimatedPage><Cart /></AnimatedPage>} />
+                <Route path="/checkout" element={<AnimatedPage><Checkout /></AnimatedPage>} />
+                <Route path="/order-history" element={<AnimatedPage><OrderHistory /></AnimatedPage>} />
+                <Route path="/reservation-history" element={<AnimatedPage><ReservationHistory /></AnimatedPage>} />
+                <Route path="/book-table" element={<AnimatedPage><TableBooking /></AnimatedPage>} />
+                <Route path="/auth" element={<AnimatedPage><Auth /></AnimatedPage>} />
+                <Route path="/profile" element={<AnimatedPage><Profile /></AnimatedPage>} />
+                <Route path="/profile/address" element={<AnimatedPage><Address /></AnimatedPage>} />
+                <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
+                <Route path="/account/delete" element={<AnimatedPage><AccountDeletion /></AnimatedPage>} />
+                <Route path="/legal/:type" element={<AnimatedPage><LegalPage /></AnimatedPage>} />
+                <Route path="/checkout/success" element={<AnimatedPage><CheckoutSuccess /></AnimatedPage>} />
+                <Route path="/admin" element={<AnimatedPage><Dashboard /></AnimatedPage>} />
+                <Route path="/admin/menu" element={<AnimatedPage><MenuManagement /></AnimatedPage>} />
+                <Route path="/admin/branches" element={<AnimatedPage><BranchManagement /></AnimatedPage>} />
+                <Route path="/admin/customise" element={<AnimatedPage><Customise /></AnimatedPage>} />
+                <Route path="/admin/coupons" element={<AnimatedPage><CouponManagement /></AnimatedPage>} />
+                <Route path="/admin/orders" element={<AnimatedPage><OrderManagement /></AnimatedPage>} />
+                <Route path="/admin/reservations" element={<AnimatedPage><ReservationManagement /></AnimatedPage>} />
+                <Route path="/admin/users" element={<AnimatedPage><UserManagement /></AnimatedPage>} />
+                <Route path="/admin/customers" element={<AnimatedPage><CustomerManagement /></AnimatedPage>} />
+                <Route path="/admin/configure" element={<AnimatedPage><Configure /></AnimatedPage>} />
+                <Route path="/admin/staff" element={<AnimatedPage><StaffDashboard /></AnimatedPage>} />
+                <Route path="/admin/statistics" element={<AnimatedPage><Statistics /></AnimatedPage>} />
+                <Route path="/admin/reports" element={<AnimatedPage><Reports /></AnimatedPage>} />
+                <Route path="/admin/broadcast" element={<AnimatedPage><SocialMediaManagement /></AnimatedPage>} />
+                <Route path="/admin/social-media" element={<AnimatedPage><SocialMediaManagement /></AnimatedPage>} />
+                <Route path="/admin/qr-menu" element={<AnimatedPage><QRCodeMenu /></AnimatedPage>} />
+                <Route path="/qr-menu/:branchId" element={<Suspense fallback={null}><BranchMenu /></Suspense>} />
+                <Route path="/staff" element={<AnimatedPage><StaffOrders /></AnimatedPage>} />
+                <Route path="/staff/reservations" element={<AnimatedPage><StaffReservations /></AnimatedPage>} />
+                <Route path="/staff/history" element={<AnimatedPage><StaffOrderHistory /></AnimatedPage>} />
+                <Route path="/staff/report" element={<AnimatedPage><StaffReport /></AnimatedPage>} />
+                <Route path="/order-tracking/:orderId" element={<AnimatedPage><OrderTracking /></AnimatedPage>} />
+                <Route path="/driver-dashboard" element={<AnimatedPage><DriverDashboard /></AnimatedPage>} />
+                <Route path="/driver" element={<Suspense fallback={null}><DriverOrders /></Suspense>} />
+                <Route path="/driver/active" element={<Suspense fallback={null}><DriverActiveDelivery /></Suspense>} />
+                <Route path="*" element={<AnimatedPage><NotFound /></AnimatedPage>} />
+              </Routes>
+            </AnimatePresence>
+          </Suspense>
         </div>
       </div>
     </>
