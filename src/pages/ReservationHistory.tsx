@@ -31,6 +31,7 @@ interface Reservation {
 }
 
 const ReservationHistory = () => {
+  const { user: authUser, isAuthReady } = useAuth();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -38,8 +39,9 @@ const ReservationHistory = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
+    if (!isAuthReady) return;
     fetchReservations();
-  }, []);
+  }, [isAuthReady, authUser?.id]);
 
   const mapReservation = (r: any, isGuest = false): Reservation => ({
     ...r,
