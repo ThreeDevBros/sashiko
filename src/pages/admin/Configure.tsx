@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, DollarSign, Globe, Settings, Coins, Timer, ToggleLeft, Truck, Banknote, CalendarDays, HandCoins, FileText, ShieldCheck, Cookie, Copy, ExternalLink } from 'lucide-react';
+import { Trash2, DollarSign, Globe, Settings, Coins, Timer, ToggleLeft, Truck, Banknote, CalendarDays, HandCoins, FileText, ShieldCheck, Cookie, Copy, ExternalLink, EyeOff } from 'lucide-react';
+import { HiddenPagesTab } from '@/components/admin/HiddenPagesTab';
 import {
   Select,
   SelectContent,
@@ -249,25 +250,6 @@ const Configure = () => {
     },
   });
 
-  // Save cookies & data usage mutation
-  const saveCookiesMutation = useMutation({
-    mutationFn: async () => {
-      if (!tenantSettings?.id) throw new Error('No tenant settings found');
-      const { error } = await supabase
-        .from('tenant_settings')
-        .update({ cookies_data_usage: cookiesDataUsage || null } as any)
-        .eq('id', tenantSettings.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['legal-content'] });
-      toast({ title: 'Cookies & Data Usage saved', description: 'Content has been updated successfully' });
-    },
-    onError: (error: any) => {
-      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
-    },
-  });
 
   // Save payment settings mutation
   const savePaymentSettingsMutation = useMutation({
@@ -466,45 +448,6 @@ const Configure = () => {
     },
   });
 
-  // Save terms of service mutation
-  const saveTermsMutation = useMutation({
-    mutationFn: async () => {
-      if (!tenantSettings?.id) throw new Error('No tenant settings found');
-      const { error } = await supabase
-        .from('tenant_settings')
-        .update({ terms_of_service: termsOfService || null } as any)
-        .eq('id', tenantSettings.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['legal-content'] });
-      toast({ title: 'Terms of Service saved', description: 'Content has been updated successfully' });
-    },
-    onError: (error: any) => {
-      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
-    },
-  });
-
-  // Save privacy policy mutation
-  const savePrivacyMutation = useMutation({
-    mutationFn: async () => {
-      if (!tenantSettings?.id) throw new Error('No tenant settings found');
-      const { error } = await supabase
-        .from('tenant_settings')
-        .update({ privacy_policy: privacyPolicy || null } as any)
-        .eq('id', tenantSettings.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['legal-content'] });
-      toast({ title: 'Privacy Policy saved', description: 'Content has been updated successfully' });
-    },
-    onError: (error: any) => {
-      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
-    },
-  });
 
   return (
     <>
@@ -548,17 +491,9 @@ const Configure = () => {
               <Settings className="w-4 h-4 mr-2" />
               Reservations
             </TabsTrigger>
-            <TabsTrigger value="terms" className="text-sm px-4 py-2 flex-1 sm:flex-initial">
-              <FileText className="w-4 h-4 mr-2" />
-              Terms of Service
-            </TabsTrigger>
-            <TabsTrigger value="privacy" className="text-sm px-4 py-2 flex-1 sm:flex-initial">
-              <ShieldCheck className="w-4 h-4 mr-2" />
-              Privacy Policy
-            </TabsTrigger>
-            <TabsTrigger value="cookies" className="text-sm px-4 py-2 flex-1 sm:flex-initial">
-              <Cookie className="w-4 h-4 mr-2" />
-              Cookies & Data Usage
+            <TabsTrigger value="hidden-pages" className="text-sm px-4 py-2 flex-1 sm:flex-initial">
+              <EyeOff className="w-4 h-4 mr-2" />
+              Hidden Pages
             </TabsTrigger>
           </TabsList>
 
@@ -1281,157 +1216,17 @@ const Configure = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="terms" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Terms of Service
-                </CardTitle>
-                <CardDescription>
-                  Write and manage your Terms of Service content. This will be shown to customers on the login and profile pages.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <RichTextEditor
-                  value={termsOfService}
-                  onChange={setTermsOfService}
-                  placeholder="Enter your Terms of Service content here..."
-                  minHeight="300px"
-                />
-                <Button
-                  onClick={() => saveTermsMutation.mutate()}
-                  disabled={saveTermsMutation.isPending || isLoadingSettings}
-                >
-                  {saveTermsMutation.isPending ? 'Saving...' : 'Save Terms of Service'}
-                </Button>
-                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a
-                    href="https://sashikoasianfusion.com/legal/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary underline truncate"
-                  >
-                    sashikoasianfusion.com/legal/terms
-                  </a>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 ml-auto"
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://sashikoasianfusion.com/legal/terms');
-                      toast({ title: 'Copied!', description: 'Terms of Service URL copied to clipboard.' });
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy URL
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="privacy" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-primary" />
-                  Privacy Policy
-                </CardTitle>
-                <CardDescription>
-                  Write and manage your Privacy Policy content. This will be shown to customers on the login and profile pages.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <RichTextEditor
-                  value={privacyPolicy}
-                  onChange={setPrivacyPolicy}
-                  placeholder="Enter your Privacy Policy content here..."
-                  minHeight="300px"
-                />
-                <Button
-                  onClick={() => savePrivacyMutation.mutate()}
-                  disabled={savePrivacyMutation.isPending || isLoadingSettings}
-                >
-                  {savePrivacyMutation.isPending ? 'Saving...' : 'Save Privacy Policy'}
-                </Button>
-                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a
-                    href="https://sashikoasianfusion.com/legal/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary underline truncate"
-                  >
-                    sashikoasianfusion.com/legal/privacy
-                  </a>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 ml-auto"
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://sashikoasianfusion.com/legal/privacy');
-                      toast({ title: 'Copied!', description: 'Privacy Policy URL copied to clipboard.' });
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy URL
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="cookies" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Cookie className="w-5 h-5 text-primary" />
-                  Cookies & Data Usage
-                </CardTitle>
-                <CardDescription>
-                  Write and manage your Cookies & Data Usage content. This will be shown to customers on the login and profile pages.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <RichTextEditor
-                  value={cookiesDataUsage}
-                  onChange={setCookiesDataUsage}
-                  placeholder="Enter your Cookies & Data Usage content here..."
-                  minHeight="300px"
-                />
-                <Button
-                  onClick={() => saveCookiesMutation.mutate()}
-                  disabled={saveCookiesMutation.isPending || isLoadingSettings}
-                >
-                  {saveCookiesMutation.isPending ? 'Saving...' : 'Save Cookies & Data Usage'}
-                </Button>
-                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a
-                    href="https://sashikoasianfusion.com/legal/cookies"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary underline truncate"
-                  >
-                    sashikoasianfusion.com/legal/cookies
-                  </a>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 ml-auto"
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://sashikoasianfusion.com/legal/cookies');
-                      toast({ title: 'Copied!', description: 'Cookies & Data Usage URL copied to clipboard.' });
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy URL
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="hidden-pages" className="space-y-4">
+            <HiddenPagesTab
+              tenantId={tenantSettings?.id}
+              termsOfService={termsOfService}
+              setTermsOfService={setTermsOfService}
+              privacyPolicy={privacyPolicy}
+              setPrivacyPolicy={setPrivacyPolicy}
+              cookiesDataUsage={cookiesDataUsage}
+              setCookiesDataUsage={setCookiesDataUsage}
+              isLoading={isLoadingSettings}
+            />
           </TabsContent>
         </Tabs>
       </div>
