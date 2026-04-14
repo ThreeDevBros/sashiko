@@ -549,17 +549,9 @@ const Configure = () => {
               <Settings className="w-4 h-4 mr-2" />
               Reservations
             </TabsTrigger>
-            <TabsTrigger value="terms" className="text-sm px-4 py-2 flex-1 sm:flex-initial">
-              <FileText className="w-4 h-4 mr-2" />
-              Terms of Service
-            </TabsTrigger>
-            <TabsTrigger value="privacy" className="text-sm px-4 py-2 flex-1 sm:flex-initial">
-              <ShieldCheck className="w-4 h-4 mr-2" />
-              Privacy Policy
-            </TabsTrigger>
-            <TabsTrigger value="cookies" className="text-sm px-4 py-2 flex-1 sm:flex-initial">
-              <Cookie className="w-4 h-4 mr-2" />
-              Cookies & Data Usage
+            <TabsTrigger value="hidden-pages" className="text-sm px-4 py-2 flex-1 sm:flex-initial">
+              <EyeOff className="w-4 h-4 mr-2" />
+              Hidden Pages
             </TabsTrigger>
           </TabsList>
 
