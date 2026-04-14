@@ -66,6 +66,7 @@ const StaffReservations = lazy(() => import("./pages/staff/StaffReservations"));
 const StaffOrderHistory = lazy(() => import("./pages/staff/StaffOrderHistory"));
 const StaffReport = lazy(() => import("./pages/staff/StaffReport"));
 const Support = lazy(() => import("./pages/Support"));
+const AccountDeletionInfo = lazy(() => import("./pages/AccountDeletionInfo"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
