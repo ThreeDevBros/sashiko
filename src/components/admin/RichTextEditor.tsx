@@ -189,8 +189,7 @@ export const RichTextEditor = ({
   const handleUnlink = useCallback(() => {
     exec('unlink');
   }, [exec]);
-
-
+  const handleRemoveFormat = useCallback(() => {
     exec('removeFormat');
   }, [exec]);
 
