@@ -316,7 +316,10 @@ export const RichTextEditor = ({
           <PopoverTrigger asChild>
             <button
               type="button"
-              onMouseDown={(e) => e.preventDefault()}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                saveSelection();
+              }}
               className="p-1.5 rounded hover:bg-muted transition-colors"
               title="Insert Link"
             >
