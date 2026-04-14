@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, DollarSign, Globe, Settings, Coins, Timer, ToggleLeft, Truck, Banknote, CalendarDays, HandCoins, FileText, ShieldCheck, Cookie, Copy, ExternalLink } from 'lucide-react';
+import { Trash2, DollarSign, Globe, Settings, Coins, Timer, ToggleLeft, Truck, Banknote, CalendarDays, HandCoins, FileText, ShieldCheck, Cookie, Copy, ExternalLink, EyeOff } from 'lucide-react';
+import { HiddenPagesTab } from '@/components/admin/HiddenPagesTab';
 import {
   Select,
   SelectContent,
