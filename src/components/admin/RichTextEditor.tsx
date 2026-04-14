@@ -26,6 +26,8 @@ import {
   Redo2,
   Copy,
   RemoveFormatting,
+  Link,
+  Unlink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
