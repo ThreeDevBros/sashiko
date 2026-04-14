@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
-import { FileText, ShieldCheck, Cookie, Copy, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, ShieldCheck, Cookie, Copy, ExternalLink, ChevronDown, ChevronUp, Phone, UserX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
