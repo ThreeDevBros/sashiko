@@ -90,7 +90,7 @@ const Configure = () => {
   const [termsOfService, setTermsOfService] = useState<string>('');
   const [privacyPolicy, setPrivacyPolicy] = useState<string>('');
   const [cookiesDataUsage, setCookiesDataUsage] = useState<string>('');
-
+  const [accountDeletionInfo, setAccountDeletionInfo] = useState<string>('');
 
 
   // Load tenant settings
