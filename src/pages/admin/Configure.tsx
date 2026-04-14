@@ -1274,157 +1274,17 @@ const Configure = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="terms" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-primary" />
-                  Terms of Service
-                </CardTitle>
-                <CardDescription>
-                  Write and manage your Terms of Service content. This will be shown to customers on the login and profile pages.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <RichTextEditor
-                  value={termsOfService}
-                  onChange={setTermsOfService}
-                  placeholder="Enter your Terms of Service content here..."
-                  minHeight="300px"
-                />
-                <Button
-                  onClick={() => saveTermsMutation.mutate()}
-                  disabled={saveTermsMutation.isPending || isLoadingSettings}
-                >
-                  {saveTermsMutation.isPending ? 'Saving...' : 'Save Terms of Service'}
-                </Button>
-                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a
-                    href="https://sashikoasianfusion.com/legal/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary underline truncate"
-                  >
-                    sashikoasianfusion.com/legal/terms
-                  </a>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 ml-auto"
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://sashikoasianfusion.com/legal/terms');
-                      toast({ title: 'Copied!', description: 'Terms of Service URL copied to clipboard.' });
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy URL
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="privacy" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-primary" />
-                  Privacy Policy
-                </CardTitle>
-                <CardDescription>
-                  Write and manage your Privacy Policy content. This will be shown to customers on the login and profile pages.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <RichTextEditor
-                  value={privacyPolicy}
-                  onChange={setPrivacyPolicy}
-                  placeholder="Enter your Privacy Policy content here..."
-                  minHeight="300px"
-                />
-                <Button
-                  onClick={() => savePrivacyMutation.mutate()}
-                  disabled={savePrivacyMutation.isPending || isLoadingSettings}
-                >
-                  {savePrivacyMutation.isPending ? 'Saving...' : 'Save Privacy Policy'}
-                </Button>
-                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a
-                    href="https://sashikoasianfusion.com/legal/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary underline truncate"
-                  >
-                    sashikoasianfusion.com/legal/privacy
-                  </a>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 ml-auto"
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://sashikoasianfusion.com/legal/privacy');
-                      toast({ title: 'Copied!', description: 'Privacy Policy URL copied to clipboard.' });
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy URL
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="cookies" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Cookie className="w-5 h-5 text-primary" />
-                  Cookies & Data Usage
-                </CardTitle>
-                <CardDescription>
-                  Write and manage your Cookies & Data Usage content. This will be shown to customers on the login and profile pages.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <RichTextEditor
-                  value={cookiesDataUsage}
-                  onChange={setCookiesDataUsage}
-                  placeholder="Enter your Cookies & Data Usage content here..."
-                  minHeight="300px"
-                />
-                <Button
-                  onClick={() => saveCookiesMutation.mutate()}
-                  disabled={saveCookiesMutation.isPending || isLoadingSettings}
-                >
-                  {saveCookiesMutation.isPending ? 'Saving...' : 'Save Cookies & Data Usage'}
-                </Button>
-                <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
-                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a
-                    href="https://sashikoasianfusion.com/legal/cookies"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary underline truncate"
-                  >
-                    sashikoasianfusion.com/legal/cookies
-                  </a>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 ml-auto"
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://sashikoasianfusion.com/legal/cookies');
-                      toast({ title: 'Copied!', description: 'Cookies & Data Usage URL copied to clipboard.' });
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy URL
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="hidden-pages" className="space-y-4">
+            <HiddenPagesTab
+              tenantId={tenantSettings?.id}
+              termsOfService={termsOfService}
+              setTermsOfService={setTermsOfService}
+              privacyPolicy={privacyPolicy}
+              setPrivacyPolicy={setPrivacyPolicy}
+              cookiesDataUsage={cookiesDataUsage}
+              setCookiesDataUsage={setCookiesDataUsage}
+              isLoading={isLoadingSettings}
+            />
           </TabsContent>
         </Tabs>
       </div>
