@@ -154,14 +154,18 @@ export const RichTextEditor = ({
     }
   }, []);
 
-  const handleLinkOpen = useCallback(() => {
+  const saveSelection = useCallback(() => {
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
       savedSelectionRef.current = selection.getRangeAt(0).cloneRange();
     }
+  }, []);
+
+  const handleLinkOpen = useCallback(() => {
+    saveSelection();
     setLinkUrl('https://');
     setLinkOpen(true);
-  }, []);
+  }, [saveSelection]);
 
   const handleInsertLink = useCallback(() => {
     if (!linkUrl || linkUrl === 'https://') return;
