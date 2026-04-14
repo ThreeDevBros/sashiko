@@ -26,6 +26,8 @@ import {
   Redo2,
   Copy,
   RemoveFormatting,
+  Link,
+  Unlink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -87,6 +89,9 @@ export const RichTextEditor = ({
 }: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [colorOpen, setColorOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const savedSelectionRef = useRef<Range | null>(null);
   const initializedRef = useRef(false);
 
   // Set initial HTML only once
@@ -149,6 +154,41 @@ export const RichTextEditor = ({
     }
   }, []);
 
+  const handleLinkOpen = useCallback(() => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      savedSelectionRef.current = selection.getRangeAt(0).cloneRange();
+    }
+    setLinkUrl('https://');
+    setLinkOpen(true);
+  }, []);
+
+  const handleInsertLink = useCallback(() => {
+    if (!linkUrl || linkUrl === 'https://') return;
+    editorRef.current?.focus();
+    if (savedSelectionRef.current) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(savedSelectionRef.current);
+    }
+    document.execCommand('createLink', false, linkUrl);
+    // Make links open in new tab
+    if (editorRef.current) {
+      const links = editorRef.current.querySelectorAll('a');
+      links.forEach((a) => {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      });
+      onChange(editorRef.current.innerHTML);
+    }
+    setLinkOpen(false);
+    setLinkUrl('');
+    savedSelectionRef.current = null;
+  }, [linkUrl, onChange]);
+
+  const handleUnlink = useCallback(() => {
+    exec('unlink');
+  }, [exec]);
   const handleRemoveFormat = useCallback(() => {
     exec('removeFormat');
   }, [exec]);
@@ -264,7 +304,46 @@ export const RichTextEditor = ({
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Lists */}
+        {/* Hyperlink */}
+        <Popover open={linkOpen} onOpenChange={(open) => {
+          if (open) handleLinkOpen();
+          else setLinkOpen(false);
+        }}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              className="p-1.5 rounded hover:bg-muted transition-colors"
+              title="Insert Link"
+            >
+              <Link className="w-4 h-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-3" align="start">
+            <div className="space-y-2">
+              <label className="text-xs font-medium">URL</label>
+              <Input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://example.com"
+                className="h-8 text-sm"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInsertLink(); } }}
+              />
+              <button
+                type="button"
+                onClick={handleInsertLink}
+                className="w-full h-8 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+              >
+                Apply Link
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+        <ToolbarButton onClick={handleUnlink} title="Remove Link">
+          <Unlink className="w-4 h-4" />
+        </ToolbarButton>
+
+        <div className="w-px h-6 bg-border mx-1" />
         <ToolbarButton onClick={() => exec('insertUnorderedList')} title="Bullet List">
           <List className="w-4 h-4" />
         </ToolbarButton>
