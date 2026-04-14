@@ -304,7 +304,46 @@ export const RichTextEditor = ({
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        {/* Lists */}
+        {/* Hyperlink */}
+        <Popover open={linkOpen} onOpenChange={(open) => {
+          if (open) handleLinkOpen();
+          else setLinkOpen(false);
+        }}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              className="p-1.5 rounded hover:bg-muted transition-colors"
+              title="Insert Link"
+            >
+              <Link className="w-4 h-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-3" align="start">
+            <div className="space-y-2">
+              <label className="text-xs font-medium">URL</label>
+              <Input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://example.com"
+                className="h-8 text-sm"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInsertLink(); } }}
+              />
+              <button
+                type="button"
+                onClick={handleInsertLink}
+                className="w-full h-8 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+              >
+                Apply Link
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+        <ToolbarButton onClick={handleUnlink} title="Remove Link">
+          <Unlink className="w-4 h-4" />
+        </ToolbarButton>
+
+        <div className="w-px h-6 bg-border mx-1" />
         <ToolbarButton onClick={() => exec('insertUnorderedList')} title="Bullet List">
           <List className="w-4 h-4" />
         </ToolbarButton>
