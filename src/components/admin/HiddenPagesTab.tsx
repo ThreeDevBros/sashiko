@@ -118,6 +118,25 @@ export const HiddenPagesTab = ({
     },
   ];
 
+  const urlOnlyPages = [
+    {
+      id: 'support',
+      icon: Phone,
+      title: 'Support Page',
+      description: 'Auto-generated page showing branch contact details.',
+      url: 'https://sashikoasianfusion.com/support',
+      urlLabel: 'sashikoasianfusion.com/support',
+    },
+    {
+      id: 'account-deletion',
+      icon: UserX,
+      title: 'Account Deletion Info',
+      description: 'Information page about how to delete an account and what data gets removed.',
+      url: 'https://sashikoasianfusion.com/account-deletion-info',
+      urlLabel: 'sashikoasianfusion.com/account-deletion-info',
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
@@ -169,6 +188,33 @@ export const HiddenPagesTab = ({
               </CollapsibleContent>
             </Card>
           </Collapsible>
+        );
+      })}
+
+      {urlOnlyPages.map((page) => {
+        const Icon = page.icon;
+        return (
+          <Card key={page.id}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Icon className="w-5 h-5 text-primary" />
+                {page.title}
+              </CardTitle>
+              <CardDescription>{page.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/50">
+                <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                <a href={page.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline truncate">
+                  {page.urlLabel}
+                </a>
+                <Button variant="outline" size="sm" className="shrink-0 ml-auto" onClick={() => copyUrl(page.url, page.title)}>
+                  <Copy className="h-3.5 w-3.5 mr-1.5" />
+                  Copy URL
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         );
       })}
     </div>
