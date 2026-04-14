@@ -467,45 +467,6 @@ const Configure = () => {
     },
   });
 
-  // Save terms of service mutation
-  const saveTermsMutation = useMutation({
-    mutationFn: async () => {
-      if (!tenantSettings?.id) throw new Error('No tenant settings found');
-      const { error } = await supabase
-        .from('tenant_settings')
-        .update({ terms_of_service: termsOfService || null } as any)
-        .eq('id', tenantSettings.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['legal-content'] });
-      toast({ title: 'Terms of Service saved', description: 'Content has been updated successfully' });
-    },
-    onError: (error: any) => {
-      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
-    },
-  });
-
-  // Save privacy policy mutation
-  const savePrivacyMutation = useMutation({
-    mutationFn: async () => {
-      if (!tenantSettings?.id) throw new Error('No tenant settings found');
-      const { error } = await supabase
-        .from('tenant_settings')
-        .update({ privacy_policy: privacyPolicy || null } as any)
-        .eq('id', tenantSettings.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['legal-content'] });
-      toast({ title: 'Privacy Policy saved', description: 'Content has been updated successfully' });
-    },
-    onError: (error: any) => {
-      toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
-    },
-  });
 
   return (
     <>
