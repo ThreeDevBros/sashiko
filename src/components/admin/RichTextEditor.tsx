@@ -154,7 +154,43 @@ export const RichTextEditor = ({
     }
   }, []);
 
-  const handleRemoveFormat = useCallback(() => {
+  const handleLinkOpen = useCallback(() => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      savedSelectionRef.current = selection.getRangeAt(0).cloneRange();
+    }
+    setLinkUrl('https://');
+    setLinkOpen(true);
+  }, []);
+
+  const handleInsertLink = useCallback(() => {
+    if (!linkUrl || linkUrl === 'https://') return;
+    editorRef.current?.focus();
+    if (savedSelectionRef.current) {
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(savedSelectionRef.current);
+    }
+    document.execCommand('createLink', false, linkUrl);
+    // Make links open in new tab
+    if (editorRef.current) {
+      const links = editorRef.current.querySelectorAll('a');
+      links.forEach((a) => {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      });
+      onChange(editorRef.current.innerHTML);
+    }
+    setLinkOpen(false);
+    setLinkUrl('');
+    savedSelectionRef.current = null;
+  }, [linkUrl, onChange]);
+
+  const handleUnlink = useCallback(() => {
+    exec('unlink');
+  }, [exec]);
+
+
     exec('removeFormat');
   }, [exec]);
 
