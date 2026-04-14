@@ -1226,6 +1226,8 @@ const Configure = () => {
               setPrivacyPolicy={setPrivacyPolicy}
               cookiesDataUsage={cookiesDataUsage}
               setCookiesDataUsage={setCookiesDataUsage}
+              accountDeletionInfo={accountDeletionInfo}
+              setAccountDeletionInfo={setAccountDeletionInfo}
               isLoading={isLoadingSettings}
             />
           </TabsContent>
