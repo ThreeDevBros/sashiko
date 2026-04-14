@@ -89,6 +89,9 @@ export const RichTextEditor = ({
 }: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const [colorOpen, setColorOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const savedSelectionRef = useRef<Range | null>(null);
   const initializedRef = useRef(false);
 
   // Set initial HTML only once
