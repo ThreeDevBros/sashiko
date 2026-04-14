@@ -139,6 +139,7 @@ const Configure = () => {
         setTermsOfService((data as any)?.terms_of_service || '');
         setPrivacyPolicy((data as any)?.privacy_policy || '');
         setCookiesDataUsage((data as any)?.cookies_data_usage || '');
+        setAccountDeletionInfo((data as any)?.account_deletion_info || '');
       }
       
       return data;
