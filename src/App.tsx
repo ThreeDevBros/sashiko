@@ -66,6 +66,7 @@ const StaffReservations = lazy(() => import("./pages/staff/StaffReservations"));
 const StaffOrderHistory = lazy(() => import("./pages/staff/StaffOrderHistory"));
 const StaffReport = lazy(() => import("./pages/staff/StaffReport"));
 const Support = lazy(() => import("./pages/Support"));
+const AccountDeletionInfo = lazy(() => import("./pages/AccountDeletionInfo"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -175,6 +176,7 @@ const AppRoutes = () => {
                 <Route path="/account/delete" element={<AnimatedPage><AccountDeletion /></AnimatedPage>} />
                 <Route path="/legal/:type" element={<AnimatedPage><LegalPage /></AnimatedPage>} />
                 <Route path="/support" element={<Suspense fallback={null}><Support /></Suspense>} />
+                <Route path="/account-deletion-info" element={<Suspense fallback={null}><AccountDeletionInfo /></Suspense>} />
                 <Route path="/checkout/success" element={<AnimatedPage><CheckoutSuccess /></AnimatedPage>} />
                 <Route path="/admin" element={<AnimatedPage><Dashboard /></AnimatedPage>} />
                 <Route path="/admin/menu" element={<AnimatedPage><MenuManagement /></AnimatedPage>} />
