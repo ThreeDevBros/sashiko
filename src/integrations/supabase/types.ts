@@ -1168,6 +1168,7 @@ export type Database = {
       tenant_settings: {
         Row: {
           accent_color: string | null
+          account_deletion_info: string | null
           allow_customer_cancel: boolean
           auto_prepare_enabled: boolean | null
           auto_prepare_percent: number | null
@@ -1233,6 +1234,7 @@ export type Database = {
         }
         Insert: {
           accent_color?: string | null
+          account_deletion_info?: string | null
           allow_customer_cancel?: boolean
           auto_prepare_enabled?: boolean | null
           auto_prepare_percent?: number | null
@@ -1298,6 +1300,7 @@ export type Database = {
         }
         Update: {
           accent_color?: string | null
+          account_deletion_info?: string | null
           allow_customer_cancel?: boolean
           auto_prepare_enabled?: boolean | null
           auto_prepare_percent?: number | null

@@ -90,7 +90,7 @@ const Configure = () => {
   const [termsOfService, setTermsOfService] = useState<string>('');
   const [privacyPolicy, setPrivacyPolicy] = useState<string>('');
   const [cookiesDataUsage, setCookiesDataUsage] = useState<string>('');
-
+  const [accountDeletionInfo, setAccountDeletionInfo] = useState<string>('');
 
 
   // Load tenant settings
@@ -139,6 +139,7 @@ const Configure = () => {
         setTermsOfService((data as any)?.terms_of_service || '');
         setPrivacyPolicy((data as any)?.privacy_policy || '');
         setCookiesDataUsage((data as any)?.cookies_data_usage || '');
+        setAccountDeletionInfo((data as any)?.account_deletion_info || '');
       }
       
       return data;
@@ -1225,6 +1226,8 @@ const Configure = () => {
               setPrivacyPolicy={setPrivacyPolicy}
               cookiesDataUsage={cookiesDataUsage}
               setCookiesDataUsage={setCookiesDataUsage}
+              accountDeletionInfo={accountDeletionInfo}
+              setAccountDeletionInfo={setAccountDeletionInfo}
               isLoading={isLoadingSettings}
             />
           </TabsContent>
