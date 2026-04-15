@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToResume } from '@/lib/lifecycleManager';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 
 /**
  * Global driver GPS tracker that runs on ANY page of the app when the driver
@@ -80,15 +81,13 @@ export function GlobalDriverTracker() {
 
   const sendLocation = useCallback(async () => {
     if (activeOrderIds.length === 0 || !user) return;
-    if (!navigator.geolocation) return;
+    if (!isGeolocationAvailable()) return;
 
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 8000,
-          maximumAge: 0,
-        });
+      const position = await getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 0,
       });
 
       const heading = position.coords.heading;

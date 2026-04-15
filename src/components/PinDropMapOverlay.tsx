@@ -5,6 +5,7 @@ import { loadGoogleMaps } from '@/lib/googleMaps';
 import { toast } from 'sonner';
 import { getDetailedMapStyle } from '@/lib/mapStyles';
 import type { PlaceResult } from '@/components/LocationAutocompleteInput';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 
 interface PinDropMapOverlayProps {
   open: boolean;
@@ -212,24 +213,21 @@ export function PinDropMapOverlay({ open, onClose, onConfirm, initialLat, initia
   }, [open, initialLat, initialLng, placePin]);
 
   // ── GPS — only on explicit tap ────────────────────────────────────
-  const handleGPS = () => {
-    if (!navigator.geolocation) {
+  const handleGPS = async () => {
+    if (!isGeolocationAvailable()) {
       toast.error('Geolocation is not supported by your browser');
       return;
     }
     setGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        placePin(pos.coords.latitude, pos.coords.longitude);
-        mapRef.current?.setZoom(16);
-        setGettingLocation(false);
-      },
-      () => {
-        setGettingLocation(false);
-        toast('Location unavailable — pan the map and tap to pin', { duration: 3000 });
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
+    try {
+      const pos = await getCurrentPosition({ enableHighAccuracy: true, timeout: 8000 });
+      placePin(pos.coords.latitude, pos.coords.longitude);
+      mapRef.current?.setZoom(16);
+    } catch {
+      toast('Location unavailable — pan the map and tap to pin', { duration: 3000 });
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
   const toggleSatellite = () => {

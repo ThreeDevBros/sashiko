@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Navigation, MapPin, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { isGeolocationAvailable, watchPosition, clearWatch as geoClearWatch } from '@/lib/geolocation';
 
 interface DriverLocationTrackerProps {
   orderId: string;
@@ -15,20 +16,19 @@ export function DriverLocationTracker({ orderId, onLocationUpdate }: DriverLocat
   const [tracking, setTracking] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [watchId, setWatchId] = useState<number | null>(null);
+  const watchIdRef = useRef<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     return () => {
-      // Stop tracking when component unmounts
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
+      if (watchIdRef.current !== null) {
+        geoClearWatch(watchIdRef.current);
       }
     };
-  }, [watchId]);
+  }, []);
 
-  const startTracking = () => {
-    if (!navigator.geolocation) {
+  const startTracking = async () => {
+    if (!isGeolocationAvailable()) {
       setError('Geolocation is not supported by your browser');
       toast({
         title: 'Error',
@@ -41,61 +41,58 @@ export function DriverLocationTracker({ orderId, onLocationUpdate }: DriverLocat
     setError(null);
     setTracking(true);
 
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 5000,
-      maximumAge: 0
-    };
+    try {
+      const id = await watchPosition(
+        async (position) => {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+              throw new Error('User not authenticated');
+            }
 
-    const id = navigator.geolocation.watchPosition(
-      async (position) => {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
-            throw new Error('User not authenticated');
+            const heading = position.coords.heading;
+            const speed = position.coords.speed ? position.coords.speed * 3.6 : null;
+
+            const { error } = await supabase
+              .from('driver_locations')
+              .upsert({
+                driver_id: user.id,
+                order_id: orderId,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                heading: heading,
+                speed: speed,
+                accuracy: position.coords.accuracy,
+              }, { onConflict: 'order_id' });
+
+            if (error) throw error;
+
+            setLastUpdate(new Date());
+            onLocationUpdate?.(position as any);
+          } catch (err) {
+            console.error('Error updating location:', err);
+            setError('Failed to update location');
           }
-
-          // Calculate heading and speed if available
-          const heading = position.coords.heading;
-          const speed = position.coords.speed ? position.coords.speed * 3.6 : null; // Convert m/s to km/h
-
-          // Upsert location update (one row per order)
-          const { error } = await supabase
-            .from('driver_locations')
-            .upsert({
-              driver_id: user.id,
-              order_id: orderId,
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              heading: heading,
-              speed: speed,
-              accuracy: position.coords.accuracy,
-            }, { onConflict: 'order_id' });
-
-          if (error) throw error;
-
-          setLastUpdate(new Date());
-          onLocationUpdate?.(position);
-        } catch (err) {
-          console.error('Error updating location:', err);
-          setError('Failed to update location');
-        }
-      },
-      (err) => {
-        console.error('Geolocation error:', err);
-        setError(`Error: ${err.message}`);
-        setTracking(false);
-      },
-      options
-    );
-
-    setWatchId(id);
+        },
+        (err) => {
+          console.error('Geolocation error:', err);
+          setError(`Error: ${err.message || 'Unknown error'}`);
+          setTracking(false);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 },
+      );
+      watchIdRef.current = id;
+    } catch (err) {
+      console.error('Failed to start tracking:', err);
+      setError('Failed to start location tracking');
+      setTracking(false);
+    }
   };
 
-  const stopTracking = () => {
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId);
-      setWatchId(null);
+  const stopTracking = async () => {
+    if (watchIdRef.current !== null) {
+      await geoClearWatch(watchIdRef.current);
+      watchIdRef.current = null;
     }
     setTracking(false);
   };

@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 interface LocalAddress {
   id: string;
   label: string;
@@ -67,7 +68,7 @@ export const DeliveryAddressWidget = () => {
   };
 
   const getCurrentLocation = async () => {
-    if (!navigator.geolocation) {
+    if (!isGeolocationAvailable()) {
       toast({
         title: 'Not supported',
         description: 'Geolocation is not supported by your browser.',
@@ -78,62 +79,49 @@ export const DeliveryAddressWidget = () => {
 
     setGettingLocation(true);
     
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          
-          // Use Nominatim for reverse geocoding
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await response.json();
+    try {
+      const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+      const { latitude, longitude } = position.coords;
+      
+      // Use Nominatim for reverse geocoding
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+      );
+      const data = await response.json();
 
-          let addressString = 'Current Location';
-          if (data.address) {
-            const parts = [
-              data.address.road || data.address.hamlet,
-              data.address.suburb || data.address.neighbourhood,
-              data.address.city || data.address.town || data.address.village
-            ].filter(Boolean);
-            addressString = parts.join(', ') || 'Current Location';
-          }
+      let addressString = 'Current Location';
+      if (data.address) {
+        const parts = [
+          data.address.road || data.address.hamlet,
+          data.address.suburb || data.address.neighbourhood,
+          data.address.city || data.address.town || data.address.village
+        ].filter(Boolean);
+        addressString = parts.join(', ') || 'Current Location';
+      }
 
-          const locationData = { latitude, longitude, address: addressString };
-          setCurrentLocationData(locationData);
-          localStorage.setItem('currentLocationData', JSON.stringify(locationData));
-          setSelectedAddressId('current-location');
-          localStorage.setItem('selectedDeliveryAddress', 'current-location');
-          
-          // Dispatch event
-          window.dispatchEvent(new Event('addressChanged'));
-          
-          toast({
-            title: 'Location updated',
-            description: 'Using your current location',
-          });
-        } catch (error) {
-          console.error('Error getting location:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to get your location',
-            variant: 'destructive',
-          });
-        } finally {
-          setGettingLocation(false);
-        }
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        toast({
-          title: 'Location error',
-          description: 'Could not get your location',
-          variant: 'destructive',
-        });
-        setGettingLocation(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      const locationData = { latitude, longitude, address: addressString };
+      setCurrentLocationData(locationData);
+      localStorage.setItem('currentLocationData', JSON.stringify(locationData));
+      setSelectedAddressId('current-location');
+      localStorage.setItem('selectedDeliveryAddress', 'current-location');
+      
+      // Dispatch event
+      window.dispatchEvent(new Event('addressChanged'));
+      
+      toast({
+        title: 'Location updated',
+        description: 'Using your current location',
+      });
+    } catch (error) {
+      console.error('Geolocation error:', error);
+      toast({
+        title: 'Location error',
+        description: 'Could not get your location',
+        variant: 'destructive',
+      });
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
   const handleAddressSelect = (addressId: string) => {

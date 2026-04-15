@@ -4,6 +4,7 @@ import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
 import { Card } from "@/components/ui/card";
 import { ChevronLeft, Bike, ShoppingBag, Clock, Loader2, Navigation, Coins, CalendarIcon, AlertTriangle as AlertTriangleIcon, MapPin, MapPinned, Store, Info } from "lucide-react";
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import { format, addDays } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -469,48 +470,39 @@ const Checkout = () => {
   
   // --- Device location handler ---
   const useDeviceLocation = async () => {
-    if (!navigator.geolocation) {
+    if (!isGeolocationAvailable()) {
       toast.error('Geolocation is not supported by your browser');
       return;
     }
 
     setGettingLocation(true);
     
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          const { data, error } = await supabase.functions.invoke('geocode-location', {
-            body: { latitude, longitude }
-          });
+    try {
+      const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+      const { latitude, longitude } = position.coords;
+      const { data, error } = await supabase.functions.invoke('geocode-location', {
+        body: { latitude, longitude }
+      });
 
-          let addressString = 'Current Location';
-          if (!error && data?.address) addressString = data.address;
+      let addressString = 'Current Location';
+      if (!error && data?.address) addressString = data.address;
 
-          const locationData = { latitude, longitude, address: addressString };
-          setDeviceLocationData(locationData);
-          setSelectedAddressId('current-location');
-          setLocationSource('device');
-          
-          localStorage.setItem(STORAGE_KEYS.DELIVERY_ADDRESS, 'current-location');
-          localStorage.setItem(STORAGE_KEYS.CURRENT_LOCATION_DATA, JSON.stringify(locationData));
-          setAddressDialogOpen(false);
-          window.dispatchEvent(new Event('addressChanged'));
-          toast.success('Using your current location for delivery');
-        } catch (error) {
-          console.error('Error getting location:', error);
-          toast.error('Failed to get your location. Please try again.');
-        } finally {
-          setGettingLocation(false);
-        }
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        toast.error('Could not get your location. Please check your permissions.');
-        setGettingLocation(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      const locationData = { latitude, longitude, address: addressString };
+      setDeviceLocationData(locationData);
+      setSelectedAddressId('current-location');
+      setLocationSource('device');
+      
+      localStorage.setItem(STORAGE_KEYS.DELIVERY_ADDRESS, 'current-location');
+      localStorage.setItem(STORAGE_KEYS.CURRENT_LOCATION_DATA, JSON.stringify(locationData));
+      setAddressDialogOpen(false);
+      window.dispatchEvent(new Event('addressChanged'));
+      toast.success('Using your current location for delivery');
+    } catch (error) {
+      console.error('Geolocation error:', error);
+      toast.error('Could not get your location. Please check your permissions.');
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
   // --- Search/Pin location handler ---
