@@ -32,7 +32,8 @@ export const useSavedCards = () => {
   });
 
   const refreshCards = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['saved-cards'] });
+    queryClient.removeQueries({ queryKey: ['saved-cards'] });
+    await refetch();
   };
 
   return { savedCards, isLoading, refreshCards };

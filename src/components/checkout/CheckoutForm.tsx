@@ -816,7 +816,7 @@ export const CheckoutForm = ({
                               setSelectedCard(null);
                               setIsAddingNewCard(true);
                             }
-                            refreshCards();
+                            await refreshCards();
                             toast({ title: 'Card removed' });
                           } catch (err: any) {
                             toast({ title: 'Failed to remove card', description: err?.message || 'Please try again', variant: 'destructive' });
