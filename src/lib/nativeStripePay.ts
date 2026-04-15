@@ -203,7 +203,8 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
     if (paymentResult === 'Canceled') {
       return { success: false, cancelled: true };
     }
-    if (paymentResult && paymentResult !== 'Completed') {
+    const completedResults = ['Completed', 'applePayCompleted', 'googlePayCompleted'];
+    if (paymentResult && !completedResults.includes(paymentResult)) {
       return { success: false, error: 'Payment was not completed. Please try again.' };
     }
 
