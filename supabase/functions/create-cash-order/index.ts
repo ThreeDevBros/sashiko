@@ -240,6 +240,7 @@ serve(async (req) => {
         delivery_fee: deliveryFee,
         total,
         status: 'pending',
+        payment_method: 'cash',
         cashback_used: cashbackDiscount,
         special_instructions: special_instructions || null,
         estimated_delivery_time: estimated_delivery_time || null,

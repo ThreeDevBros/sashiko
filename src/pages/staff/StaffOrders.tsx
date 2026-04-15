@@ -413,6 +413,7 @@ function StaffOrdersContent() {
                   <TableHead className="text-xs">Type</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
                   <TableHead className="text-xs text-right">Total</TableHead>
+                  <TableHead className="text-xs">Payment</TableHead>
                   <TableHead className="text-xs">Notes</TableHead>
                   <TableHead className="text-xs w-[130px]">Action</TableHead>
                 </TableRow>
@@ -442,6 +443,11 @@ function StaffOrdersContent() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs font-medium py-2.5 text-right">{formatCurrency(Number(order.total))}</TableCell>
+                      <TableCell className="py-2.5">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {(order.payment_method || (order.stripe_payment_intent_id ? 'card' : 'cash')) === 'card' ? '💳 Card' : '💵 Cash'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="py-2.5">
                         {order.special_instructions ? (
                           <MessageSquareText className="h-3.5 w-3.5 text-primary" />
@@ -533,6 +539,7 @@ function StaffOrdersContent() {
                   </h3>
                   <div className="grid gap-1.5 text-sm">
                     <p className="capitalize"><span className="text-muted-foreground">Type:</span> {newOrderPopup.order_type?.replace('_', ' ')}</p>
+                    <p><span className="text-muted-foreground">Payment:</span> {(newOrderPopup.payment_method || (newOrderPopup.stripe_payment_intent_id ? 'card' : 'cash')) === 'card' ? '💳 Card' : '💵 Cash'}</p>
                     <p><span className="text-muted-foreground">Time:</span> {format(new Date(newOrderPopup.created_at), 'MMM dd, HH:mm')}</p>
                     {newOrderPopup.branches?.name && (
                       <p><span className="text-muted-foreground">Branch:</span> {newOrderPopup.branches.name}</p>

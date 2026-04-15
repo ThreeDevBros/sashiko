@@ -102,6 +102,7 @@ export function MobileOrderCards({ orders, updateStatusMutation }: MobileOrderCa
                 <span><span className="text-[11px] text-muted-foreground mr-1">Type</span> <span className="capitalize">{order.order_type?.replace('_', ' ')}</span></span>
                 <span><span className="text-[11px] text-muted-foreground mr-1">Items</span> {order.order_items?.length || 0}</span>
                 <span><span className="text-[11px] text-muted-foreground mr-1">Total</span> <span className="font-semibold">€{Number(order.total).toFixed(2)}</span></span>
+                <span><span className="text-[11px] text-muted-foreground mr-1">Payment</span> {(order.payment_method || (order.stripe_payment_intent_id ? 'card' : 'cash')) === 'card' ? '💳 Card' : '💵 Cash'}</span>
               </div>
 
               {/* Date */}

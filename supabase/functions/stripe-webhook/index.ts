@@ -95,6 +95,7 @@ serve(async (req) => {
           delivery_fee: parseFloat(metadata.delivery_fee),
           total: session.amount_total! / 100, // Convert from cents
           status: 'pending',
+          payment_method: 'card',
         })
         .select()
         .single();

@@ -314,6 +314,7 @@ export default function OrderManagement() {
                   <TableHead>Type</TableHead>
                   <TableHead>Items</TableHead>
                   <TableHead>Total</TableHead>
+                  <TableHead>Payment</TableHead>
                   <TableHead>Notes</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
@@ -360,6 +361,11 @@ export default function OrderManagement() {
                         <TableCell className="capitalize">{order.order_type?.replace('_', ' ')}</TableCell>
                         <TableCell>{order.order_items?.length || 0}</TableCell>
                         <TableCell>€{Number(order.total).toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {(order.payment_method || (order.stripe_payment_intent_id ? 'card' : 'cash')) === 'card' ? '💳 Card' : '💵 Cash'}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           {order.special_instructions ? (
                             <div className="flex items-start gap-1 max-w-[200px]">
