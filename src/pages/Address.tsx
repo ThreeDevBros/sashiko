@@ -243,13 +243,8 @@ export default function Address() {
       setGettingLocation(false);
     }
   };
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
-  };
+
+
 
   const handleSaveAddress = async () => {
     if (!user?.id) return;
