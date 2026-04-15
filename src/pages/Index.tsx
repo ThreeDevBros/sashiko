@@ -172,7 +172,7 @@ const Index = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-safe">
       {/* Hero Section */}
       <div className="relative w-full h-[45vh] min-h-[400px] overflow-hidden">
         {bannerStyle === 'slideshow' && banners.length > 1 ? (
