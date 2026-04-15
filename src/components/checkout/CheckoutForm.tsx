@@ -470,6 +470,7 @@ export const CheckoutForm = ({
             guestDeliveryLng: orderType === 'delivery' ? (guestDeliveryLng || null) : null,
             scheduledDateTime: scheduledDateTime || null,
             deliveryFee: orderType === 'delivery' ? deliveryFee : 0,
+            serviceFee,
             currency,
             tax,
             orderTotal,
@@ -522,6 +523,7 @@ export const CheckoutForm = ({
               guest_info: isGuest && guestInfo ? { name: guestInfo.name, email: guestInfo.email, phone: guestInfo.phone } : null,
               estimated_delivery_time: scheduledDateTime || null,
               delivery_fee: orderType === 'delivery' ? deliveryFee : 0,
+              service_fee: serviceFee,
               currency,
               tax,
             }

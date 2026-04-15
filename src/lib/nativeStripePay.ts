@@ -149,6 +149,7 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
         guest_info: options.guestInfo || null,
         estimated_delivery_time: options.scheduledDateTime || null,
         delivery_fee: options.deliveryFee,
+        service_fee: options.serviceFee || 0,
         currency: options.currency,
         tax: options.tax,
       },
