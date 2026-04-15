@@ -1,45 +1,36 @@
 
 
-## Fix: Backend Charges More Than UI Shows
+## Fix: Refund Function Not Processing Refunds
 
-### Root Cause
+### Investigation Results
 
-The `create-payment-intent` edge function independently recalculates the total:
-```
-subtotal (from DB prices) + tax + deliveryFee + serviceFee
-```
+**The `refund-order` edge function works correctly.** Direct testing with two real cancelled orders produced successful Stripe refunds (`re_3TMZhuIsawC8FwOE3qDJIDoL` and `re_3TMZg3IsawC8FwOE1uCRy3va`). The function is deployed and responds to requests.
 
-This diverges from the UI total in multiple ways:
-1. **DB subtotal ignores modifier surcharges** — `getVerifiedPrices()` only fetches base `menu_items.price` and branch overrides, but cart items include modifier add-on costs in their `price` field
-2. **Cashback discount is never applied** — the UI subtracts cashback, but the backend doesn't know about it
-3. **Potential delivery fee mismatch** — while the code correctly zeroes delivery for pickup (`order_type === 'delivery' ? clientDeliveryFee : 0`), the server-side subtotal being wrong means the total is already incorrect
+**The problem: zero historical logs.** Before our direct test, the function had zero boot logs, zero HTTP logs, and zero application logs. This means `supabase.functions.invoke('refund-order', ...)` from the client app **never reached the backend**. Possible causes:
+- The function was not deployed in earlier versions and only became available after recent edits
+- On native iOS, network requests can be silently dropped if the app transitions to background during the mutation
+- The fire-and-forget pattern in `OrderTracking.tsx` (line 531) doesn't await results, so navigation away kills the request
 
 ### Fix Strategy
 
-Pass the UI-computed `order_total` to the backend and use it directly as the Stripe charge amount. Keep server-side price verification as a safety check (log a warning if it deviates significantly) but don't override the UI total.
+Make refund invocation resilient and add better diagnostics to catch future failures.
 
 ### Changes
 
-**1. `supabase/functions/create-payment-intent/index.ts`**
-- Add `order_total` to the request schema (required number field)
-- Use `Math.round(order_total * 100)` as the Stripe payment intent amount
-- Keep the existing `getVerifiedPrices` call but only use it for metadata (subtotal, items) and a sanity-check log
-- Remove the server-side total calculation that overrides the client value
+**1. `src/pages/OrderTracking.tsx` — Await the refund call instead of fire-and-forget**
+- Line 531: Change from `.then()` fire-and-forget to `await` so the refund completes before the function exits
+- Add error logging with toast on failure
 
-**2. `src/pages/Checkout.tsx`** (useEffect payment intent creation)
-- Add `order_total: grandTotal` to the request body (line 438)
+**2. `src/pages/staff/StaffOrders.tsx` — Add verbose logging around the refund call**
+- Add `console.log` before invoking refund-order so we can confirm the code path is reached
+- Log the full response from `supabase.functions.invoke` for debugging
 
-**3. `src/components/checkout/CheckoutForm.tsx`** (wallet payment paths)
-- Native wallet path (line 472): already passes `orderTotal` to nativeStripePay options — need to verify it reaches the edge function
-- Web wallet path (line 517): add `order_total: orderTotal` to the request body
+**3. `src/pages/admin/OrderManagement.tsx` — Same logging improvements**
+- Mirror the staff panel logging changes
 
-**4. `src/lib/nativeStripePay.ts`** (native wallet payment intent creation)
-- Add `order_total: options.orderTotal` to the edge function request body (line 137)
-
-**5. `src/components/checkout/GuestCardPayment.tsx`**
-- Accept `orderTotal` prop
-- Add `order_total: orderTotal` to the request body (line 137)
-- Parent `CheckoutForm.tsx` to pass `orderTotal={orderTotal}` to GuestCardPayment
+**4. `supabase/functions/refund-order/index.ts` — Modernize to `Deno.serve`**
+- Replace `import { serve }` with `Deno.serve` to match other working functions and ensure deployment compatibility
+- This is a safety measure — the old pattern works but the newer pattern is more reliable with the Lovable deployment pipeline
 
 ### No database migration needed.
 
