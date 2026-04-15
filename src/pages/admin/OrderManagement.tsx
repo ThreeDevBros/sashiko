@@ -150,8 +150,15 @@ export default function OrderManagement() {
       // If cancelling, trigger Stripe refund
       if (status === 'cancelled') {
         supabase.functions.invoke('refund-order', { body: { order_id: id } })
-          .then(({ error: refundErr }) => {
-            if (refundErr) console.error('Refund error:', refundErr);
+          .then(({ data, error: refundErr }) => {
+            if (refundErr) {
+              console.error('Refund error:', refundErr);
+              toast({ title: 'Refund failed', description: 'Could not process automatic refund.', variant: 'destructive' });
+            } else if (data?.refunded) {
+              toast({ title: 'Refund issued', description: 'Payment has been refunded.' });
+            } else if (data?.reason === 'cash_order') {
+              console.log('Cash order — no refund needed');
+            }
           });
       }
 

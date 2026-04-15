@@ -56,6 +56,7 @@ serve(async (req) => {
     }
 
     const { order_id } = validation.data;
+    console.log('Refund request received for order:', order_id, 'by user:', user.id);
 
     // Look up the order
     const { data: order, error: orderError } = await supabaseClient

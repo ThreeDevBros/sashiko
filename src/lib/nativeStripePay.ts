@@ -202,12 +202,10 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
 
     // 2b. Check wallet result before proceeding
     const paymentResult = walletResult?.paymentResult;
-    if (paymentResult === 'Canceled') {
-      return { success: false, cancelled: true };
-    }
     const completedResults = ['Completed', 'applePayCompleted', 'googlePayCompleted'];
-    if (paymentResult && !completedResults.includes(paymentResult)) {
-      return { success: false, error: 'Payment was not completed. Please try again.' };
+    if (!paymentResult || !completedResults.includes(paymentResult)) {
+      // Not a recognized success — treat as user cancellation (no error shown)
+      return { success: false, cancelled: true };
     }
 
     // 3. Extract payment intent ID from client secret
