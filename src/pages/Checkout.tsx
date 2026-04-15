@@ -1028,6 +1028,7 @@ const Checkout = () => {
                       orderInstructions={orderInstructions}
                       scheduledDateTime={scheduledDateTime}
                       deliveryFee={deliveryFee}
+                      serviceFee={serviceFee}
                       onBeforeNavigate={() => { isNavigatingAway.current = true; }}
                       cashAllowed={cashAllowed}
                       tax={tax}
@@ -1061,6 +1062,7 @@ const Checkout = () => {
                   orderInstructions={orderInstructions}
                   scheduledDateTime={scheduledDateTime}
                   deliveryFee={deliveryFee}
+                  serviceFee={serviceFee}
                   onBeforeNavigate={() => { isNavigatingAway.current = true; }}
                   cashAllowed={cashAllowed}
                   tax={tax}
@@ -1091,6 +1093,7 @@ const Checkout = () => {
                 orderInstructions={orderInstructions}
                 scheduledDateTime={scheduledDateTime}
                 deliveryFee={deliveryFee}
+                serviceFee={serviceFee}
                 onBeforeNavigate={() => { isNavigatingAway.current = true; }}
                  cashAllowed={cashAllowed}
                  tax={tax}
@@ -1120,6 +1123,7 @@ const Checkout = () => {
                   orderInstructions={orderInstructions}
                   scheduledDateTime={scheduledDateTime}
                   deliveryFee={deliveryFee}
+                  serviceFee={serviceFee}
                   onBeforeNavigate={() => { isNavigatingAway.current = true; }}
                   cashAllowed={cashAllowed}
                   tax={tax}
@@ -1147,6 +1151,7 @@ const Checkout = () => {
               orderInstructions={orderInstructions}
               scheduledDateTime={scheduledDateTime}
               deliveryFee={deliveryFee}
+              serviceFee={serviceFee}
               onBeforeNavigate={() => { isNavigatingAway.current = true; }}
                cashAllowed={cashAllowed}
                tax={tax}
