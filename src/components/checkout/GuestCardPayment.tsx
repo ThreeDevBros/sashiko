@@ -189,7 +189,7 @@ export const GuestCardPayment = ({
       if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function')) errorMessage = error.message;
       toast({ title: 'Payment failed', description: errorMessage, variant: 'destructive' });
     } finally { setLoading(false); isSubmittingRef.current = false; }
-  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, toast]);
+  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, toast, deliveryFee, serviceFee, tax, orderTotal]);
 
   useEffect(() => {
     if (submitRef) submitRef.current = handleSubmit;
