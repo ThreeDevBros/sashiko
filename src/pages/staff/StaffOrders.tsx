@@ -265,19 +265,21 @@ function StaffOrdersContent() {
       // If cancelling, trigger Stripe refund
       if (status === 'cancelled') {
         try {
+          console.log('[Staff Refund] Invoking refund-order for order:', id);
           const { data: refundData, error: refundErr } = await supabase.functions.invoke('refund-order', { body: { order_id: id } });
+          console.log('[Staff Refund] Response:', { refundData, refundErr });
           if (refundErr) {
-            console.error('Refund invocation error:', refundErr);
+            console.error('[Staff Refund] Error:', refundErr);
             toast.error('Refund failed', { description: refundErr.message || 'Could not process automatic refund.', duration: 10000 });
           } else if (refundData?.refunded) {
             toast.success('Refund issued', { description: 'Payment has been refunded.', duration: 5000 });
           } else if (refundData?.reason === 'cash_order') {
-            console.log('Cash order — no refund needed');
+            console.log('[Staff Refund] Cash order — no refund needed');
           } else if (refundData?.reason) {
-            console.log('Refund skipped:', refundData.reason);
+            console.log('[Staff Refund] Skipped:', refundData.reason);
           }
         } catch (e: any) {
-          console.error('Refund call exception:', e);
+          console.error('[Staff Refund] Exception:', e);
           toast.error('Refund error', { description: 'Unexpected error processing refund.', duration: 10000 });
         }
       }

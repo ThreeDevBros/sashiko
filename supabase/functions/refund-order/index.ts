@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@14.21.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
@@ -12,7 +11,7 @@ const requestSchema = z.object({
   order_id: z.string().uuid(),
 });
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   console.log('refund-order invoked, method:', req.method);
 
   if (req.method === 'OPTIONS') {
