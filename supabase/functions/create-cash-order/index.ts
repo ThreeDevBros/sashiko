@@ -36,13 +36,65 @@ const requestBodySchema = z.object({
   tax: z.number().nonnegative().max(100000).optional(),
 });
 
+/** Fetch authoritative prices from DB and compute subtotal server-side */
+async function getVerifiedPrices(
+  supabaseClient: any,
+  items: { id: string; quantity: number }[],
+  branchId: string | null | undefined,
+) {
+  const ids = items.map(i => i.id);
+
+  const { data: dbItems, error } = await supabaseClient
+    .from('menu_items')
+    .select('id, price, name')
+    .in('id', ids);
+
+  if (error || !dbItems) {
+    throw new Error('Failed to verify item prices.');
+  }
+
+  const priceMap = new Map<string, { price: number; name: string }>();
+  for (const item of dbItems) {
+    priceMap.set(item.id, { price: Number(item.price), name: item.name });
+  }
+
+  if (branchId) {
+    const { data: branchItems } = await supabaseClient
+      .from('branch_menu_items')
+      .select('menu_item_id, price_override')
+      .eq('branch_id', branchId)
+      .in('menu_item_id', ids)
+      .not('price_override', 'is', null);
+
+    if (branchItems) {
+      for (const bi of branchItems) {
+        const existing = priceMap.get(bi.menu_item_id);
+        if (existing) {
+          priceMap.set(bi.menu_item_id, { ...existing, price: Number(bi.price_override) });
+        }
+      }
+    }
+  }
+
+  for (const item of items) {
+    if (!priceMap.has(item.id)) {
+      throw new Error(`Menu item not found: ${item.id}`);
+    }
+  }
+
+  const subtotal = items.reduce((sum, item) => {
+    return sum + priceMap.get(item.id)!.price * item.quantity;
+  }, 0);
+
+  return { priceMap, subtotal };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Use service role to bypass RLS - this is a server-side function
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -63,29 +115,20 @@ serve(async (req) => {
 
     const body = await req.json();
     
-    // Validate request body
     const validationResult = requestBodySchema.safeParse(body);
     if (!validationResult.success) {
       console.error('Validation error:', validationResult.error);
       return new Response(
         JSON.stringify({ error: 'Invalid request data', details: validationResult.error.errors }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    // If auth header was provided but user couldn't be resolved, reject to prevent
-    // signed-in orders from silently becoming guest orders
     if (authHeader && !user) {
       console.error('Auth header present but user could not be resolved — session may have expired');
       return new Response(
         JSON.stringify({ error: 'Authentication session expired. Please sign in again.' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 401,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
 
@@ -93,7 +136,7 @@ serve(async (req) => {
 
     console.log('Creating cash order for:', user ? `user ${user.id}` : `guest ${guest_info?.email}`);
 
-    // Ensure profile exists for authenticated users (prevents FK violation)
+    // Ensure profile exists for authenticated users
     if (user?.id) {
       const { data: existingProfile } = await supabaseClient
         .from('profiles')
@@ -125,7 +168,7 @@ serve(async (req) => {
       } catch (e) { console.error('Reverse geocode failed:', e); }
     }
 
-    // For authenticated users, populate guest_name/email/phone from profile as backup display fields
+    // For authenticated users, populate guest_name/email/phone from profile
     if (user?.id) {
       const { data: profile } = await supabaseClient
         .from('profiles')
@@ -137,7 +180,6 @@ serve(async (req) => {
       const profilePhone = profile?.phone || guest_info?.phone || '';
       const profileEmail = guest_info?.email || user.email || '';
 
-      // Always store name/email/phone on the order so admin panels can display them
       guest_info = {
         name: profileName,
         email: profileEmail,
@@ -145,7 +187,7 @@ serve(async (req) => {
       };
     }
 
-    // Guest checkout validation — strict checks only for unauthenticated users
+    // Guest checkout validation
     if (!user) {
       if (!guest_info || !guest_info.name || guest_info.name.length < 2) {
         return new Response(
@@ -167,23 +209,18 @@ serve(async (req) => {
       }
     }
 
-    // Items already validated by schema
+    // SERVER-SIDE PRICE VERIFICATION: fetch authoritative prices from DB
+    const { priceMap, subtotal } = await getVerifiedPrices(supabaseClient, items, branch_id);
 
-    // Calculate totals
-    const subtotal = items.reduce((sum: number, item: any) => 
-      sum + (item.price * item.quantity), 0
-    );
     const tax = clientTax !== undefined ? clientTax : subtotal * 0.1;
     const deliveryFee = order_type === 'delivery' ? clientDeliveryFee : 0;
-    const serviceFee = subtotal * 0.05; // 5% service fee
+    const serviceFee = subtotal * 0.05;
     const totalBeforeDiscount = subtotal + tax + deliveryFee + serviceFee;
     const cashbackDiscount = Math.min(cashback_used, totalBeforeDiscount);
     const total = totalBeforeDiscount - cashbackDiscount;
 
-    // Generate order number
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
 
-    // Create order
     const { data: order, error: orderError } = await supabaseClient
       .from('orders')
       .insert({
@@ -217,7 +254,6 @@ serve(async (req) => {
 
     console.log('Order created:', order.id);
 
-    // Deduct cashback from user's balance if used
     if (user?.id && cashbackDiscount > 0) {
       const { error: cashbackError } = await supabaseClient.rpc('deduct_cashback', {
         p_user_id: user.id,
@@ -226,21 +262,23 @@ serve(async (req) => {
       
       if (cashbackError) {
         console.error('Cashback deduction error:', cashbackError);
-        // Don't fail the order, just log the error
       } else {
         console.log('Cashback deducted:', cashbackDiscount);
       }
     }
 
-    // Create order items
-    const orderItems = items.map((item: any) => ({
-      order_id: order.id,
-      menu_item_id: item.id,
-      quantity: item.quantity,
-      unit_price: item.price,
-      total_price: item.price * item.quantity,
-      special_instructions: item.special_instructions || null,
-    }));
+    // Create order items using verified DB prices
+    const orderItems = items.map((item: any) => {
+      const dbPrice = priceMap.get(item.id)?.price ?? item.price;
+      return {
+        order_id: order.id,
+        menu_item_id: item.id,
+        quantity: item.quantity,
+        unit_price: dbPrice,
+        total_price: dbPrice * item.quantity,
+        special_instructions: item.special_instructions || null,
+      };
+    });
 
     const { error: itemsError } = await supabaseClient
       .from('order_items')
@@ -259,19 +297,13 @@ serve(async (req) => {
         order_id: order.id,
         order_number: orderNumber,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error: any) {
     console.error('Error:', error);
     return new Response(
       JSON.stringify({ error: error?.message || 'Unknown error' }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
     );
   }
 });
