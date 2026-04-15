@@ -1,37 +1,45 @@
 
 
-## Fix: Apple Pay Button Non-Functional After Cancel
+## Fix: Backend Charges More Than UI Shows
 
 ### Root Cause
 
-There are **two separate `loading` states** — one in `Checkout.tsx` (line 93) and one in `CheckoutForm.tsx` (line 101). They are independent.
+The `create-payment-intent` edge function independently recalculates the total:
+```
+subtotal (from DB prices) + tax + deliveryFee + serviceFee
+```
 
-When the user clicks the "Pay with Apple Pay" button:
-1. `Checkout.tsx` sets `isPlacingOrderRef.current = true` (line 1222)
-2. `form.requestSubmit()` triggers `CheckoutForm.handleSubmit`
-3. CheckoutForm sets its own `loading = true`, runs the wallet flow
-4. On cancel, CheckoutForm sets its own `loading = false` and `isSubmittingRef.current = false`
+This diverges from the UI total in multiple ways:
+1. **DB subtotal ignores modifier surcharges** — `getVerifiedPrices()` only fetches base `menu_items.price` and branch overrides, but cart items include modifier add-on costs in their `price` field
+2. **Cashback discount is never applied** — the UI subtracts cashback, but the backend doesn't know about it
+3. **Potential delivery fee mismatch** — while the code correctly zeroes delivery for pickup (`order_type === 'delivery' ? clientDeliveryFee : 0`), the server-side subtotal being wrong means the total is already incorrect
 
-The useEffect in Checkout.tsx (line 124) that resets `isPlacingOrderRef` watches **Checkout's** `loading` — which was never changed. So `isPlacingOrderRef.current` stays `true` permanently. On the next click, line 1221 (`if (isPlacingOrderRef.current || loading) return;`) short-circuits and nothing happens.
+### Fix Strategy
 
-### Fix
-
-Expose a callback from `CheckoutForm` to `Checkout` that resets the parent's guard when the form submission completes (success, error, or cancel). The simplest approach: pass a `onSubmissionEnd` prop from Checkout to CheckoutForm, called in the `finally` block and cancel paths.
-
-**Alternative (simpler):** Remove `isPlacingOrderRef` entirely from the click handler in `Checkout.tsx`. The `isSubmittingRef` inside CheckoutForm already prevents duplicate submissions. The only purpose of `isPlacingOrderRef` was to prevent double-clicks, but `isSubmittingRef` in the form handler already does this.
+Pass the UI-computed `order_total` to the backend and use it directly as the Stripe charge amount. Keep server-side price verification as a safety check (log a warning if it deviates significantly) but don't override the UI total.
 
 ### Changes
 
-**`src/pages/Checkout.tsx`:**
-- Remove the `isPlacingOrderRef` declaration and its useEffect
-- Remove the `isPlacingOrderRef.current` check and set from the button onClick handler
-- Remove all `resetGuard()` calls (the validation returns don't need it since the ref is gone)
-- Keep `loading` check in onClick as the only guard: `if (loading) return;`
+**1. `supabase/functions/create-payment-intent/index.ts`**
+- Add `order_total` to the request schema (required number field)
+- Use `Math.round(order_total * 100)` as the Stripe payment intent amount
+- Keep the existing `getVerifiedPrices` call but only use it for metadata (subtotal, items) and a sanity-check log
+- Remove the server-side total calculation that overrides the client value
 
-This is safe because `CheckoutForm.handleSubmit` has its own `isSubmittingRef` that prevents duplicate submissions at the form level.
+**2. `src/pages/Checkout.tsx`** (useEffect payment intent creation)
+- Add `order_total: grandTotal` to the request body (line 438)
 
-### Files to Modify
-1. `src/pages/Checkout.tsx` — Remove `isPlacingOrderRef` and all references
+**3. `src/components/checkout/CheckoutForm.tsx`** (wallet payment paths)
+- Native wallet path (line 472): already passes `orderTotal` to nativeStripePay options — need to verify it reaches the edge function
+- Web wallet path (line 517): add `order_total: orderTotal` to the request body
 
-No database migration needed.
+**4. `src/lib/nativeStripePay.ts`** (native wallet payment intent creation)
+- Add `order_total: options.orderTotal` to the edge function request body (line 137)
+
+**5. `src/components/checkout/GuestCardPayment.tsx`**
+- Accept `orderTotal` prop
+- Add `order_total: orderTotal` to the request body (line 137)
+- Parent `CheckoutForm.tsx` to pass `orderTotal={orderTotal}` to GuestCardPayment
+
+### No database migration needed.
 
