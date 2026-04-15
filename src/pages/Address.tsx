@@ -573,29 +573,26 @@ export default function Address() {
           <Button
             variant="secondary"
             size="icon"
-            onClick={() => {
-              if (!navigator.geolocation) return;
+            onClick={async () => {
+              if (!isGeolocationAvailable()) return;
               setGettingLocation(true);
-              navigator.geolocation.getCurrentPosition(
-                (position) => {
-                  const { latitude, longitude } = position.coords;
-                  setAddressForm(prev => ({
-                    ...prev,
-                    latitude,
-                    longitude,
-                  }));
-                  setGettingLocation(false);
-                },
-                () => {
-                  setGettingLocation(false);
-                  toast({
-                    title: 'Location error',
-                    description: 'Could not get your current location.',
-                    variant: 'destructive',
-                  });
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-              );
+              try {
+                const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+                const { latitude, longitude } = position.coords;
+                setAddressForm(prev => ({
+                  ...prev,
+                  latitude,
+                  longitude,
+                }));
+              } catch {
+                toast({
+                  title: 'Location error',
+                  description: 'Could not get your current location.',
+                  variant: 'destructive',
+                });
+              } finally {
+                setGettingLocation(false);
+              }
             }}
             disabled={gettingLocation}
             className="h-10 w-10 rounded-full shadow-lg"
