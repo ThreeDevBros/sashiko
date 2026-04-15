@@ -1,74 +1,86 @@
 
 
-## Fix Payment Cancellation UX, Service Fee in Charges, and Apple/Google Pay Refunds
+## Investigation: Refund Function — Guest vs Signed-In, Card vs Apple/Google Pay
 
-### Issue 1: Cancellation Shows Error + Locks Button
+### Current State of `refund-order/index.ts`
 
-**Root cause (card payments):** When the user cancels a Stripe card payment, `stripeError` is set at line 643-646 in `CheckoutForm.tsx`. The code calls `setError(...)` then `throw`, which hits the outer `catch` block. The catch detects the cancellation and returns early, but never clears the error state — so the red error alert stays visible and the button appears locked.
+The edge function logic is sound for **signed-in users** with card or wallet payments:
+- Looks up order by UUID, retrieves `stripe_payment_intent_id`
+- Checks auth: allows admin/staff/manager, order owner, or guest orders (`user_id` is null)
+- Skips cash orders, checks PI status is `succeeded`, issues `stripe.refunds.create()`
 
-**Root cause (Apple/Google Pay - native):** The native wallet cancellation is already handled correctly at lines 476-481 (returns early). However, the `presentApplePay()` call may throw an exception on cancel rather than returning a result, and the catch block at line 237 handles that. This path looks correct already. If the user still sees errors, it may be from the `setError` line at 208 for unexpected result strings.
+### Findings by Scenario
 
-**Fix in `CheckoutForm.tsx`:**
-- In the card payment `stripeError` block (lines 643-647): detect cancellation before setting error. If `stripeError.code === 'payment_intent_authentication_failure'` or message contains 'cancel', silently return without setting error or throwing.
-- Clear `error` state at the start of the catch block if cancellation is detected.
+| Scenario | Works? | Why |
+|----------|--------|-----|
+| **Signed-in + Card** | Yes | User has JWT, `isOwner` is true, PI exists |
+| **Signed-in + Apple/Google Pay** | Yes | Same as card — Apple/Google Pay still creates a Stripe PI |
+| **Guest + Card** | **NO** | Guest has no auth session → 401 Unauthorized |
+| **Guest + Apple/Google Pay** | **NO** | Same — no auth session → 401 Unauthorized |
 
-### Issue 2: Card Payment Doesn't Charge Service Fee
+### Root Cause
 
-**Root cause:** The `create-payment-intent` edge function computes `total = subtotal + tax + deliveryFee` — it never includes the service fee. The service fee is calculated client-side in `Checkout.tsx` but never sent to the server.
+The `refund-order` function **requires authentication** (lines 27-46). Guest users on the OrderTracking page have no Supabase JWT — they load order data via the `get-guest-order` edge function using email verification. When a guest cancels, `supabase.functions.invoke('refund-order', ...)` sends only the anon key, and the function returns 401.
 
-**Fix:**
-1. **`create-payment-intent/index.ts`**: Add `service_fee` to the Zod schema. Include it in the total calculation: `total = subtotal + tax + deliveryFee + serviceFee`.
-2. **`confirm-payment/index.ts`**: Store the `service_fee` from metadata in the order record (add to insert and metadata).
-3. **All callers** (`Checkout.tsx` lines 435-446, `CheckoutForm.tsx` lines 514-525, `nativeStripePay.ts` lines 136-153): Pass `service_fee` in the request body.
-4. **DB migration**: Add `service_fee` column to `orders` table (numeric, default 0).
+Additionally, the guest cancel flow at line 501-504 does `supabase.from('orders').update(...)` which will also fail silently due to RLS (no authenticated user = no matching policy).
 
-### Issue 3: Apple/Google Pay Refunds Don't Work
+### Second Issue: Guest Order Status Update Also Fails
 
-**Root cause:** For guest users paying with Apple/Google Pay, the `refund-order` edge function requires authentication (returns 401 for unauthenticated callers). Guest orders have `user_id: null`, so even if authenticated, `isOwner` is false and `hasStaffRole` is false.
+The `handleCancelOrder` function updates the order status via the Supabase client directly (line 501-504). For guest users with no auth session, RLS blocks this update. The cancel appears to work client-side (optimistic UI at line 514) but the database never actually updates.
 
-Actually, for authenticated users paying with Apple Pay, the flow should work. The more likely issue is that the `order.user_id` stored is null for guest Apple Pay orders, and refund is triggered from the tracking page which may not have auth.
+### Fix Plan
 
-**Fix in `refund-order/index.ts`:** For the guest order case, allow the refund if the order has no `user_id` (guest order) — the caller is already authenticated and viewing the tracking page. Add a guest verification path: if `order.user_id` is null, check if the order matches a guest tracking token or simply allow it since the order was already found.
+**Option: Make refund-order accept guest verification (email + order_id) without JWT**
+
+1. **`supabase/functions/refund-order/index.ts`** — Add a guest path:
+   - If no valid JWT, check for `guest_email` in the request body
+   - Verify the order's `guest_email` matches the provided email (same pattern as `get-guest-order`)
+   - If verified, proceed with the refund
+   - This covers both card and Apple/Google Pay guest refunds
+
+2. **`src/pages/OrderTracking.tsx`** — Update `handleCancelOrder` for guests:
+   - Instead of direct `supabase.from('orders').update(...)`, call a new or modified edge function that handles both the status update and refund for guest orders
+   - OR: extend `refund-order` to also update the order status to `cancelled` when called by a guest
+   - Pass `guest_email` in the refund request body
+
+3. **Alternative simpler approach**: Create a `cancel-guest-order` edge function that:
+   - Accepts `order_id` + `guest_email`
+   - Verifies email matches `orders.guest_email`
+   - Updates order status to `cancelled`
+   - Triggers Stripe refund if applicable
+   - Returns success
+
+### Recommended Approach
+
+Create a dedicated **`cancel-guest-order`** edge function (cleanest separation). Modify `OrderTracking.tsx` to use it for guest cancellations. This avoids weakening auth on the existing refund function.
 
 ### Files to Modify
-
-1. **`supabase/functions/create-payment-intent/index.ts`** — Add `service_fee` to schema and total calculation
-2. **`supabase/functions/confirm-payment/index.ts`** — Store `service_fee` in order record from PI metadata
-3. **`src/pages/Checkout.tsx`** — Pass `service_fee` to create-payment-intent call
-4. **`src/components/checkout/CheckoutForm.tsx`** — Pass `service_fee` in wallet/web wallet payment intent calls; fix card cancellation to not show error
-5. **`src/lib/nativeStripePay.ts`** — Accept and pass `service_fee` to create-payment-intent
-6. **`supabase/functions/refund-order/index.ts`** — Allow refund for guest orders (user_id is null)
-7. **DB migration** — Add `service_fee` numeric column to `orders` table
+1. **New: `supabase/functions/cancel-guest-order/index.ts`** — Verify guest email, update status, issue Stripe refund
+2. **`src/pages/OrderTracking.tsx`** — Use `cancel-guest-order` for guest users instead of direct DB update + separate refund call
 
 ### Technical Details
 
-**Service fee flow:**
-- `Checkout.tsx` calculates `serviceFee = subtotal * (serviceFeeRate / 100)`
-- Pass as `service_fee` parameter to `create-payment-intent`
-- Server validates and includes in total: `Math.round((subtotal + tax + deliveryFee + serviceFee) * 100)` for Stripe amount
-- Store in PI metadata and in orders table via `confirm-payment`
-
-**Cancellation fix:**
 ```typescript
-// Before setting error, check if it's a cancellation
-if (stripeError) {
-  const msg = (stripeError.message ?? '').toLowerCase();
-  if (stripeError.code === 'payment_intent_authentication_failure' ||
-      msg.includes('cancel') || msg.includes('abort')) {
-    // User cancelled — silently reset
-    return;
-  }
-  setError(stripeError.message || 'Payment failed');
-  throw new Error(stripeError.message);
+// cancel-guest-order/index.ts (simplified)
+// 1. Validate { order_id, guest_email }
+// 2. Lookup order with service role, verify guest_email matches
+// 3. Check order is still 'pending'
+// 4. Update status to 'cancelled'
+// 5. If stripe_payment_intent_id exists, issue refund
+// 6. Return success
+```
+
+```typescript
+// OrderTracking.tsx — handleCancelOrder guest path
+if (isGuest) {
+  const email = guestOrders.find(o => o.id === order.id)?.email;
+  const { data, error } = await supabase.functions.invoke('cancel-guest-order', {
+    body: { order_id: order.id, guest_email: email }
+  });
+  if (error) throw error;
+  // Update UI optimistically
 }
 ```
 
-**Guest refund fix:**
-```typescript
-// Allow refund if caller is owner, has staff role, or it's a guest order
-const isGuestOrder = !order.user_id;
-if (!hasStaffRole && !isOwner && !isGuestOrder) {
-  return new Response(JSON.stringify({ error: 'Forbidden.' }), { status: 403 });
-}
-```
+For signed-in users (both card and wallet), the current flow works correctly — no changes needed.
 
