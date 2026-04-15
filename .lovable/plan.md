@@ -1,38 +1,26 @@
 
 
-## Add Payment Method Details to Staff & Admin Order Panels
+## Fix Order Refund Flow
 
-### Approach
-Rather than adding a new database column, we can **infer the payment method from existing data** — orders with a `stripe_payment_intent_id` were paid by card (Stripe/Apple Pay/Google Pay), and orders without one are cash orders. This avoids a migration and backfill.
+### Bugs Found
 
-However, for better granularity (distinguishing card vs Apple Pay vs Google Pay), we should add a `payment_method` column and populate it at order creation time.
+1. **UUID vs Payment Intent mismatch (refund never fires)**: All three callers (`OrderTracking.tsx`, `StaffOrders.tsx`, `OrderManagement.tsx`) pass the order's UUID (e.g. `a1b2c3d4-...`) as `order_id`. The edge function then checks `order_id.startsWith('pi_')` — which is always false for a UUID — so it returns `{ reason: 'cash_order' }` and skips the Stripe refund entirely.
 
-### Plan
+2. **Admin-only auth blocks customer refunds**: The function requires admin role (line 48-61), but customers trigger refunds from the order tracking page. Their requests are rejected with 403 Forbidden, and the error is silently logged in the console.
 
-**1. Database migration** — Add `payment_method` text column to `orders` table (nullable, no default). Backfill existing rows: set to `'cash'` where `stripe_payment_intent_id IS NULL`, `'card'` otherwise.
+### Fix
 
-**2. Update edge functions to store payment method**
-- `confirm-payment/index.ts` — Set `payment_method: 'card'` on insert (covers card, Apple Pay, Google Pay via Stripe)
-- `create-cash-order/index.ts` — Set `payment_method: 'cash'` on insert
-- `stripe-webhook/index.ts` — If it creates orders, also set payment_method
+**File: `supabase/functions/refund-order/index.ts`** — Rewrite the core logic:
 
-**3. Display payment method in Admin OrderManagement**
-- `src/pages/admin/OrderManagement.tsx` — Add "Payment" column to the desktop table showing a badge (e.g., 💳 Card / 💵 Cash)
-- `src/components/admin/MobileOrderCards.tsx` — Add payment method pill in the summary row alongside Type/Items/Total
+1. Accept `order_id` as the order's UUID (as all callers send it)
+2. Look up the order in the `orders` table to get `stripe_payment_intent_id`, `user_id`, and `payment_method`
+3. If `payment_method` is `'cash'` or `stripe_payment_intent_id` is null, return early (no refund needed)
+4. Broaden auth: allow the request if the caller is an admin, a staff member, OR the order's owner (`user_id` matches the authenticated user)
+5. Use the retrieved `stripe_payment_intent_id` to call `stripe.refunds.create()`
 
-**4. Display payment method in Staff panels**
-- `src/pages/staff/StaffOrders.tsx` — Add payment badge in order cards
-- `src/components/staff/NewOrderPopup.tsx` — Show payment method in the order detail dialog
+### Technical Details
 
-### Fallback Logic
-If `payment_method` column is null (older orders), derive from `stripe_payment_intent_id`: present → "Card", absent → "Cash".
+The callers (`OrderTracking.tsx`, `StaffOrders.tsx`, `OrderManagement.tsx`) are all correct — they pass `{ order_id: order.id }` which is the UUID. No client-side changes needed.
 
-### Files to modify
-- New migration SQL
-- `supabase/functions/confirm-payment/index.ts`
-- `supabase/functions/create-cash-order/index.ts`
-- `src/pages/admin/OrderManagement.tsx`
-- `src/components/admin/MobileOrderCards.tsx`
-- `src/pages/staff/StaffOrders.tsx`
-- `src/components/staff/NewOrderPopup.tsx`
+The fix is entirely in the edge function: query the orders table first, then use the `stripe_payment_intent_id` column (added in a recent migration) to issue the Stripe refund.
 
