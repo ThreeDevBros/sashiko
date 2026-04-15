@@ -439,6 +439,7 @@ const Checkout = () => {
             service_fee: serviceFee,
             currency: (currency || 'USD').toLowerCase(),
             tax: tax,
+            order_total: grandTotal,
           }
         });
         if (response.error) {

@@ -33,6 +33,7 @@ const requestSchema = z.object({
   service_fee: z.number().nonnegative().max(100000).optional().default(0),
   currency: z.string().min(3).max(3).optional().default('usd'),
   tax: z.number().nonnegative().max(100000).optional(),
+  order_total: z.number().positive().max(100000000),
 });
 
 /** Fetch authoritative prices from DB and compute subtotal server-side */
@@ -137,7 +138,7 @@ serve(async (req) => {
       );
     }
 
-    const { items, branch_id, order_type, delivery_address_id, guest_info, estimated_delivery_time, delivery_fee: clientDeliveryFee, service_fee: clientServiceFee, currency: requestCurrency, tax: clientTax } = validation.data;
+    const { items, branch_id, order_type, delivery_address_id, guest_info, estimated_delivery_time, delivery_fee: clientDeliveryFee, service_fee: clientServiceFee, currency: requestCurrency, tax: clientTax, order_total } = validation.data;
 
     // Guest checkout validation
     if (!user && !guest_info) {
@@ -149,21 +150,27 @@ serve(async (req) => {
 
     console.log('Creating payment intent for:', user ? `user ${user.id}` : `guest ${guest_info?.email}`);
 
-    // SERVER-SIDE PRICE VERIFICATION: fetch authoritative prices from DB
+    // SERVER-SIDE PRICE VERIFICATION: fetch authoritative prices from DB for metadata/sanity check
     const { priceMap, subtotal } = await getVerifiedPrices(supabaseAdmin, items, branch_id);
 
     const tax = clientTax !== undefined ? clientTax : subtotal * 0.1;
     const deliveryFee = order_type === 'delivery' ? clientDeliveryFee : 0;
     const serviceFee = clientServiceFee;
-    const total = subtotal + tax + deliveryFee + serviceFee;
+    const serverTotal = subtotal + tax + deliveryFee + serviceFee;
+
+    // Use the UI-computed order_total as the authoritative charge amount
+    // Log a warning if it deviates significantly from server calculation (for debugging)
+    if (Math.abs(order_total - serverTotal) > 1) {
+      console.warn(`Price deviation detected: UI total=${order_total}, server total=${serverTotal}, subtotal=${subtotal}, tax=${tax}, deliveryFee=${deliveryFee}, serviceFee=${serviceFee}`);
+    }
 
     // Check minimum amount (Stripe requires at least $0.50 USD)
     const minimumAmount = 0.50;
-    if (total < minimumAmount) {
-      console.error(`Total amount $${total} is below minimum $${minimumAmount}`);
+    if (order_total < minimumAmount) {
+      console.error(`Total amount $${order_total} is below minimum $${minimumAmount}`);
       return new Response(
         JSON.stringify({ 
-          error: `Order total must be at least $${minimumAmount.toFixed(2)}. Current total: $${total.toFixed(2)}` 
+          error: `Order total must be at least $${minimumAmount.toFixed(2)}. Current total: $${order_total.toFixed(2)}` 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
@@ -211,7 +218,7 @@ serve(async (req) => {
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(total * 100),
+      amount: Math.round(order_total * 100),
       currency: requestCurrency.toLowerCase(),
       customer: customerId,
       automatic_payment_methods: {
