@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const requestSchema = z.object({
-  order_id: z.string().min(1).max(500),
+  order_id: z.string().uuid(),
 });
 
 serve(async (req) => {
@@ -45,21 +45,7 @@ serve(async (req) => {
       );
     }
 
-    // Verify the caller has admin role
-    const { data: roleData } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-
-    if (!roleData) {
-      return new Response(
-        JSON.stringify({ error: 'Forbidden: admin access required.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
-      );
-    }
-
+    // Parse request
     const body = await req.json();
     const validation = requestSchema.safeParse(body);
     if (!validation.success) {
@@ -71,9 +57,41 @@ serve(async (req) => {
 
     const { order_id } = validation.data;
 
-    const isPaymentIntent = order_id.startsWith('pi_');
+    // Look up the order
+    const { data: order, error: orderError } = await supabaseClient
+      .from('orders')
+      .select('stripe_payment_intent_id, user_id, payment_method')
+      .eq('id', order_id)
+      .single();
 
-    if (!isPaymentIntent) {
+    if (orderError || !order) {
+      console.error('Order not found:', order_id, orderError);
+      return new Response(
+        JSON.stringify({ error: 'Order not found.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      );
+    }
+
+    // Authorization: admin, staff/manager, or the order owner
+    const { data: roles } = await supabaseClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .in('role', ['admin', 'manager', 'staff']);
+
+    const hasStaffRole = roles && roles.length > 0;
+    const isOwner = order.user_id === user.id;
+
+    if (!hasStaffRole && !isOwner) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
+    // Check if it's a cash order or no payment intent
+    const paymentMethod = order.payment_method || (order.stripe_payment_intent_id ? 'card' : 'cash');
+    if (paymentMethod === 'cash' || !order.stripe_payment_intent_id) {
       console.log('Cash order — no Stripe refund needed for:', order_id);
       return new Response(
         JSON.stringify({ success: true, refunded: false, reason: 'cash_order' }),
@@ -82,7 +100,6 @@ serve(async (req) => {
     }
 
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-
     if (!stripeKey) {
       console.error('STRIPE_SECRET_KEY not configured');
       return new Response(
@@ -92,8 +109,9 @@ serve(async (req) => {
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
+    const piId = order.stripe_payment_intent_id;
 
-    const paymentIntent = await stripe.paymentIntents.retrieve(order_id);
+    const paymentIntent = await stripe.paymentIntents.retrieve(piId);
 
     if (paymentIntent.status !== 'succeeded') {
       console.log('Payment intent not succeeded, cannot refund:', paymentIntent.status);
@@ -104,17 +122,14 @@ serve(async (req) => {
     }
 
     if (paymentIntent.amount_received === 0 || (paymentIntent as any).amount_refunded === paymentIntent.amount_received) {
-      console.log('Already fully refunded:', order_id);
+      console.log('Already fully refunded:', piId);
       return new Response(
         JSON.stringify({ success: true, refunded: false, reason: 'already_refunded' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    const refund = await stripe.refunds.create({
-      payment_intent: order_id,
-    });
-
+    const refund = await stripe.refunds.create({ payment_intent: piId });
     console.log('Refund created:', refund.id, 'for order:', order_id);
 
     return new Response(
@@ -123,9 +138,8 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error processing refund:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: `Refund failed.` }),
+      JSON.stringify({ error: 'Refund failed.' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
