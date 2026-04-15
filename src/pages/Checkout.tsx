@@ -1219,7 +1219,6 @@ const Checkout = () => {
           // --- Branch Paused: block order ---
           if (branchIsPaused) {
             toast.error('This branch is currently busy and not accepting orders. Please try again shortly.');
-            resetGuard();
             return;
           }
 
@@ -1232,7 +1231,6 @@ const Checkout = () => {
               setTimeout(() => orderTypeCard.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2'), 3000);
             }
             toast.error('This branch is currently closed. Please schedule for later or try during operating hours.');
-            resetGuard();
             return;
           }
 
@@ -1245,14 +1243,12 @@ const Checkout = () => {
               setTimeout(() => deliverySection.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2'), 3000);
             }
             toast.error('Please set your delivery location to continue.');
-            resetGuard();
             return;
           }
 
           // --- Delivery out of range ---
           if (orderType === 'delivery' && !canDeliver && !!selectedAddressId) {
             toast.error('Your selected location is outside our delivery area. Please choose a different address or switch to Pickup.');
-            resetGuard();
             return;
           }
 
@@ -1260,7 +1256,6 @@ const Checkout = () => {
           if (deliveryTiming === 'schedule') {
             if (!scheduledDate || !scheduledTime) {
               setScheduleError('Please select both a date and time for your scheduled order.');
-              resetGuard();
               return;
             }
             const now = new Date();
@@ -1271,7 +1266,6 @@ const Checkout = () => {
               const currentMinutes = now.getHours() * 60 + now.getMinutes();
               if (scheduledMinutes <= currentMinutes) {
                 setScheduleError('Please select a future time.');
-                resetGuard();
                 return;
               }
             }
@@ -1285,13 +1279,11 @@ const Checkout = () => {
               if (closeMinutes <= openMinutes) {
                 if (timeMinutes < openMinutes && timeMinutes >= closeMinutes) {
                   setScheduleError(`Please select a time within working hours (${branch.opens_at} - ${branch.closes_at}).`);
-                  resetGuard();
                   return;
                 }
               } else {
                 if (timeMinutes < openMinutes || timeMinutes >= closeMinutes) {
                   setScheduleError(`Please select a time within working hours (${branch.opens_at} - ${branch.closes_at}).`);
-                  resetGuard();
                   return;
                 }
               }
@@ -1322,7 +1314,6 @@ const Checkout = () => {
                   }
                 }, 50);
               }
-              resetGuard();
               return;
             }
           }
