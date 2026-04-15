@@ -24,6 +24,7 @@ interface GuestCardPaymentProps {
   onValidityChange?: (valid: boolean) => void;
   submitRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   deliveryFee?: number;
+  serviceFee?: number;
   tax?: number;
   orderTotal?: number;
 }
@@ -59,6 +60,7 @@ export const GuestCardPayment = ({
   onValidityChange,
   submitRef,
   deliveryFee = 0,
+  serviceFee = 0,
   tax = 0,
   orderTotal = 0,
 }: GuestCardPaymentProps) => {
