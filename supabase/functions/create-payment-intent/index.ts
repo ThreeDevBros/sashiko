@@ -8,14 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image_url?: string | null;
-}
-
 const cartItemSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(200),
@@ -42,6 +34,63 @@ const requestSchema = z.object({
   tax: z.number().nonnegative().max(100000).optional(),
 });
 
+/** Fetch authoritative prices from DB and compute subtotal server-side */
+async function getVerifiedPrices(
+  supabaseAdmin: any,
+  items: { id: string; quantity: number }[],
+  branchId: string | null | undefined,
+) {
+  const ids = items.map(i => i.id);
+
+  // Fetch base menu_item prices
+  const { data: dbItems, error } = await supabaseAdmin
+    .from('menu_items')
+    .select('id, price, name')
+    .in('id', ids);
+
+  if (error || !dbItems) {
+    throw new Error('Failed to verify item prices.');
+  }
+
+  const priceMap = new Map<string, { price: number; name: string }>();
+  for (const item of dbItems) {
+    priceMap.set(item.id, { price: Number(item.price), name: item.name });
+  }
+
+  // Check for branch-specific price overrides
+  if (branchId) {
+    const { data: branchItems } = await supabaseAdmin
+      .from('branch_menu_items')
+      .select('menu_item_id, price_override')
+      .eq('branch_id', branchId)
+      .in('menu_item_id', ids)
+      .not('price_override', 'is', null);
+
+    if (branchItems) {
+      for (const bi of branchItems) {
+        const existing = priceMap.get(bi.menu_item_id);
+        if (existing) {
+          priceMap.set(bi.menu_item_id, { ...existing, price: Number(bi.price_override) });
+        }
+      }
+    }
+  }
+
+  // Verify all items exist
+  for (const item of items) {
+    if (!priceMap.has(item.id)) {
+      throw new Error(`Menu item not found: ${item.id}`);
+    }
+  }
+
+  const subtotal = items.reduce((sum, item) => {
+    const dbPrice = priceMap.get(item.id)!.price;
+    return sum + dbPrice * item.quantity;
+  }, 0);
+
+  return { priceMap, subtotal };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -53,23 +102,16 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get Stripe API key from secrets
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
-
     if (!stripeKey) {
       console.error('STRIPE_SECRET_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'Payment system not configured.' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: '2023-10-16',
-    });
+    const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -90,10 +132,7 @@ serve(async (req) => {
       console.error('Validation error:', validation.error);
       return new Response(
         JSON.stringify({ error: 'Invalid cart information. Please refresh and try again.' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
@@ -103,20 +142,15 @@ serve(async (req) => {
     if (!user && !guest_info) {
       return new Response(
         JSON.stringify({ error: 'Guest information is required for checkout.' }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
     console.log('Creating payment intent for:', user ? `user ${user.id}` : `guest ${guest_info?.email}`);
-    console.log('Items:', items);
 
-    // Calculate totals
-    const subtotal = items.reduce((sum: number, item: CartItem) => 
-      sum + (item.price * item.quantity), 0
-    );
+    // SERVER-SIDE PRICE VERIFICATION: fetch authoritative prices from DB
+    const { priceMap, subtotal } = await getVerifiedPrices(supabaseAdmin, items, branch_id);
+
     const tax = clientTax !== undefined ? clientTax : subtotal * 0.1;
     const deliveryFee = order_type === 'delivery' ? clientDeliveryFee : 0;
     const total = subtotal + tax + deliveryFee;
@@ -129,10 +163,7 @@ serve(async (req) => {
         JSON.stringify({ 
           error: `Order total must be at least $${minimumAmount.toFixed(2)}. Current total: $${total.toFixed(2)}` 
         }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
@@ -140,28 +171,18 @@ serve(async (req) => {
     let customerId: string | undefined;
     
     if (user?.email) {
-      const customers = await stripe.customers.list({
-        email: user.email,
-        limit: 1
-      });
-
+      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
       if (customers.data.length > 0) {
         customerId = customers.data[0].id;
       } else {
         const customer = await stripe.customers.create({
           email: user.email,
-          metadata: {
-            supabase_user_id: user.id,
-          },
+          metadata: { supabase_user_id: user.id },
         });
         customerId = customer.id;
       }
     } else if (guest_info?.email) {
-      const customers = await stripe.customers.list({
-        email: guest_info.email,
-        limit: 1
-      });
-
+      const customers = await stripe.customers.list({ email: guest_info.email, limit: 1 });
       if (customers.data.length > 0) {
         customerId = customers.data[0].id;
       } else {
@@ -174,22 +195,19 @@ serve(async (req) => {
       }
     }
 
-    // Create simplified items for metadata (without image URLs to stay under 500 char limit)
+    // Create simplified items for metadata
     const itemsForMetadata = items.map(item => ({
       id: item.id,
-      name: item.name.substring(0, 30), // Truncate name to save space
-      price: item.price,
+      name: (priceMap.get(item.id)?.name || '').substring(0, 30),
+      price: priceMap.get(item.id)?.price ?? 0,
       qty: item.quantity,
     }));
     
-    // Stringify and check length, truncate if needed
     let itemsMetadata = JSON.stringify(itemsForMetadata);
     if (itemsMetadata.length > 450) {
-      // If still too long, just store item count
       itemsMetadata = JSON.stringify({ count: items.length, total: subtotal });
     }
 
-    // Create Payment Intent
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(total * 100),
       currency: requestCurrency.toLowerCase(),
@@ -198,12 +216,11 @@ serve(async (req) => {
         enabled: true,
         allow_redirects: 'never',
       },
-      setup_future_usage: user ? 'off_session' : undefined, // Allow saving card for future use (logged-in users only)
+      setup_future_usage: user ? 'off_session' : undefined,
       metadata: {
         user_id: user?.id || '',
         branch_id: branch_id || '',
         order_type,
-        // Only store delivery_address_id if it's a valid UUID (not 'current-location')
         delivery_address_id: (delivery_address_id && delivery_address_id !== 'current-location') ? delivery_address_id : '',
         subtotal: subtotal.toString(),
         tax: tax.toString(),
@@ -212,7 +229,7 @@ serve(async (req) => {
         guest_info: guest_info ? JSON.stringify({ name: guest_info.name, email: guest_info.email }) : '',
         estimated_delivery_time: estimated_delivery_time || '',
       },
-      expand: ['latest_charge'], // Expand to get billing details
+      expand: ['latest_charge'],
     });
 
     console.log('Payment Intent created:', paymentIntent.id);
@@ -222,19 +239,13 @@ serve(async (req) => {
         clientSecret: paymentIntent.client_secret,
         customerId: customerId,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
     console.error('Error creating payment intent:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to initialize payment. Please try again.' }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
