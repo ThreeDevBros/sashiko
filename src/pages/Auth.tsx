@@ -295,7 +295,7 @@ const Auth = () => {
   // Show password reset form if user came from reset email
   if (isPasswordReset) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary to-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary to-background p-4 pt-safe">
         <div className="w-full max-w-md">
           <Card className="w-full">
             <CardHeader className="space-y-1">
