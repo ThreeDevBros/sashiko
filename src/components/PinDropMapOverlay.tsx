@@ -5,6 +5,7 @@ import { loadGoogleMaps } from '@/lib/googleMaps';
 import { toast } from 'sonner';
 import { getDetailedMapStyle } from '@/lib/mapStyles';
 import type { PlaceResult } from '@/components/LocationAutocompleteInput';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 
 interface PinDropMapOverlayProps {
   open: boolean;

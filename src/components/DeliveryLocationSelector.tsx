@@ -9,6 +9,7 @@ import { getAddressIcon } from '@/lib/addressIcons';
 import { LocationAutocompleteInput, type PlaceResult } from '@/components/LocationAutocompleteInput';
 import { PinDropMapOverlay } from '@/components/PinDropMapOverlay';
 import { STORAGE_KEYS } from '@/constants';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 
 interface Address {
   id: string;

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToResume } from '@/lib/lifecycleManager';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 
 /**
  * Global driver GPS tracker that runs on ANY page of the app when the driver

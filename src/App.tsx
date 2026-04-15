@@ -22,6 +22,7 @@ import { handleGlobalResume } from "@/lib/lifecycleManager";
 import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
 import { AppRuntimeListeners } from "./components/AppRuntimeListeners";
 import { BranchRealtimeManager } from "./components/BranchRealtimeManager";
+import { getCurrentPosition, isGeolocationAvailable } from "@/lib/geolocation";
 // Critical pages — loaded eagerly for instant navigation
 import Index from "./pages/Index";
 import Order from "./pages/Order";

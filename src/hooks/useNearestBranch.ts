@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { saveBranchId, getSavedBranchId, dispatchBranchChanged } from '@/lib/branch';
 import { STORAGE_KEYS } from '@/constants';
+import { getCurrentPosition } from '@/lib/geolocation';
 
 interface Branch {
   id: string;

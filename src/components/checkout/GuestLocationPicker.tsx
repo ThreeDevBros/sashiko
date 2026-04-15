@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Loader2, MapPin, Navigation, Search } from 'lucide-react';
 import { MapLocationPicker } from '@/components/admin/MapLocationPicker';
 import { toast } from 'sonner';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 
 interface GuestLocationPickerProps {
   open: boolean;
@@ -40,7 +41,7 @@ export const GuestLocationPicker = ({
   }, [open]);
 
   const handleUseCurrentLocation = async () => {
-    if (!navigator.geolocation) {
+    if (!isGeolocationAvailable()) {
       toast.error('Geolocation is not supported by your browser');
       return;
     }
