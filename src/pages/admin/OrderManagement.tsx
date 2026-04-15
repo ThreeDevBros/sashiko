@@ -150,19 +150,21 @@ export default function OrderManagement() {
       // If cancelling, trigger Stripe refund
       if (status === 'cancelled') {
         try {
+          console.log('[Admin Refund] Invoking refund-order for order:', id);
           const { data: refundData, error: refundErr } = await supabase.functions.invoke('refund-order', { body: { order_id: id } });
+          console.log('[Admin Refund] Response:', { refundData, refundErr });
           if (refundErr) {
-            console.error('Refund invocation error:', refundErr);
+            console.error('[Admin Refund] Error:', refundErr);
             toast({ title: 'Refund failed', description: refundErr.message || 'Could not process automatic refund.', variant: 'destructive' });
           } else if (refundData?.refunded) {
             toast({ title: 'Refund issued', description: 'Payment has been refunded.' });
           } else if (refundData?.reason === 'cash_order') {
-            console.log('Cash order — no refund needed');
+            console.log('[Admin Refund] Cash order — no refund needed');
           } else if (refundData?.reason) {
-            console.log('Refund skipped:', refundData.reason);
+            console.log('[Admin Refund] Skipped:', refundData.reason);
           }
         } catch (e: any) {
-          console.error('Refund call exception:', e);
+          console.error('[Admin Refund] Exception:', e);
           toast({ title: 'Refund error', description: 'Unexpected error processing refund.', variant: 'destructive' });
         }
       }

@@ -527,12 +527,18 @@ export default function OrderTracking() {
           .eq('id', order.id);
         if (error) throw error;
 
-        // Trigger Stripe refund (fire-and-forget, don't block UX)
-        supabase.functions.invoke('refund-order', { body: { order_id: order.id } })
-          .then(({ error: refundErr }) => {
-            if (refundErr) console.error('Refund error:', refundErr);
-            else console.log('Refund initiated for order:', order.id);
-          });
+        // Trigger Stripe refund — awaited to prevent request abortion on navigation
+        try {
+          console.log('[Refund] Invoking refund-order for:', order.id);
+          const { data: refundData, error: refundErr } = await supabase.functions.invoke('refund-order', { body: { order_id: order.id } });
+          if (refundErr) {
+            console.error('[Refund] Error:', refundErr);
+          } else {
+            console.log('[Refund] Result:', refundData);
+          }
+        } catch (refundEx) {
+          console.error('[Refund] Exception:', refundEx);
+        }
       }
 
       setOrder(prev => prev ? { ...prev, status: 'cancelled', cancellation_reason: 'Cancelled by customer' } : null);
