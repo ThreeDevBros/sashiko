@@ -850,6 +850,7 @@ export type Database = {
           order_type: Database["public"]["Enums"]["order_type"]
           special_instructions: string | null
           status: Database["public"]["Enums"]["order_status"] | null
+          stripe_payment_intent_id: string | null
           subtotal: number
           tax: number | null
           tip: number | null
@@ -882,6 +883,7 @@ export type Database = {
           order_type: Database["public"]["Enums"]["order_type"]
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
+          stripe_payment_intent_id?: string | null
           subtotal: number
           tax?: number | null
           tip?: number | null
@@ -914,6 +916,7 @@ export type Database = {
           order_type?: Database["public"]["Enums"]["order_type"]
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
+          stripe_payment_intent_id?: string | null
           subtotal?: number
           tax?: number | null
           tip?: number | null
