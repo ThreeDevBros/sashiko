@@ -101,7 +101,7 @@ const Checkout = () => {
   const { user, isAuthReady } = useAuth();
   const [gettingLocation, setGettingLocation] = useState(false);
   const locationAttemptedRef = useRef(false);
-  const isPlacingOrderRef = useRef(false);
+  
   const [guestInfo, setGuestInfo] = useState({ name: '', email: '', phone: '' });
   
   const paymentTypeRef = useRef<'card' | 'wallet' | 'cash'>('cash');
@@ -120,10 +120,6 @@ const Checkout = () => {
     loading: validationLoading
   } = useDeliveryValidation();
 
-  // Reset duplicate-submission guard when loading finishes
-  useEffect(() => {
-    if (!loading) isPlacingOrderRef.current = false;
-  }, [loading]);
 
   const activeLocation = useMemo(() => {
     if (selectedAddressId === 'current-location' && deviceLocationData) {
@@ -1218,16 +1214,11 @@ const Checkout = () => {
               Checking delivery zone...
             </Button> : <Button size="lg" onClick={() => {
           // Prevent duplicate submissions from rapid clicks
-          if (isPlacingOrderRef.current || loading) return;
-          isPlacingOrderRef.current = true;
-
-          // Reset the guard after a short delay to allow re-attempts on validation failures
-          const resetGuard = () => { isPlacingOrderRef.current = false; };
+          if (loading) return;
 
           // --- Branch Paused: block order ---
           if (branchIsPaused) {
             toast.error('This branch is currently busy and not accepting orders. Please try again shortly.');
-            resetGuard();
             return;
           }
 
@@ -1240,7 +1231,6 @@ const Checkout = () => {
               setTimeout(() => orderTypeCard.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2'), 3000);
             }
             toast.error('This branch is currently closed. Please schedule for later or try during operating hours.');
-            resetGuard();
             return;
           }
 
@@ -1253,14 +1243,12 @@ const Checkout = () => {
               setTimeout(() => deliverySection.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2'), 3000);
             }
             toast.error('Please set your delivery location to continue.');
-            resetGuard();
             return;
           }
 
           // --- Delivery out of range ---
           if (orderType === 'delivery' && !canDeliver && !!selectedAddressId) {
             toast.error('Your selected location is outside our delivery area. Please choose a different address or switch to Pickup.');
-            resetGuard();
             return;
           }
 
@@ -1268,7 +1256,6 @@ const Checkout = () => {
           if (deliveryTiming === 'schedule') {
             if (!scheduledDate || !scheduledTime) {
               setScheduleError('Please select both a date and time for your scheduled order.');
-              resetGuard();
               return;
             }
             const now = new Date();
@@ -1279,7 +1266,6 @@ const Checkout = () => {
               const currentMinutes = now.getHours() * 60 + now.getMinutes();
               if (scheduledMinutes <= currentMinutes) {
                 setScheduleError('Please select a future time.');
-                resetGuard();
                 return;
               }
             }
@@ -1293,13 +1279,11 @@ const Checkout = () => {
               if (closeMinutes <= openMinutes) {
                 if (timeMinutes < openMinutes && timeMinutes >= closeMinutes) {
                   setScheduleError(`Please select a time within working hours (${branch.opens_at} - ${branch.closes_at}).`);
-                  resetGuard();
                   return;
                 }
               } else {
                 if (timeMinutes < openMinutes || timeMinutes >= closeMinutes) {
                   setScheduleError(`Please select a time within working hours (${branch.opens_at} - ${branch.closes_at}).`);
-                  resetGuard();
                   return;
                 }
               }
@@ -1330,7 +1314,6 @@ const Checkout = () => {
                   }
                 }, 50);
               }
-              resetGuard();
               return;
             }
           }
