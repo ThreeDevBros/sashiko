@@ -132,8 +132,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    const refund = await stripe.refunds.create({ payment_intent: piId });
-    console.log('Refund created:', refund.id, 'for order:', order_id);
+    let refund;
+    try {
+      refund = await stripe.refunds.create({ payment_intent: piId });
+      console.log('Refund created:', refund.id, 'for order:', order_id);
+    } catch (stripeErr: any) {
+      if (stripeErr?.code === 'charge_already_refunded') {
+        console.log('Charge already refunded for:', piId);
+        return new Response(
+          JSON.stringify({ success: true, refunded: false, reason: 'already_refunded' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+      throw stripeErr;
+    }
 
     return new Response(
       JSON.stringify({ success: true, refunded: true, refund_id: refund.id }),
