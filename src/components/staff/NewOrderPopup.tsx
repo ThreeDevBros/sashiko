@@ -325,6 +325,7 @@ export const NewOrderPopup = () => {
                   </h3>
                   <div className="grid gap-1.5 text-sm">
                     <p className="capitalize"><span className="text-muted-foreground">Type:</span> {newOrderPopup.order_type?.replace('_', ' ')}</p>
+                    <p><span className="text-muted-foreground">Payment:</span> {(newOrderPopup.payment_method || (newOrderPopup.stripe_payment_intent_id ? 'card' : 'cash')) === 'card' ? '💳 Card' : '💵 Cash'}</p>
                     <p><span className="text-muted-foreground">Time:</span> {format(new Date(newOrderPopup.created_at), 'MMM dd, HH:mm')}</p>
                     {newOrderPopup.branches?.name && (
                       <p><span className="text-muted-foreground">Branch:</span> {newOrderPopup.branches.name}</p>

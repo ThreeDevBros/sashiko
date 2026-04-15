@@ -134,6 +134,7 @@ serve(async (req) => {
       .from('orders')
       .insert({
         stripe_payment_intent_id: payment_intent_id,
+        payment_method: 'card',
         user_id: metadata.user_id || null,
         branch_id: metadata.branch_id || null,
         order_type: metadata.order_type,
