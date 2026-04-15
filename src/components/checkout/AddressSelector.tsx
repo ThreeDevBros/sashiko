@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, MapPin, Navigation, Edit2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import { loadGoogleMaps } from '@/lib/googleMaps';
 import { getMapStyle, darkMapStyle, lightMapStyle, createMarkerIcon } from '@/lib/mapStyles';
 
@@ -101,7 +102,7 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
   };
 
   const getCurrentLocation = async () => {
-    if (!navigator.geolocation) {
+    if (!isGeolocationAvailable()) {
       toast({
         title: 'Not supported',
         description: 'Geolocation is not supported by your browser.',
@@ -112,54 +113,42 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
 
     setGettingLocation(true);
     
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          
-          // Use Nominatim (OpenStreetMap) for reverse geocoding
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await response.json();
+    try {
+      const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+      const { latitude, longitude } = position.coords;
+      
+      // Use Nominatim (OpenStreetMap) for reverse geocoding
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+      );
+      const data = await response.json();
 
-          if (data.address) {
-            setFormValues({
-              label: 'Current Location',
-              address_line1: data.address.road || data.address.suburb || '',
-              address_line2: data.address.neighbourhood || '',
-              city: data.address.city || data.address.town || data.address.village || '',
-              postal_code: data.address.postcode || '',
-              latitude,
-              longitude
-            });
-
-            toast({
-              title: 'Location found',
-              description: 'Address fields have been filled with your current location.',
-            });
-          }
-        } catch (error) {
-          console.error('Error reverse geocoding:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to get address from location.',
-            variant: 'destructive',
-          });
-        } finally {
-          setGettingLocation(false);
-        }
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        toast({
-          title: 'Location access denied',
-          description: 'Please enable location access in your browser settings.',
-          variant: 'destructive',
+      if (data.address) {
+        setFormValues({
+          label: 'Current Location',
+          address_line1: data.address.road || data.address.suburb || '',
+          address_line2: data.address.neighbourhood || '',
+          city: data.address.city || data.address.town || data.address.village || '',
+          postal_code: data.address.postcode || '',
+          latitude,
+          longitude
         });
-        setGettingLocation(false);
+
+        toast({
+          title: 'Location found',
+          description: 'Address fields have been filled with your current location.',
+        });
       }
-    );
+    } catch (error) {
+      console.error('Geolocation error:', error);
+      toast({
+        title: 'Location access denied',
+        description: 'Please enable location access in your browser settings.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
   const openEditDialog = (address: Address) => {
@@ -359,7 +348,7 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
   }, [theme]);
 
   const useCurrentLocation = async () => {
-    if (!navigator.geolocation) {
+    if (!isGeolocationAvailable()) {
       toast({
         title: 'Not supported',
         description: 'Geolocation is not supported by your browser.',
@@ -370,57 +359,44 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
 
     setGettingLocation(true);
     
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          
-          // Use Nominatim for reverse geocoding
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          const data = await response.json();
+    try {
+      const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+      const { latitude, longitude } = position.coords;
+      
+      // Use Nominatim for reverse geocoding
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+      );
+      const data = await response.json();
 
-          let addressString = 'Current Location';
-          if (data.address) {
-            const parts = [
-              data.address.road || data.address.hamlet,
-              data.address.suburb || data.address.neighbourhood,
-              data.address.city || data.address.town || data.address.village
-            ].filter(Boolean);
-            addressString = parts.join(', ') || 'Current Location';
-          }
+      let addressString = 'Current Location';
+      if (data.address) {
+        const parts = [
+          data.address.road || data.address.hamlet,
+          data.address.suburb || data.address.neighbourhood,
+          data.address.city || data.address.town || data.address.village
+        ].filter(Boolean);
+        addressString = parts.join(', ') || 'Current Location';
+      }
 
-          const locationData = { latitude, longitude, address: addressString };
-          setCurrentLocationData(locationData);
-          onAddressSelect('current-location', locationData);
-          
-          toast({
-            title: 'Location found',
-            description: 'Using your current location for delivery',
-          });
-        } catch (error) {
-          console.error('Error getting location:', error);
-          toast({
-            title: 'Error',
-            description: 'Failed to get your location. Please try again.',
-            variant: 'destructive',
-          });
-        } finally {
-          setGettingLocation(false);
-        }
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        toast({
-          title: 'Location error',
-          description: 'Could not get your location. Please check your permissions.',
-          variant: 'destructive',
-        });
-        setGettingLocation(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      const locationData = { latitude, longitude, address: addressString };
+      setCurrentLocationData(locationData);
+      onAddressSelect('current-location', locationData);
+      
+      toast({
+        title: 'Location found',
+        description: 'Using your current location for delivery',
+      });
+    } catch (error) {
+      console.error('Geolocation error:', error);
+      toast({
+        title: 'Location error',
+        description: 'Could not get your location. Please check your permissions.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
   if (loading) {

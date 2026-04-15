@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { AddressMapPicker } from '@/components/address/AddressMapPicker';
 import { AddressSearchPicker } from '@/components/address/AddressSearchPicker';
 import { BackButton } from '@/components/BackButton';
+import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import LoadingScreen from '@/components/LoadingScreen';
 import { getAddressIcon } from '@/lib/addressIcons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -147,8 +148,8 @@ export default function Address() {
     }));
   };
 
-  const handleCurrentLocationForAdd = () => {
-    if (!navigator.geolocation) {
+  const handleCurrentLocationForAdd = async () => {
+    if (!isGeolocationAvailable()) {
       toast({
         title: 'Location not supported',
         description: 'Your browser does not support geolocation.',
@@ -159,105 +160,89 @@ export default function Address() {
 
     setGettingLocation(true);
     
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          
-          // Use Google Maps Geocoder for reverse geocoding
-          if (window.google?.maps) {
-            const geocoder = new google.maps.Geocoder();
-            const result = await geocoder.geocode({ location: { lat: latitude, lng: longitude } });
-            
-            if (result.results && result.results.length > 0) {
-              const place = result.results[0];
-              let streetNumber = '';
-              let route = '';
-              let city = '';
-              let postalCode = '';
+    try {
+      const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+      const { latitude, longitude } = position.coords;
+      
+      // Use Google Maps Geocoder for reverse geocoding
+      if (window.google?.maps) {
+        const geocoder = new google.maps.Geocoder();
+        const result = await geocoder.geocode({ location: { lat: latitude, lng: longitude } });
+        
+        if (result.results && result.results.length > 0) {
+          const place = result.results[0];
+          let streetNumber = '';
+          let route = '';
+          let city = '';
+          let postalCode = '';
 
-              place.address_components?.forEach(component => {
-                if (component.types.includes('street_number')) {
-                  streetNumber = component.long_name;
-                }
-                if (component.types.includes('route')) {
-                  route = component.long_name;
-                }
-                if (component.types.includes('locality') || component.types.includes('administrative_area_level_1')) {
-                  city = component.long_name;
-                }
-                if (component.types.includes('postal_code')) {
-                  postalCode = component.long_name;
-                }
-              });
-
-              const address_line1 = streetNumber ? `${streetNumber} ${route}` : route || place.formatted_address?.split(',')[0] || '';
-
-              setAddressForm(prev => ({
-                ...prev,
-                address_line1,
-                city,
-                postal_code: postalCode,
-                latitude,
-                longitude,
-              }));
-              
-              setViewMode('add_manual_form');
-              toast({
-                title: 'Location detected',
-                description: 'Please confirm your address details.',
-              });
-            } else {
-              throw new Error('No geocoding results');
+          place.address_components?.forEach(component => {
+            if (component.types.includes('street_number')) {
+              streetNumber = component.long_name;
             }
-          } else {
-            // Fallback to OpenStreetMap
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-            );
-            const data = await response.json();
-            
-            setAddressForm(prev => ({
-              ...prev,
-              address_line1: data.address?.road || data.address?.suburb || data.display_name?.split(',')[0] || '',
-              city: data.address?.city || data.address?.town || data.address?.village || '',
-              postal_code: data.address?.postcode || '',
-              latitude,
-              longitude,
-            }));
-            
-            setViewMode('add_manual_form');
-            toast({
-              title: 'Location detected',
-              description: 'Please confirm your address details.',
-            });
-          }
-        } catch (error) {
-          console.error('Error getting address:', error);
-          // Still set coordinates and let user fill in details
+            if (component.types.includes('route')) {
+              route = component.long_name;
+            }
+            if (component.types.includes('locality') || component.types.includes('administrative_area_level_1')) {
+              city = component.long_name;
+            }
+            if (component.types.includes('postal_code')) {
+              postalCode = component.long_name;
+            }
+          });
+
+          const address_line1 = streetNumber ? `${streetNumber} ${route}` : route || place.formatted_address?.split(',')[0] || '';
+
           setAddressForm(prev => ({
             ...prev,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
+            address_line1,
+            city,
+            postal_code: postalCode,
+            latitude,
+            longitude,
           }));
+          
           setViewMode('add_manual_form');
           toast({
             title: 'Location detected',
-            description: 'Please enter your address details.',
+            description: 'Please confirm your address details.',
           });
-        } finally {
-          setGettingLocation(false);
+        } else {
+          throw new Error('No geocoding results');
         }
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        setGettingLocation(false);
+      } else {
+        // Fallback to OpenStreetMap
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+        );
+        const data = await response.json();
+        
+        setAddressForm(prev => ({
+          ...prev,
+          address_line1: data.address?.road || data.address?.suburb || data.display_name?.split(',')[0] || '',
+          city: data.address?.city || data.address?.town || data.address?.village || '',
+          postal_code: data.address?.postcode || '',
+          latitude,
+          longitude,
+        }));
+        
+        setViewMode('add_manual_form');
         toast({
-          title: 'Location error',
-          description: 'Could not get your current location. Please allow location access.',
-          variant: 'destructive',
+          title: 'Location detected',
+          description: 'Please confirm your address details.',
         });
-      },
+      }
+    } catch (error) {
+      console.error('Error getting address:', error);
+      toast({
+        title: 'Location error',
+        description: 'Could not get your current location. Please allow location access.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGettingLocation(false);
+    }
+  };
       {
         enableHighAccuracy: true,
         timeout: 10000,
