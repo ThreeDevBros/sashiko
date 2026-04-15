@@ -1,37 +1,36 @@
 
 
-## Fix: Handle "Already Refunded" Stripe Error Gracefully
+## Fix: Guest Credit Card + Apple Pay Selection on Native iOS
 
-### Summary
+### Investigation Results
 
-The `refund-order` edge function is deployed and working. All your cancelled orders have now been manually refunded. Going forward, refunds will process automatically when orders are cancelled.
+**Issue 1: Apple Pay selection reverts to Cash**
+Root cause is in `Checkout.tsx` conditional rendering. When a user selects Apple Pay in the drawer:
+1. `currentPaymentType` changes to `'wallet'` in the parent
+2. The parent switches rendering from `<CheckoutForm>` to `<Elements><StripeCheckoutForm></Elements>`
+3. This **unmounts** the old component and **mounts** a brand new one
+4. The new component initializes with `paymentType = cashAllowed ? 'cash' : 'card'` (line 108 of CheckoutForm.tsx)
+5. The `useEffect` on line 134 fires `onPaymentTypeChange('cash')`, which sets parent back to `'cash'`
+6. Parent re-renders back to non-Elements `<CheckoutForm>` — Apple Pay is never kept
 
-There is one remaining bug: when Stripe reports a charge is already refunded, the function crashes with a 500 error instead of returning a clean response. This needs a small fix.
+This affects both guest and authenticated users on the non-clientSecret path (lines 1001-1070 and 1101-1158).
 
-### Immediate Status
-- **Orders refunded manually right now**: `27047cd3` and `d7309ee9` (the two most recent)
-- **Orders already refunded from earlier session**: `865d5b7a`, `ec1c0d14`, `a6dc9a22`, `22cc1fa6`, `b67a31ad`, `ff9beb13`
-- All your cancelled card orders have been refunded
+**Issue 2: Guest card payment missing `service_fee`**
+`GuestCardPayment.tsx` line 139-148: the `create-payment-intent` call omits `service_fee`, so it defaults to 0. This causes a silent total mismatch when service fees are configured.
 
-### Root Cause
-The function was likely not deployed in earlier versions. Recent file edits triggered a fresh deployment, which is why all previous app-side calls produced zero logs (requests got 404 at the gateway before reaching the function).
+### Changes
 
-### Change
+**1. `src/pages/Checkout.tsx` — Always wrap in Elements to prevent remount**
+- For the guest path (lines 1001-1070): Always render inside `<Elements>` using `StripeCheckoutForm`, regardless of `currentPaymentType`. Remove the conditional split between `CheckoutForm` and `StripeCheckoutForm`.
+- For the authenticated non-clientSecret path (lines 1101-1158): Same fix — always use `<Elements>` wrapper.
+- This prevents the destructive unmount/remount cycle that resets payment type to cash.
 
-**`supabase/functions/refund-order/index.ts`**
-- Wrap the `stripe.refunds.create()` call in a try/catch that specifically handles the `charge_already_refunded` error code
-- Return `{ success: true, refunded: false, reason: 'already_refunded' }` instead of a 500 error
-- This prevents false error toasts in the staff/admin UI when a refund is retried
+**2. `src/components/checkout/GuestCardPayment.tsx` — Add missing `service_fee`**
+- Accept `serviceFee` prop
+- Pass `service_fee: serviceFee` to the `create-payment-intent` body (line 144)
 
-```text
-Before:
-  stripe.refunds.create() → Stripe error → catch block → 500
-
-After:
-  stripe.refunds.create() → Stripe error →
-    if code === 'charge_already_refunded' → 200 with reason
-    else → 500
-```
+**3. `src/pages/Checkout.tsx` — Pass `serviceFee` to GuestCardPayment**
+- The `<GuestCardPayment>` at line 980 already receives `deliveryFee` and `tax` but not `serviceFee` — add it.
 
 ### No database migration needed.
 
