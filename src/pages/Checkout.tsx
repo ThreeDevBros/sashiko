@@ -440,6 +440,7 @@ const Checkout = () => {
             delivery_address_id: (selectedAddressId === 'current-location' || selectedAddressId === 'selected-location') ? null : selectedAddressId,
             estimated_delivery_time: scheduledDateTime || null,
             delivery_fee: deliveryFee,
+            service_fee: serviceFee,
             currency: (currency || 'USD').toLowerCase(),
             tax: tax,
           }

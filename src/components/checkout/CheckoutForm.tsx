@@ -50,6 +50,7 @@ interface CheckoutFormProps {
   orderInstructions?: string;
   scheduledDateTime?: string | null;
   deliveryFee?: number;
+  serviceFee?: number;
   onBeforeNavigate?: () => void;
   cashAllowed?: boolean;
   tax?: number;
@@ -79,6 +80,7 @@ export const CheckoutForm = ({
   orderInstructions,
   scheduledDateTime,
   deliveryFee = 0,
+  serviceFee = 0,
   onBeforeNavigate,
   cashAllowed = true,
   tax = 0,
@@ -641,6 +643,14 @@ export const CheckoutForm = ({
         const { error: stripeError, paymentIntent } = paymentResult;
         
         if (stripeError) {
+          const msg = (stripeError.message ?? '').toLowerCase();
+          if (stripeError.code === 'payment_intent_authentication_failure' ||
+              msg.includes('cancel') || msg.includes('abort')) {
+            // User cancelled — silently reset, allow retry
+            setLoading(false);
+            isSubmittingRef.current = false;
+            return;
+          }
           console.error('Stripe error:', stripeError);
           setError(stripeError.message || 'Payment failed');
           throw new Error(stripeError.message);

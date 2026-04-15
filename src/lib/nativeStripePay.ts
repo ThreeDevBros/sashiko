@@ -21,6 +21,7 @@ interface NativePayOptions {
   guestDeliveryLng?: number | null;
   scheduledDateTime?: string | null;
   deliveryFee: number;
+  serviceFee?: number;
   currency: string;
   tax: number;
   orderTotal: number;
