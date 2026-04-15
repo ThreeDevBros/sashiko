@@ -999,44 +999,9 @@ const Checkout = () => {
               </div>
             </div>
           ) : isGuest ? (
-            (() => {
-              // When guest selects wallet payment, use StripeCheckoutForm so useStripe() provides the stripe instance
-              if (currentPaymentType === 'wallet' && stripePromise) {
-                return (
-                  <Elements stripe={stripePromise}>
-                    <StripeCheckoutForm 
-                      orderType={orderType} 
-                      onOrderTypeChange={setOrderType} 
-                      selectedAddressId={selectedAddressId} 
-                      onAddressSelect={(addressId, locationData) => {
-                        if (locationData) setSelectedLocationData(locationData);
-                        setSelectedAddressId(addressId);
-                      }} 
-                      branch={branch} 
-                      hasClientSecret={false} 
-                      canDeliver={canDeliver}
-                      isGuest={true}
-                      guestInfo={guestInfo}
-                      guestAddress={activeLocation?.address || ''}
-                      guestDeliveryLat={activeLocation?.latitude}
-                      guestDeliveryLng={activeLocation?.longitude}
-                      onPaymentTypeChange={handlePaymentTypeChange}
-                      cashbackAmount={0}
-                      orderInstructions={orderInstructions}
-                      scheduledDateTime={scheduledDateTime}
-                      deliveryFee={deliveryFee}
-                      serviceFee={serviceFee}
-                      onBeforeNavigate={() => { isNavigatingAway.current = true; }}
-                      cashAllowed={cashAllowed}
-                      tax={tax}
-                      orderTotal={grandTotal}
-                      walletSystemReady={stripeReady}
-                    />
-                  </Elements>
-                );
-              }
-              return (
-                <CheckoutForm 
+            stripePromise ? (
+              <Elements stripe={stripePromise}>
+                <StripeCheckoutForm 
                   orderType={orderType} 
                   onOrderTypeChange={setOrderType} 
                   selectedAddressId={selectedAddressId} 
@@ -1066,8 +1031,39 @@ const Checkout = () => {
                   orderTotal={grandTotal}
                   walletSystemReady={stripeReady}
                 />
-              );
-            })()
+              </Elements>
+            ) : (
+              <CheckoutForm 
+                orderType={orderType} 
+                onOrderTypeChange={setOrderType} 
+                selectedAddressId={selectedAddressId} 
+                onAddressSelect={(addressId, locationData) => {
+                  if (locationData) setSelectedLocationData(locationData);
+                  setSelectedAddressId(addressId);
+                }} 
+                branch={branch} 
+                hasClientSecret={false} 
+                canDeliver={canDeliver}
+                isGuest={true}
+                guestInfo={guestInfo}
+                guestAddress={activeLocation?.address || ''}
+                guestDeliveryLat={activeLocation?.latitude}
+                guestDeliveryLng={activeLocation?.longitude}
+                onPaymentTypeChange={handlePaymentTypeChange}
+                cashbackAmount={0}
+                onGuestCardValidityChange={setGuestCardValid}
+                guestCardSubmitRef={guestCardSubmitRef}
+                orderInstructions={orderInstructions}
+                scheduledDateTime={scheduledDateTime}
+                deliveryFee={deliveryFee}
+                serviceFee={serviceFee}
+                onBeforeNavigate={() => { isNavigatingAway.current = true; }}
+                cashAllowed={cashAllowed}
+                tax={tax}
+                orderTotal={grandTotal}
+                walletSystemReady={stripeReady}
+              />
+            )
           ) : stripePromise && clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret }}>
               <StripeCheckoutForm 
@@ -1098,38 +1094,37 @@ const Checkout = () => {
                  walletSystemReady={stripeReady}
                />
             </Elements>
+          ) : stripePromise ? (
+            <Elements stripe={stripePromise}>
+              <StripeCheckoutForm 
+                orderType={orderType} 
+                onOrderTypeChange={setOrderType} 
+                selectedAddressId={selectedAddressId} 
+                onAddressSelect={(addressId, locationData) => {
+                  if (locationData) setSelectedLocationData(locationData);
+                  setSelectedAddressId(addressId);
+                }} 
+                branch={branch} 
+                hasClientSecret={false} 
+                canDeliver={canDeliver}
+                onPaymentTypeChange={handlePaymentTypeChange}
+                cashbackAmount={cashbackDiscount}
+                guestAddress={activeLocation?.address || ''}
+                guestDeliveryLat={activeLocation?.latitude}
+                guestDeliveryLng={activeLocation?.longitude}
+                orderInstructions={orderInstructions}
+                scheduledDateTime={scheduledDateTime}
+                deliveryFee={deliveryFee}
+                serviceFee={serviceFee}
+                onBeforeNavigate={() => { isNavigatingAway.current = true; }}
+                cashAllowed={cashAllowed}
+                tax={tax}
+                orderTotal={grandTotal}
+                walletSystemReady={stripeReady}
+              />
+            </Elements>
           ) : (
-            currentPaymentType === 'wallet' && stripePromise ? (
-              <Elements stripe={stripePromise}>
-                <StripeCheckoutForm 
-                  orderType={orderType} 
-                  onOrderTypeChange={setOrderType} 
-                  selectedAddressId={selectedAddressId} 
-                  onAddressSelect={(addressId, locationData) => {
-                    if (locationData) setSelectedLocationData(locationData);
-                    setSelectedAddressId(addressId);
-                  }} 
-                  branch={branch} 
-                  hasClientSecret={false} 
-                  canDeliver={canDeliver}
-                  onPaymentTypeChange={handlePaymentTypeChange}
-                  cashbackAmount={cashbackDiscount}
-                  guestAddress={activeLocation?.address || ''}
-                  guestDeliveryLat={activeLocation?.latitude}
-                  guestDeliveryLng={activeLocation?.longitude}
-                  orderInstructions={orderInstructions}
-                  scheduledDateTime={scheduledDateTime}
-                  deliveryFee={deliveryFee}
-                  serviceFee={serviceFee}
-                  onBeforeNavigate={() => { isNavigatingAway.current = true; }}
-                  cashAllowed={cashAllowed}
-                  tax={tax}
-                  orderTotal={grandTotal}
-                  walletSystemReady={stripeReady}
-                />
-              </Elements>
-            ) : (
-              <CheckoutForm 
+            <CheckoutForm 
               orderType={orderType} 
               onOrderTypeChange={setOrderType} 
               selectedAddressId={selectedAddressId} 
@@ -1150,12 +1145,11 @@ const Checkout = () => {
               deliveryFee={deliveryFee}
               serviceFee={serviceFee}
               onBeforeNavigate={() => { isNavigatingAway.current = true; }}
-               cashAllowed={cashAllowed}
-               tax={tax}
-               orderTotal={grandTotal}
-               walletSystemReady={stripeReady}
-             />
-            )
+              cashAllowed={cashAllowed}
+              tax={tax}
+              orderTotal={grandTotal}
+              walletSystemReady={stripeReady}
+            />
           )}
         </Card>
 

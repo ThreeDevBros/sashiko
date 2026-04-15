@@ -24,6 +24,7 @@ interface GuestCardPaymentProps {
   onValidityChange?: (valid: boolean) => void;
   submitRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   deliveryFee?: number;
+  serviceFee?: number;
   tax?: number;
   orderTotal?: number;
 }
@@ -59,6 +60,7 @@ export const GuestCardPayment = ({
   onValidityChange,
   submitRef,
   deliveryFee = 0,
+  serviceFee = 0,
   tax = 0,
   orderTotal = 0,
 }: GuestCardPaymentProps) => {
@@ -142,6 +144,7 @@ export const GuestCardPayment = ({
           branch_id: branchId, order_type: orderType,
           guest_info: { name: guestInfo.name, email: guestInfo.email, phone: guestInfo.phone },
            delivery_fee: deliveryFee,
+           service_fee: serviceFee,
            currency: getGlobalCurrency().toLowerCase(),
            tax: tax,
            order_total: orderTotal,
@@ -186,7 +189,7 @@ export const GuestCardPayment = ({
       if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function')) errorMessage = error.message;
       toast({ title: 'Payment failed', description: errorMessage, variant: 'destructive' });
     } finally { setLoading(false); isSubmittingRef.current = false; }
-  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, toast]);
+  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, toast, deliveryFee, serviceFee, tax, orderTotal]);
 
   useEffect(() => {
     if (submitRef) submitRef.current = handleSubmit;
