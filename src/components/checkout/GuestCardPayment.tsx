@@ -25,6 +25,7 @@ interface GuestCardPaymentProps {
   submitRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   deliveryFee?: number;
   tax?: number;
+  orderTotal?: number;
 }
 
 const getStripeElementStyle = () => {
@@ -59,6 +60,7 @@ export const GuestCardPayment = ({
   submitRef,
   deliveryFee = 0,
   tax = 0,
+  orderTotal = 0,
 }: GuestCardPaymentProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -142,6 +144,7 @@ export const GuestCardPayment = ({
            delivery_fee: deliveryFee,
            currency: getGlobalCurrency().toLowerCase(),
            tax: tax,
+           order_total: orderTotal,
         }
       });
       if (piError) throw new Error(piError.message || 'Failed to create payment');
