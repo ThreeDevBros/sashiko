@@ -30,6 +30,7 @@ const requestSchema = z.object({
   guest_info: guestInfoSchema.nullable().optional(),
   estimated_delivery_time: z.string().nullable().optional(),
   delivery_fee: z.number().nonnegative().max(100000).optional().default(0),
+  service_fee: z.number().nonnegative().max(100000).optional().default(0),
   currency: z.string().min(3).max(3).optional().default('usd'),
   tax: z.number().nonnegative().max(100000).optional(),
 });
@@ -136,7 +137,7 @@ serve(async (req) => {
       );
     }
 
-    const { items, branch_id, order_type, delivery_address_id, guest_info, estimated_delivery_time, delivery_fee: clientDeliveryFee, currency: requestCurrency, tax: clientTax } = validation.data;
+    const { items, branch_id, order_type, delivery_address_id, guest_info, estimated_delivery_time, delivery_fee: clientDeliveryFee, service_fee: clientServiceFee, currency: requestCurrency, tax: clientTax } = validation.data;
 
     // Guest checkout validation
     if (!user && !guest_info) {
@@ -153,7 +154,8 @@ serve(async (req) => {
 
     const tax = clientTax !== undefined ? clientTax : subtotal * 0.1;
     const deliveryFee = order_type === 'delivery' ? clientDeliveryFee : 0;
-    const total = subtotal + tax + deliveryFee;
+    const serviceFee = clientServiceFee;
+    const total = subtotal + tax + deliveryFee + serviceFee;
 
     // Check minimum amount (Stripe requires at least $0.50 USD)
     const minimumAmount = 0.50;
@@ -225,6 +227,7 @@ serve(async (req) => {
         subtotal: subtotal.toString(),
         tax: tax.toString(),
         delivery_fee: deliveryFee.toString(),
+        service_fee: serviceFee.toString(),
         items: itemsMetadata,
         guest_info: guest_info ? JSON.stringify({ name: guest_info.name, email: guest_info.email }) : '',
         estimated_delivery_time: estimated_delivery_time || '',

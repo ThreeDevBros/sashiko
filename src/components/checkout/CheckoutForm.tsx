@@ -50,6 +50,7 @@ interface CheckoutFormProps {
   orderInstructions?: string;
   scheduledDateTime?: string | null;
   deliveryFee?: number;
+  serviceFee?: number;
   onBeforeNavigate?: () => void;
   cashAllowed?: boolean;
   tax?: number;
@@ -79,6 +80,7 @@ export const CheckoutForm = ({
   orderInstructions,
   scheduledDateTime,
   deliveryFee = 0,
+  serviceFee = 0,
   onBeforeNavigate,
   cashAllowed = true,
   tax = 0,
@@ -468,6 +470,7 @@ export const CheckoutForm = ({
             guestDeliveryLng: orderType === 'delivery' ? (guestDeliveryLng || null) : null,
             scheduledDateTime: scheduledDateTime || null,
             deliveryFee: orderType === 'delivery' ? deliveryFee : 0,
+            serviceFee,
             currency,
             tax,
             orderTotal,
@@ -520,6 +523,7 @@ export const CheckoutForm = ({
               guest_info: isGuest && guestInfo ? { name: guestInfo.name, email: guestInfo.email, phone: guestInfo.phone } : null,
               estimated_delivery_time: scheduledDateTime || null,
               delivery_fee: orderType === 'delivery' ? deliveryFee : 0,
+              service_fee: serviceFee,
               currency,
               tax,
             }
@@ -641,6 +645,14 @@ export const CheckoutForm = ({
         const { error: stripeError, paymentIntent } = paymentResult;
         
         if (stripeError) {
+          const msg = (stripeError.message ?? '').toLowerCase();
+          if (stripeError.code === 'payment_intent_authentication_failure' ||
+              msg.includes('cancel') || msg.includes('abort')) {
+            // User cancelled — silently reset, allow retry
+            setLoading(false);
+            isSubmittingRef.current = false;
+            return;
+          }
           console.error('Stripe error:', stripeError);
           setError(stripeError.message || 'Payment failed');
           throw new Error(stripeError.message);

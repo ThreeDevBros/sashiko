@@ -1,0 +1,1 @@
+ALTER TABLE public.orders ADD COLUMN service_fee numeric DEFAULT 0;
