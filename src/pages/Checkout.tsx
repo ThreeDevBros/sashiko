@@ -101,7 +101,7 @@ const Checkout = () => {
   const { user, isAuthReady } = useAuth();
   const [gettingLocation, setGettingLocation] = useState(false);
   const locationAttemptedRef = useRef(false);
-  const isPlacingOrderRef = useRef(false);
+  
   const [guestInfo, setGuestInfo] = useState({ name: '', email: '', phone: '' });
   
   const paymentTypeRef = useRef<'card' | 'wallet' | 'cash'>('cash');
@@ -120,10 +120,6 @@ const Checkout = () => {
     loading: validationLoading
   } = useDeliveryValidation();
 
-  // Reset duplicate-submission guard when loading finishes
-  useEffect(() => {
-    if (!loading) isPlacingOrderRef.current = false;
-  }, [loading]);
 
   const activeLocation = useMemo(() => {
     if (selectedAddressId === 'current-location' && deviceLocationData) {
@@ -1218,11 +1214,7 @@ const Checkout = () => {
               Checking delivery zone...
             </Button> : <Button size="lg" onClick={() => {
           // Prevent duplicate submissions from rapid clicks
-          if (isPlacingOrderRef.current || loading) return;
-          isPlacingOrderRef.current = true;
-
-          // Reset the guard after a short delay to allow re-attempts on validation failures
-          const resetGuard = () => { isPlacingOrderRef.current = false; };
+          if (loading) return;
 
           // --- Branch Paused: block order ---
           if (branchIsPaused) {
