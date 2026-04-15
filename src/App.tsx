@@ -176,7 +176,7 @@ const AppRoutes = () => {
                 <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
                 <Route path="/account/delete" element={<AnimatedPage><AccountDeletion /></AnimatedPage>} />
                 <Route path="/legal/:type" element={<AnimatedPage><LegalPage /></AnimatedPage>} />
-                <Route path="/support" element={<Suspense fallback={null}><Support /></Suspense>} />
+                <Route path="/support" element={<AnimatedPage><Support /></AnimatedPage>} />
                 <Route path="/account-deletion-info" element={<Suspense fallback={null}><AccountDeletionInfo /></Suspense>} />
                 <Route path="/checkout/success" element={<AnimatedPage><CheckoutSuccess /></AnimatedPage>} />
                 <Route path="/admin" element={<AnimatedPage><Dashboard /></AnimatedPage>} />

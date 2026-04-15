@@ -20,6 +20,8 @@ const backNavigationMap: NavigationMap = {
   '/legal/terms': '/',
   '/legal/privacy': '/',
   '/legal/cookies': '/',
+  '/support': '/',
+  '/settings': '/profile',
   
   // Admin routes
   '/admin': '/',
