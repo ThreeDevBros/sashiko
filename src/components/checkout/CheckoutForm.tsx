@@ -710,6 +710,18 @@ export const CheckoutForm = ({
       }
     } catch (error: any) {
       console.error('Payment error:', error);
+      // Detect user cancellation (Apple Pay dismiss, Google Pay back, AbortError, etc.)
+      const msg = (error?.message ?? '').toLowerCase();
+      const code = (error?.code ?? '').toLowerCase();
+      const isCancellation = 
+        msg.includes('canceled') || msg.includes('cancelled') || msg.includes('cancel') ||
+        msg.includes('abort') || error?.name === 'AbortError' ||
+        code === 'err_canceled' || code === 'payment_canceled' ||
+        error?.type === 'canceled';
+      if (isCancellation) {
+        console.log('Payment cancelled by user');
+        return; // Silently reset — let user retry
+      }
       // Extract a user-friendly message
       let errorMessage = 'Something went wrong placing your order. Please try again.';
       if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function') && !error.message.includes('FunctionsFetchError')) {
@@ -766,30 +778,55 @@ export const CheckoutForm = ({
                 {/* Saved Cards Section - Only for logged-in users */}
                 {!isGuest && savedCards.length > 0 && <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Saved Cards</h3>
-                    {savedCards.map(card => <button 
-                      key={card.id} 
-                      type="button"
-                      data-vaul-no-drag
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setPaymentType('card');
-                        setSelectedCard(card.id);
-                        setIsAddingNewCard(false);
-                        setIsPaymentDrawerOpen(false);
-                      }} 
-                      className={`w-full touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto ${selectedCard === card.id && !isAddingNewCard ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
-                    >
-                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                          <CreditCard className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-sm">•••• {card.last4}</p>
-                          <p className="text-xs text-muted-foreground">{card.brand} • Expires {card.exp_month}/{card.exp_year}</p>
-                        </div>
-                        {selectedCard === card.id && !isAddingNewCard && <ChevronRight className="h-5 w-5 text-primary" />}
-                      </button>)}
+                    {savedCards.map(card => <div key={card.id} className="flex items-center gap-2">
+                      <button 
+                        type="button"
+                        data-vaul-no-drag
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setPaymentType('card');
+                          setSelectedCard(card.id);
+                          setIsAddingNewCard(false);
+                          setIsPaymentDrawerOpen(false);
+                        }} 
+                        className={`flex-1 touch-manipulation flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all text-left pointer-events-auto ${selectedCard === card.id && !isAddingNewCard ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent/50'}`}
+                      >
+                          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+                            <CreditCard className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-sm">•••• {card.last4}</p>
+                            <p className="text-xs text-muted-foreground">{card.brand} • Expires {card.exp_month}/{card.exp_year}</p>
+                          </div>
+                          {selectedCard === card.id && !isAddingNewCard && <ChevronRight className="h-5 w-5 text-primary" />}
+                        </button>
+                      <button
+                        type="button"
+                        data-vaul-no-drag
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          try {
+                            const { error } = await supabase.functions.invoke('delete-saved-card', { body: { card_id: card.id } });
+                            if (error) throw error;
+                            if (selectedCard === card.id) {
+                              setSelectedCard(null);
+                              setIsAddingNewCard(true);
+                            }
+                            refreshCards();
+                            toast({ title: 'Card removed' });
+                          } catch (err: any) {
+                            toast({ title: 'Failed to remove card', description: err?.message || 'Please try again', variant: 'destructive' });
+                          }
+                        }}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors touch-manipulation"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>)}
                   </div>}
 
                 <div className="space-y-2">
