@@ -23,6 +23,43 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
+    // Authenticate the caller
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    const anonClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: authError } = await anonClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    // Verify the caller has admin role
+    const { data: roleData } = await supabaseClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+
+    if (!roleData) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: admin access required.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      );
+    }
+
     const body = await req.json();
     const validation = requestSchema.safeParse(body);
     if (!validation.success) {
@@ -34,8 +71,6 @@ serve(async (req) => {
 
     const { order_id } = validation.data;
 
-    // The order_id IS the payment_intent_id for card orders (set in confirm-payment)
-    // For cash orders, it's a regular UUID — skip refund
     const isPaymentIntent = order_id.startsWith('pi_');
 
     if (!isPaymentIntent) {
@@ -46,7 +81,6 @@ serve(async (req) => {
       );
     }
 
-    // Get Stripe API key from secrets
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
 
     if (!stripeKey) {
@@ -59,7 +93,6 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
 
-    // Retrieve the payment intent to check status
     const paymentIntent = await stripe.paymentIntents.retrieve(order_id);
 
     if (paymentIntent.status !== 'succeeded') {
@@ -70,7 +103,6 @@ serve(async (req) => {
       );
     }
 
-    // Check if already refunded
     if (paymentIntent.amount_received === 0 || (paymentIntent as any).amount_refunded === paymentIntent.amount_received) {
       console.log('Already fully refunded:', order_id);
       return new Response(
@@ -79,7 +111,6 @@ serve(async (req) => {
       );
     }
 
-    // Issue full refund
     const refund = await stripe.refunds.create({
       payment_intent: order_id,
     });
@@ -94,7 +125,7 @@ serve(async (req) => {
     console.error('Error processing refund:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: `Refund failed: ${message}` }),
+      JSON.stringify({ error: `Refund failed.` }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
