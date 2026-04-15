@@ -265,9 +265,15 @@ function StaffOrdersContent() {
       // If cancelling, trigger Stripe refund
       if (status === 'cancelled') {
         supabase.functions.invoke('refund-order', { body: { order_id: id } })
-          .then(({ error: refundErr }) => {
-            if (refundErr) console.error('Refund error:', refundErr);
-            else console.log('Refund initiated for order:', id);
+          .then(({ data, error: refundErr }) => {
+            if (refundErr) {
+              console.error('Refund error:', refundErr);
+              toast.error('Refund failed', { description: 'Could not process automatic refund.' });
+            } else if (data?.refunded) {
+              toast.success('Refund issued', { description: 'Payment has been refunded.' });
+            } else if (data?.reason === 'cash_order') {
+              console.log('Cash order — no refund needed');
+            }
           });
       }
 
