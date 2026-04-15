@@ -498,34 +498,61 @@ export default function OrderTracking() {
     }
     setIsCancelling(true);
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'cancelled', cancellation_reason: 'Cancelled by customer' } as any)
-        .eq('id', order.id);
-      if (error) throw error;
-
-      // Trigger Stripe refund (fire-and-forget, don't block UX)
-      supabase.functions.invoke('refund-order', { body: { order_id: order.id } })
-        .then(({ error: refundErr }) => {
-          if (refundErr) console.error('Refund error:', refundErr);
-          else console.log('Refund initiated for order:', order.id);
+      if (isGuest) {
+        // Guest flow: use dedicated edge function that handles both status update and refund
+        const guestOrders = getGuestOrders();
+        const guestEntry = guestOrders.find(o => o.id === order.id);
+        const legacyRaw = localStorage.getItem('guest_active_order');
+        let email = guestEntry?.email;
+        if (!email && legacyRaw) {
+          try { email = JSON.parse(legacyRaw).email; } catch {}
+        }
+        if (!email) {
+          toast.error('Unable to verify guest order');
+          return;
+        }
+        const { data, error } = await supabase.functions.invoke('cancel-guest-order', {
+          body: { order_id: order.id, guest_email: email }
         });
+        if (error) {
+          // Try to extract structured error from response
+          const errBody = error?.context ? await error.context.json?.().catch(() => null) : null;
+          throw new Error(errBody?.error || error.message || 'Failed to cancel order');
+        }
+      } else {
+        // Authenticated flow: direct DB update + fire-and-forget refund
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: 'cancelled', cancellation_reason: 'Cancelled by customer' } as any)
+          .eq('id', order.id);
+        if (error) throw error;
+
+        // Trigger Stripe refund (fire-and-forget, don't block UX)
+        supabase.functions.invoke('refund-order', { body: { order_id: order.id } })
+          .then(({ error: refundErr }) => {
+            if (refundErr) console.error('Refund error:', refundErr);
+            else console.log('Refund initiated for order:', order.id);
+          });
+      }
 
       setOrder(prev => prev ? { ...prev, status: 'cancelled', cancellation_reason: 'Cancelled by customer' } : null);
       toast.success('Order cancelled — refund is being processed');
     } catch (err: any) {
+      console.error('Cancel order error:', err);
       // Check if order was confirmed in the meantime
-      const { data: freshOrder } = await supabase
-        .from('orders')
-        .select('status')
-        .eq('id', order.id)
-        .single();
-      if (freshOrder && freshOrder.status !== 'pending') {
-        toast.error('Too late — order already confirmed.');
-        setOrder(prev => prev ? { ...prev, status: freshOrder.status } : null);
-      } else {
-        toast.error('Failed to cancel order');
+      if (!isGuest) {
+        const { data: freshOrder } = await supabase
+          .from('orders')
+          .select('status')
+          .eq('id', order.id)
+          .single();
+        if (freshOrder && freshOrder.status !== 'pending') {
+          toast.error('Too late — order already confirmed.');
+          setOrder(prev => prev ? { ...prev, status: freshOrder.status } : null);
+          return;
+        }
       }
+      toast.error(err?.message || 'Failed to cancel order');
     } finally {
       setIsCancelling(false);
     }
