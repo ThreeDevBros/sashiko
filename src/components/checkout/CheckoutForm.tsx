@@ -992,6 +992,7 @@ export const CheckoutForm = ({
               submitRef={guestCardSubmitRef}
               deliveryFee={deliveryFee}
               tax={tax}
+              orderTotal={orderTotal}
             />
           )}
 
