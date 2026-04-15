@@ -1,25 +1,23 @@
 
 
-## Add `/support` Page
+## Fix `/support` Page Visibility and Accessibility
 
-A simple public page that tells users to contact any branch for support, displaying branch contact details (phone, address) fetched from the database.
+### Issues Found
+1. **Route works but may render incorrectly** — `/support` uses a raw `<Suspense>` wrapper instead of `<AnimatedPage>` like every other route, which can cause blank renders inside `AnimatePresence mode="wait"`.
+2. **Not in admin sidebar** — The admin sidebar (`AdminLayout.tsx`) has no link to `/support`. It's only visible inside the Hidden Pages tab in Configure, which requires scrolling.
+3. **Not in navigation map** — `/support` is missing from `src/lib/navigation.ts`, so the back button won't work correctly.
 
-### Files to create/modify
+### Plan
 
-1. **`src/pages/Support.tsx`** (new) — A simple page showing:
-   - Heading: "Contact Support"
-   - Message: "For any questions or issues, please contact any of our branches directly."
-   - A list of all branches with their name, phone number, and address (fetched from the `branches` table)
-   - Each phone number is a clickable `tel:` link
-   - Uses `pt-safe` for iOS safe area consistency
-   - Styled consistently with other pages (Card components, same layout patterns)
+1. **Fix the route rendering** (`src/App.tsx`)
+   - Wrap `/support` in `<AnimatedPage>` like all other routes instead of bare `<Suspense>`
 
-2. **`src/App.tsx`** — Add route:
-   - Lazy import `Support` page
-   - Add `<Route path="/support" element={...} />` alongside the other public routes
+2. **Add `/support` to navigation map** (`src/lib/navigation.ts`)
+   - Add `/support` → `/` entry so back button navigates home
 
-### Result
-- `/support` URL is publicly accessible (no auth required)
-- Shows branch contact info so users can reach out directly
-- Can be submitted as the Support URL in App Store Connect
+3. **Ensure the Hidden Pages tab is visible** — Already confirmed working in code. If the issue persists after the route fix, the page itself should render correctly when navigated to.
+
+### Technical Details
+- The root cause is likely that `AnimatePresence mode="wait"` expects consistent child wrappers with motion components. A raw `<Suspense>` child without the `motion.div` wrapper from `AnimatedPage` can cause the component to not animate in or appear blank.
+- No database or RLS changes needed — the `branches` table already allows public SELECT.
 
