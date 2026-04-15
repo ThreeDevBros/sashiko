@@ -111,50 +111,41 @@ export const DeliveryLocationSelector = ({
   };
 
   const handleUseDeviceLocation = async () => {
-    if (!navigator.geolocation) {
+    if (!isGeolocationAvailable()) {
       toast.error('Geolocation is not supported by your browser');
       return;
     }
 
     setGettingLocation(true);
     
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          
-          const { data, error } = await supabase.functions.invoke('geocode-location', {
-            body: { latitude, longitude }
-          });
+    try {
+      const position = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+      const { latitude, longitude } = position.coords;
+      
+      const { data, error } = await supabase.functions.invoke('geocode-location', {
+        body: { latitude, longitude }
+      });
 
-          let addressString = 'Current location';
-          if (!error && data?.address) {
-            addressString = data.address;
-          }
+      let addressString = 'Current location';
+      if (!error && data?.address) {
+        addressString = data.address;
+      }
 
-          onLocationSelect({ 
-            source: 'device',
-            type: 'device',
-            address: addressString,
-            latitude,
-            longitude
-          });
-          onOpenChange(false);
-          toast.success('Using your current location');
-        } catch (error) {
-          console.error('Error getting location:', error);
-          toast.error('Failed to get your location');
-        } finally {
-          setGettingLocation(false);
-        }
-      },
-      (error) => {
-        console.error('Geolocation error:', error);
-        toast.error('Location access denied. Please enable location permissions.');
-        setGettingLocation(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+      onLocationSelect({ 
+        source: 'device',
+        type: 'device',
+        address: addressString,
+        latitude,
+        longitude
+      });
+      onOpenChange(false);
+      toast.success('Using your current location');
+    } catch (error) {
+      console.error('Geolocation error:', error);
+      toast.error('Location access denied. Please enable location permissions.');
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
   const handleSelectAddress = (address: Address) => {

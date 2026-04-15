@@ -312,14 +312,12 @@ const AppContent = () => {
     }
 
     const detectLocation = async () => {
-      if (!navigator.geolocation) return;
+      if (!isGeolocationAvailable()) return;
       
       try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 10000,
-            enableHighAccuracy: true,
-          });
+        const position = await getCurrentPosition({
+          timeout: 10000,
+          enableHighAccuracy: true,
         });
         
         const { latitude, longitude } = position.coords;

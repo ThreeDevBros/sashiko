@@ -83,11 +83,9 @@ const getUserCoordinates = async (): Promise<{ lat: number; lon: number; address
 
   // 4. Fall back to live GPS
   try {
-    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        timeout: 10000,
-        enableHighAccuracy: true,
-      });
+    const position = await getCurrentPosition({
+      timeout: 10000,
+      enableHighAccuracy: true,
     });
     const { latitude, longitude } = position.coords;
     const address = await geocodeLocation(latitude, longitude);
