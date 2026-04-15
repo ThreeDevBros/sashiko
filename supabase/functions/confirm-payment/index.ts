@@ -142,6 +142,7 @@ serve(async (req) => {
         subtotal: parseFloat(metadata.subtotal),
         tax: parseFloat(metadata.tax),
         delivery_fee: parseFloat(metadata.delivery_fee),
+        service_fee: parseFloat(metadata.service_fee || '0'),
         total: paymentIntent.amount / 100,
         status: 'pending',
         order_number: orderNumber,
