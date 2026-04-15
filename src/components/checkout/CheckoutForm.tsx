@@ -991,6 +991,7 @@ export const CheckoutForm = ({
               onValidityChange={onGuestCardValidityChange}
               submitRef={guestCardSubmitRef}
               deliveryFee={deliveryFee}
+              serviceFee={serviceFee}
               tax={tax}
               orderTotal={orderTotal}
             />
