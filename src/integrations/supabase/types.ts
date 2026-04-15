@@ -849,6 +849,7 @@ export type Database = {
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
           payment_method: string | null
+          service_fee: number | null
           special_instructions: string | null
           status: Database["public"]["Enums"]["order_status"] | null
           stripe_payment_intent_id: string | null
@@ -883,6 +884,7 @@ export type Database = {
           order_number: string
           order_type: Database["public"]["Enums"]["order_type"]
           payment_method?: string | null
+          service_fee?: number | null
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           stripe_payment_intent_id?: string | null
@@ -917,6 +919,7 @@ export type Database = {
           order_number?: string
           order_type?: Database["public"]["Enums"]["order_type"]
           payment_method?: string | null
+          service_fee?: number | null
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           stripe_payment_intent_id?: string | null
