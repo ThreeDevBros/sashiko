@@ -83,9 +83,8 @@ Deno.serve(async (req) => {
 
     const hasStaffRole = roles && roles.length > 0;
     const isOwner = order.user_id === user.id;
-    const isGuestOrder = !order.user_id;
 
-    if (!hasStaffRole && !isOwner && !isGuestOrder) {
+    if (!hasStaffRole && !isOwner) {
       return new Response(
         JSON.stringify({ error: 'Forbidden.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
