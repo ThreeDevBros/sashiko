@@ -526,6 +526,7 @@ export const CheckoutForm = ({
               service_fee: serviceFee,
               currency,
               tax,
+              order_total: orderTotal,
             }
           });
 

@@ -152,6 +152,7 @@ export async function nativeWalletPay(options: NativePayOptions): Promise<Native
         service_fee: options.serviceFee || 0,
         currency: options.currency,
         tax: options.tax,
+        order_total: options.orderTotal,
       },
     });
 
