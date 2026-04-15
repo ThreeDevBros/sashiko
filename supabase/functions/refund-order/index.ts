@@ -13,6 +13,8 @@ const requestSchema = z.object({
 });
 
 serve(async (req) => {
+  console.log('refund-order invoked, method:', req.method);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

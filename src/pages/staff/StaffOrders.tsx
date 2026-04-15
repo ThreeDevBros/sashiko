@@ -264,17 +264,22 @@ function StaffOrdersContent() {
 
       // If cancelling, trigger Stripe refund
       if (status === 'cancelled') {
-        supabase.functions.invoke('refund-order', { body: { order_id: id } })
-          .then(({ data, error: refundErr }) => {
-            if (refundErr) {
-              console.error('Refund error:', refundErr);
-              toast.error('Refund failed', { description: 'Could not process automatic refund.' });
-            } else if (data?.refunded) {
-              toast.success('Refund issued', { description: 'Payment has been refunded.' });
-            } else if (data?.reason === 'cash_order') {
-              console.log('Cash order — no refund needed');
-            }
-          });
+        try {
+          const { data: refundData, error: refundErr } = await supabase.functions.invoke('refund-order', { body: { order_id: id } });
+          if (refundErr) {
+            console.error('Refund invocation error:', refundErr);
+            toast.error('Refund failed', { description: refundErr.message || 'Could not process automatic refund.', duration: 10000 });
+          } else if (refundData?.refunded) {
+            toast.success('Refund issued', { description: 'Payment has been refunded.', duration: 5000 });
+          } else if (refundData?.reason === 'cash_order') {
+            console.log('Cash order — no refund needed');
+          } else if (refundData?.reason) {
+            console.log('Refund skipped:', refundData.reason);
+          }
+        } catch (e: any) {
+          console.error('Refund call exception:', e);
+          toast.error('Refund error', { description: 'Unexpected error processing refund.', duration: 10000 });
+        }
       }
 
       // Send delivery confirmation email
