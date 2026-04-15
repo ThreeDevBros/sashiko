@@ -144,6 +144,7 @@ export const GuestCardPayment = ({
           branch_id: branchId, order_type: orderType,
           guest_info: { name: guestInfo.name, email: guestInfo.email, phone: guestInfo.phone },
            delivery_fee: deliveryFee,
+           service_fee: serviceFee,
            currency: getGlobalCurrency().toLowerCase(),
            tax: tax,
            order_total: orderTotal,
