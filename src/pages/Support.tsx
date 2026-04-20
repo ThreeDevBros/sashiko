@@ -59,6 +59,11 @@ const Support = () => {
           </div>
         )}
       </div>
+      <p className="text-center text-xs text-muted-foreground mt-8">
+        Sashiko Asian Fusion © {new Date().getFullYear()}
+        <br />
+        All rights reserved
+      </p>
     </div>
   );
 };
