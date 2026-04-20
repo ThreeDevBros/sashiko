@@ -379,18 +379,36 @@ export default function Profile() {
 
           {/* About Us (visible to everyone) */}
           <SettingsSection icon={Info} title={t('profile.about')} open={aboutOpen} onOpenChange={setAboutOpen} variant="rows">
-             <SettingsRow
+            <SettingsRow
               icon={ShieldCheck}
               label="Privacy Policy"
               onClick={() => navigate('/legal/privacy')}
             />
-             <SettingsRow
-               icon={FileText}
-               label="Terms & Conditions"
-               onClick={() => navigate('/legal/terms')}
-               showDivider
-             />
-           </SettingsSection>
+            <SettingsRow
+              icon={FileText}
+              label="Terms & Conditions"
+              onClick={() => navigate('/legal/terms')}
+              showDivider
+            />
+            <SettingsRow
+              icon={Cookie}
+              label="Cookies & Data Usage"
+              onClick={() => navigate('/legal/cookies')}
+              showDivider
+            />
+            <SettingsRow
+              icon={LifeBuoy}
+              label="Support"
+              onClick={() => navigate('/support')}
+              showDivider
+            />
+            <SettingsRow
+              icon={UserX}
+              label="Account Deletion Info"
+              onClick={() => navigate('/account-deletion-info')}
+              showDivider
+            />
+          </SettingsSection>
 
           {/* Settings */}
           <SettingsLink icon={Settings} title={t('profile.settings')} onClick={() => navigate('/settings')} />
