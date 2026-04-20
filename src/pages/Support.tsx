@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Phone, MapPin } from "lucide-react";
+import { Phone, MapPin, Home } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Support = () => {
+  const navigate = useNavigate();
   const { data: branches, isLoading } = useQuery({
     queryKey: ["branches-support"],
     queryFn: async () => {
@@ -19,6 +22,15 @@ const Support = () => {
   return (
     <div className="min-h-screen bg-background pt-safe px-4 pb-8">
       <div className="max-w-lg mx-auto pt-8 space-y-6">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/')}
+          className="h-10 w-10 rounded-full bg-muted/50 hover:bg-muted border border-border/50 shadow-sm backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:shadow-md"
+          aria-label="Go home"
+        >
+          <Home className="h-5 w-5" />
+        </Button>
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold text-foreground">Contact Support</h1>
           <p className="text-muted-foreground text-sm">
