@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, Lock, Shield, Package, LogOut, Trash2, MapPin, Coins, Calendar, Info, FileText, ShieldCheck, Settings } from 'lucide-react';
+import { User, Mail, Phone, Lock, Shield, Package, LogOut, Trash2, MapPin, Coins, Calendar, Info, FileText, ShieldCheck, Settings, Cookie, UserX, LifeBuoy } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
