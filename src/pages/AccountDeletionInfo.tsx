@@ -70,6 +70,11 @@ const AccountDeletionInfo = () => {
             dangerouslySetInnerHTML={{ __html: displayContent }}
           />
         )}
+        <p className="text-center text-xs text-muted-foreground pt-4">
+          {tenantName} © {new Date().getFullYear()}
+          <br />
+          All rights reserved
+        </p>
       </div>
     </div>
   );
