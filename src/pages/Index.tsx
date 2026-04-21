@@ -175,9 +175,15 @@ const Index = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pt-safe">
+    <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <div className="relative w-full h-[45vh] min-h-[400px] overflow-hidden">
+      <div
+        className="relative w-full overflow-hidden"
+        style={{
+          height: 'calc(45vh + env(safe-area-inset-top))',
+          minHeight: 'calc(400px + env(safe-area-inset-top))',
+        }}
+      >
         {bannerStyle === 'slideshow' && banners.length > 1 ? (
           <HeroBannerSlideshow banners={banners} intervalSeconds={slideshowInterval}>
             {renderHeroContent}
