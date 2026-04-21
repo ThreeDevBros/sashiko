@@ -302,7 +302,7 @@
 
     "@capacitor/core": ["@capacitor/core@7.4.3", "", { "dependencies": { "tslib": "^2.1.0" } }, "sha512-wCWr8fQ9Wxn0466vPg7nMn0tivbNVjNy1yL4GvDSIZuZx7UpU2HeVGNe9QjN/quEd+YLRFeKEBLBw619VqUiNg=="],
 
-    "@capacitor/geolocation": ["@capacitor/geolocation@7.0.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/geolocation/-/geolocation-7.0.0.tgz", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-l/xl3HR8pxwD1nbPVMbuB9SEYOPPZ69WAHkHAfATVHzKhQ4Kd5F94bbf4h6evvsPkvRDOgydxptjH/T9aWx4yg=="],
+    "@capacitor/geolocation": ["@capacitor/geolocation@7.0.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/geolocation/-/geolocation-7.0.0.tgz", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-l/xl3HR8pxwD1nbPVMbuB9SEYOPPZ69WAHkHAfATVHzKhQ4Kd5F94bbf4h6evvsPkvRDOgydxptjH/T9aWx4yg=="],
 
     "@capacitor/haptics": ["@capacitor/haptics@7.0.2", "", { "peerDependencies": { "@capacitor/core": ">=7.0.0" } }, "sha512-vqfeEM6s2zMgLjpITCTUIy7P/hadq/Gr5E/RClFgMJPB41Y5FsqOKD+j85/uwh8N2cf/aWaPeXUmjnTzJbEB2g=="],
 
