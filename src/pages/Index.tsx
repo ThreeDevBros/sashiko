@@ -121,7 +121,10 @@ const Index = () => {
   const renderHeroContent = (currentBanner: BannerItem) => (
     <div className="h-full relative">
       {/* Zone 1: Title & Description — positioned at top of content area */}
-      <div className="absolute inset-x-0 top-0 bottom-[140px] md:bottom-[130px] flex flex-col justify-start pt-8 md:pt-12 overflow-hidden">
+      <div
+        className="absolute inset-x-0 top-0 bottom-[140px] md:bottom-[130px] flex flex-col justify-start overflow-hidden"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 2rem)' }}
+      >
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6">
           <div className="max-w-md space-y-2">
             {branch?.name && (
@@ -172,9 +175,15 @@ const Index = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pt-safe">
+    <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <div className="relative w-full h-[45vh] min-h-[400px] overflow-hidden">
+      <div
+        className="relative w-full overflow-hidden"
+        style={{
+          height: 'calc(45vh + env(safe-area-inset-top))',
+          minHeight: 'calc(400px + env(safe-area-inset-top))',
+        }}
+      >
         {bannerStyle === 'slideshow' && banners.length > 1 ? (
           <HeroBannerSlideshow banners={banners} intervalSeconds={slideshowInterval}>
             {renderHeroContent}
