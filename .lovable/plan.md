@@ -1,57 +1,101 @@
 
 
-## Disable Delivery When Out of Range + Slider-Style Order Type Selector
+## Prefetch Stripe SDK at App Start (Eliminate /checkout Delay)
 
-### Problem
-On `/checkout`, when the user's address is outside the delivery radius, "Delivery" is still selectable in the Order Type card and shows a red error message. The current radio layout (two bordered boxes side by side) also feels visually heavy.
+### Current state
+- **Saved cards**: ✅ Already prefetched at app start in `src/App.tsx` (lines 230-234) and shared via React Query — no work needed here.
+- **Stripe SDK**: ❌ Loaded inside `Checkout.tsx` (`useEffect` at lines 237-266) using local `useState`. Every time the user enters /checkout, `loadStripe()` and `get-public-keys` re-run from scratch — and on native, the Capacitor Stripe plugin re-initializes too. This is the actual delay the user feels.
 
 ### Goal
-1. When delivery isn't available (out-of-radius, or no branch coordinates / no `delivery_radius_km`), make the **Delivery** option non-selectable and auto-switch the user to **Pickup** — so the destructive red alert never appears.
-2. Replace the two-card radio with a sleek **segmented slider** (single rounded pill, animated highlight thumb that slides between Delivery and Pickup).
+Initialize the Stripe SDK (web `loadStripe` + native plugin) **once** at app boot, cache it as a module-level singleton, and have `/checkout` consume the cached promise instantly — so:
+- First entry to /checkout: no wait (SDK already loading/loaded in the background since boot).
+- Subsequent entries (after going back to edit cart): instant — singleton is already resolved.
 
 ### Changes
 
-**`src/pages/Checkout.tsx`**
+**1. New file: `src/lib/stripeBootstrap.ts`** — module-level singleton
+```ts
+import { loadStripe, type Stripe } from '@stripe/stripe-js';
+import { supabase } from '@/integrations/supabase/client';
 
-1. **Compute `deliveryAvailable`** alongside the existing `canDeliver`:
-   ```ts
-   // Delivery is unavailable when the chosen location is out of the branch's radius
-   const deliveryAvailable = hasDeliveryLocation ? isWithinRadius : true;
-   ```
-   (When no address is set yet, keep Delivery selectable so the user can pick one — the existing yellow "no location" warning still applies.)
+let stripePromise: Promise<Stripe | null> | null = null;
+let nativeReady = false;
 
-2. **Auto-switch to Pickup** when delivery becomes unavailable:
-   ```ts
-   useEffect(() => {
-     if (!deliveryAvailable && orderType === 'delivery') {
-       setOrderType('pickup');
-     }
-   }, [deliveryAvailable, orderType]);
-   ```
+export function getStripePromise(): Promise<Stripe | null> | null {
+  return stripePromise;
+}
 
-3. **Replace the RadioGroup (lines 663-679)** with a segmented slider:
-   - One rounded `bg-muted` container (`rounded-full p-1 relative`).
-   - An absolutely-positioned `bg-primary` thumb that animates `left` / `transform` with `transition-transform duration-300 ease-out` between the two halves.
-   - Two button "tabs" (Delivery, Pickup) layered on top with `z-10`, each `flex-1`, icon + label, text turns `text-primary-foreground` when active.
-   - When `!deliveryAvailable`: Delivery button gets `disabled`, `opacity-40`, `cursor-not-allowed`, and a tiny "Out of range" hint underneath (replacing the destructive red alert).
-   - Removes lines 712-721 (the destructive "outside our delivery area" alert) — that state can no longer occur since Delivery is disabled.
+export function isNativeStripeReady() {
+  return nativeReady;
+}
 
-4. **Keep**: branch-paused alert, branch-closed alert, and the yellow "no location selected" alert — those still apply.
+export async function initStripeOnce(): Promise<void> {
+  if (stripePromise) return;
+  try {
+    const { data, error } = await supabase.functions.invoke('get-public-keys', {
+      body: { key_type: 'STRIPE_PUBLISHABLE_KEY' },
+    });
+    if (error || !data?.key) return;
+    stripePromise = loadStripe(data.key);
 
-### Visual sketch
-```text
-Before:                          After:
-┌──────────┐ ┌──────────┐        ┌──────────────────────────┐
-│● Delivery│ │○ Pickup  │   →   │ [██Delivery██] [ Pickup ] │   (thumb slides)
-└──────────┘ └──────────┘        └──────────────────────────┘
-[red error: outside area]        Delivery dimmed + "Out of range" caption
+    const { isNativeWalletPlatform, initializeNativeStripe } = await import('@/lib/nativeStripePay');
+    if (isNativeWalletPlatform()) {
+      nativeReady = await initializeNativeStripe();
+    }
+  } catch (e) {
+    console.error('[StripeBootstrap] init failed', e);
+    stripePromise = null; // allow retry later
+  }
+}
 ```
 
+**2. `src/App.tsx`** — kick off Stripe init at boot, alongside existing saved-cards prefetch
+- Import `initStripeOnce` from `@/lib/stripeBootstrap`.
+- In `AppContent`, add a `useEffect` that runs **once on mount** (no auth gate — Stripe publishable key is public and useful for guests too):
+  ```ts
+  useEffect(() => { void initStripeOnce(); }, []);
+  ```
+
+**3. `src/pages/Checkout.tsx`** — consume the cached singleton instead of local state
+- Replace the local `stripePromise` / `stripeReady` state and the `useEffect` at lines 237-266 with:
+  ```ts
+  const [stripePromise, setStripePromise] = useState(() => getStripePromise());
+  const [stripeReady, setStripeReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // Ensure init has been triggered (idempotent — usually already done at boot)
+      await initStripeOnce();
+      if (cancelled) return;
+      const p = getStripePromise();
+      if (p) {
+        setStripePromise(p);
+        const s = await p;
+        if (!cancelled && s) setStripeReady(true);
+        if (!cancelled && isNativeStripeReady()) setStripeReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+  ```
+- Remove `loadStripe` import (now lives in the bootstrap module).
+
+### Result
+| Scenario | Before | After |
+|---|---|---|
+| First /checkout visit | ~1-2s wait for `get-public-keys` + `loadStripe` + native init | Already loading since boot — usually ready instantly |
+| Back to cart → /checkout again | Re-fetches key, re-runs `loadStripe`, re-inits native plugin | Singleton resolved → instant |
+| Saved cards | Already prefetched ✅ | No change — already optimal |
+
 ### Files
-- `src/pages/Checkout.tsx` — only file touched.
+- **New**: `src/lib/stripeBootstrap.ts`
+- **Edited**: `src/App.tsx` (one-line `useEffect` + import)
+- **Edited**: `src/pages/Checkout.tsx` (replace local Stripe-loading effect with singleton consumer)
 
 ### Notes
-- No backend / RLS / data changes.
-- Existing submit-button guard (`!canDeliver && selectedAddressId`) stays as a safety net but should never trigger now since `orderType` auto-flips to pickup.
-- No removal of `RadioGroup` import if used elsewhere in the file; otherwise it'll be cleaned up.
+- No backend, RLS, or DB changes.
+- `GuestCardPayment.tsx` also calls `loadStripe` separately — out of scope for this change since it's only used inside the already-loaded checkout flow; can be migrated later if further speedup is wanted.
+- Singleton is module-level, so it survives route changes and lazy-load remounts of the Checkout component.
+- Failure path (network down at boot) still allows retry on /checkout entry because we reset `stripePromise = null` on error.
 
