@@ -19,6 +19,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
 import { prefetchSavedCards } from './hooks/useSavedCards';
 import { initStripeOnce } from '@/lib/stripeBootstrap';
+import {
+  prefetchProfile,
+  prefetchUserRoles,
+  prefetchUserPermissions,
+  fetchUserRoles,
+  USER_ROLES_QUERY_KEY,
+} from '@/lib/profilePrefetch';
 import { handleGlobalResume } from "@/lib/lifecycleManager";
 import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
 import { AppRuntimeListeners } from "./components/AppRuntimeListeners";
@@ -86,16 +93,13 @@ const AppRoutes = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthReady, isAuthRecovering } = useAuth();
+  const qc = useQueryClient();
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isStaffRoute = location.pathname.startsWith('/staff');
   const isDriverRoute = location.pathname.startsWith('/driver');
   const isAuthRoute = location.pathname === '/auth';
   const isQrMenuRoute = location.pathname.startsWith('/qr-menu');
   const showNav = !isAdminRoute && !isStaffRoute && !isDriverRoute && !isAuthRoute && !isQrMenuRoute;
-  
-  // Cache roles to avoid refetching on every route change
-  const [cachedRoles, setCachedRoles] = useState<string[] | null>(null);
-  const lastRoleUserId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -110,34 +114,30 @@ const AppRoutes = () => {
                                location.pathname.startsWith('/driver');
 
       if (!user) {
-        setCachedRoles(null);
-        lastRoleUserId.current = null;
         if (isProtectedPanel) {
           navigate('/auth', { replace: true });
         }
         return;
       }
 
-      // Only fetch roles if user changed (not on every route change)
-      let roles = cachedRoles;
-      if (lastRoleUserId.current !== user.id || !roles) {
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id);
-        roles = roleData?.map(r => r.role) || [];
-        setCachedRoles(roles);
-        lastRoleUserId.current = user.id;
+      // Read from shared React Query cache (prefetched at boot by AppContent)
+      let roles = qc.getQueryData<string[]>(USER_ROLES_QUERY_KEY(user.id));
+      if (!roles) {
+        roles = await qc.fetchQuery({
+          queryKey: USER_ROLES_QUERY_KEY(user.id),
+          queryFn: () => fetchUserRoles(user.id),
+          staleTime: 5 * 60 * 1000,
+        });
       }
-      
-      if (!isRouteAllowedForRoles(location.pathname, roles)) {
-        const correctRoute = getRoleBasedRoute(roles);
+
+      if (!isRouteAllowedForRoles(location.pathname, roles || [])) {
+        const correctRoute = getRoleBasedRoute(roles || []);
         navigate(correctRoute, { replace: true });
       }
     };
-    
+
     checkRoleAccess();
-  }, [location.pathname, navigate, isAuthRoute, isQrMenuRoute, isAuthReady, isAuthRecovering, user]);
+  }, [location.pathname, navigate, isAuthRoute, isQrMenuRoute, isAuthReady, isAuthRecovering, user, qc]);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -227,10 +227,13 @@ const AppContent = () => {
   const [bootstrapComplete, setBootstrapComplete] = useState(false);
   const hasBootstrapped = useRef(false);
 
-  // Prefetch saved cards only after auth is ready and user exists
+  // Prefetch saved cards + profile + roles + permissions after auth is ready
   useEffect(() => {
     if (isAuthReady && user) {
       prefetchSavedCards(qc);
+      prefetchProfile(qc, user.id);
+      prefetchUserRoles(qc, user.id);
+      prefetchUserPermissions(qc, user.id);
     }
   }, [isAuthReady, user, qc]);
 
