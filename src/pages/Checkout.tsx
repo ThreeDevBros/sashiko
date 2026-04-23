@@ -670,23 +670,45 @@ const Checkout = () => {
         {/* Order Type */}
         <Card className="p-4" data-section="order-type">
           <h2 className="font-semibold mb-4">{t('checkout.orderType')}</h2>
-          <RadioGroup value={orderType} onValueChange={(value: any) => setOrderType(value)}>
-            <div className="flex gap-4">
-              <Label htmlFor="delivery" className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                orderType === 'delivery' ? 'border-primary bg-primary/5' : 'border-border'
-              }`}>
-                <RadioGroupItem value="delivery" id="delivery" />
-                <Bike className="h-5 w-5" />
-                <span className="font-medium">{t('checkout.delivery')}</span>
-              </Label>
-              
-              <Label htmlFor="pickup" data-order-type="pickup" className={`flex-1 flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${orderType === 'pickup' ? 'border-primary bg-primary/5' : 'border-border'}`}>
-                <RadioGroupItem value="pickup" id="pickup" />
-                <ShoppingBag className="h-5 w-5" />
-                <span className="font-medium">{t('checkout.pickup')}</span>
-              </Label>
-            </div>
-          </RadioGroup>
+          <div className="relative flex items-center bg-muted rounded-full p-1 h-12">
+            {/* Animated thumb */}
+            <div
+              className="absolute top-1 bottom-1 left-1 rounded-full bg-primary shadow-sm transition-transform duration-300 ease-out"
+              style={{
+                width: 'calc(50% - 0.25rem)',
+                transform: orderType === 'delivery' ? 'translateX(0)' : 'translateX(100%)',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => deliveryAvailable && setOrderType('delivery')}
+              disabled={!deliveryAvailable}
+              className={`relative z-10 flex-1 h-full flex items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors ${
+                orderType === 'delivery' ? 'text-primary-foreground' : 'text-foreground'
+              } ${!deliveryAvailable ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <Bike className="h-4 w-4" />
+              <span>{t('checkout.delivery')}</span>
+            </button>
+            <button
+              type="button"
+              data-order-type="pickup"
+              onClick={() => setOrderType('pickup')}
+              className={`relative z-10 flex-1 h-full flex items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+                orderType === 'pickup' ? 'text-primary-foreground' : 'text-foreground'
+              }`}
+            >
+              <ShoppingBag className="h-4 w-4" />
+              <span>{t('checkout.pickup')}</span>
+            </button>
+          </div>
+
+          {/* Out of range hint */}
+          {!deliveryAvailable && hasDeliveryLocation && (
+            <p className="mt-2 text-xs text-muted-foreground text-center">
+              Delivery unavailable — address is outside our delivery area
+            </p>
+          )}
 
           {/* Branch paused warning */}
           {branchIsPaused && (
@@ -715,17 +737,6 @@ const Checkout = () => {
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 No delivery location selected yet. Please set your delivery address to continue to payment.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Delivery radius warning */}
-          {!canDeliver && hasDeliveryLocation && orderType === 'delivery' && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Delivery isn't available for this address (outside our delivery area). 
-                Please change your address if you're not at the selected location.
               </AlertDescription>
             </Alert>
           )}
