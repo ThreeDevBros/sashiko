@@ -183,13 +183,22 @@ export const CheckoutForm = ({
             }
           });
           const canMakePayment = await paymentRequest.canMakePayment();
+          // Filter by host OS/browser: Apple Pay only on iOS web or macOS Safari; Google Pay otherwise.
+          const ua = navigator.userAgent;
+          const isIOSWeb = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+          const isMac = /Macintosh|Mac OS X/.test(ua) && !isIOSWeb;
+          const isSafari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(ua);
+          const allowApplePay = isIOSWeb || (isMac && isSafari);
+          const allowGooglePay = !allowApplePay;
           setAvailableWallets({
-            applePay: canMakePayment?.applePay || false,
-            googlePay: canMakePayment?.googlePay || false
+            applePay: (canMakePayment?.applePay || false) && allowApplePay,
+            googlePay: (canMakePayment?.googlePay || false) && allowGooglePay
           });
-          console.log('Available wallets:', {
-            applePay: canMakePayment?.applePay,
-            googlePay: canMakePayment?.googlePay
+          console.log('Available wallets (filtered):', {
+            stripeApplePay: canMakePayment?.applePay,
+            stripeGooglePay: canMakePayment?.googlePay,
+            allowApplePay,
+            allowGooglePay,
           });
         } catch (error) {
           console.error('Error checking wallets:', error);
