@@ -487,6 +487,7 @@ export const CheckoutForm = ({
             tax,
             orderTotal,
             merchantDisplayName: merchantLabel,
+          });
 
           if (result.cancelled) {
             // User dismissed the wallet sheet — not an error, reset state
