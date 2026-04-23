@@ -1,33 +1,57 @@
 
-## Extend Hero Banner Into Safe Area
+## Show Apple Pay vs Google Pay Based on Platform/OS
 
-### Problem
-On iOS, the homepage shows a blank background above the hero banner because the page wrapper applies `pt-safe`, pushing the banner image below the notch/Dynamic Island area. The banner should fill edge-to-edge into the safe area, with the branch name positioned just below it.
+### Current State
+Native platforms already work correctly:
+- Native iOS → Apple Pay only ✓
+- Native Android → Google Pay only ✓
+
+On web, the code relies on Stripe's `canMakePayment()`, which can return both wallets as available on some browsers (e.g., Chrome on macOS with both configured), letting Apple Pay slip onto non-Apple platforms or vice versa.
+
+### Goal
+Force OS/browser-aware wallet selection on web:
+- macOS + Safari → Apple Pay only
+- iOS web browser → Apple Pay only
+- Windows / Linux / Android web browser → Google Pay only
+- Mac + non-Safari (Chrome/Firefox) → Google Pay only (Apple Pay requires Safari anyway)
 
 ### Changes
 
-**1. `src/pages/Index.tsx`**
-- Remove `pt-safe` from the root `<div className="min-h-screen bg-background pt-safe">` so the hero extends into the status bar area.
-- Update the hero container `h-[45vh] min-h-[400px]` to also include safe-area top padding via `style={{ height: 'calc(45vh + env(safe-area-inset-top))', minHeight: 'calc(400px + env(safe-area-inset-top))' }}` so the visible content area doesn't shrink.
-- Inside `renderHeroContent`, the title/description Zone 1 currently uses `pt-8 md:pt-12`. Change this to `paddingTop: 'calc(env(safe-area-inset-top) + 2rem)'` so the **branch name** sits exactly below the safe area inset.
-- Keep Zone 2 (selector buttons) anchored to the bottom — no change.
+**1. `src/components/checkout/CheckoutForm.tsx` — wallet detection effect (lines ~151-200)**
 
-### Visual Result
-```text
-┌─────────────────────┐ ← top of screen
-│ [banner image fills │   (safe area / Dynamic Island region)
-│  this region too]   │
-├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤ ← safe-area-inset-top boundary
-│ Sashiko (branch)    │ ← branch name sits right here
-│ Big hero title      │
-│ Subtitle text       │
-│                     │
-│ [Address selector]  │
-│ [Branch info pill]  │
-└─────────────────────┘
+Add a helper that classifies the host OS/browser, then filter Stripe's `canMakePayment()` result accordingly:
+
+```ts
+function detectHostPlatform() {
+  const ua = navigator.userAgent;
+  const isIOSWeb = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+  const isMac = /Macintosh|Mac OS X/.test(ua) && !isIOSWeb;
+  const isAndroidWeb = /Android/.test(ua);
+  const isSafari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(ua);
+  // Apple Pay only viable on Apple devices using Safari (or iOS WebKit)
+  const allowApplePay = isIOSWeb || (isMac && isSafari);
+  // Google Pay viable on everything else with a Chromium-based browser, plus Android
+  const allowGooglePay = !allowApplePay;
+  return { allowApplePay, allowGooglePay };
+}
 ```
 
+Inside the existing web branch (after Stripe's `canMakePayment` resolves), intersect Stripe's result with this host policy:
+
+```ts
+const host = detectHostPlatform();
+setAvailableWallets({
+  applePay: !!canMakePayment?.applePay && host.allowApplePay,
+  googlePay: !!canMakePayment?.googlePay && host.allowGooglePay,
+});
+```
+
+**2. Wallet labelling in payment drawer**
+
+Existing logic already labels the wallet button based on `availableWallets.applePay` vs `googlePay`. With the filtered flags above, only the correct wallet label/icon will render — no further UI change needed.
+
 ### Notes
-- No other pages affected — only the Index hero.
-- Other content below the hero remains in normal flow; no layout shift elsewhere.
-- BottomNav and `pb-safe` behaviour at the bottom is untouched.
+- Stripe's `canMakePayment` is still the source of truth for whether the wallet is actually configured on the device. We only narrow it down to the platform-appropriate one.
+- If a user is on Mac+Chrome and has Apple Pay configured, we intentionally hide it (per requirement: only Mac+Safari shows Apple Pay).
+- If `canMakePayment` returns nothing (user has no wallet set up), no wallet shows — same as today.
+- No native code changes required; native iOS/Android branches already enforce the correct wallet.
