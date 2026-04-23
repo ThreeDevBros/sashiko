@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PROFILE_QUERY_KEY, fetchProfile } from '@/lib/profilePrefetch';
 import { User, Mail, Phone, Lock, Shield, Package, LogOut, Trash2, MapPin, Coins, Calendar, Info, FileText, ShieldCheck, Settings, Cookie, UserX, LifeBuoy } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -36,7 +38,6 @@ export default function Profile() {
   const hasNonDriverStaffRole = userRoles.includes('staff') || userRoles.includes('manager') || userRoles.includes('branch_manager');
   const showAdminPanel = isAdmin || hasStaffRole;
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [cashbackBalance, setCashbackBalance] = useState<number>(0);
@@ -59,23 +60,32 @@ export default function Profile() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
 
+  // Consume prefetched profile (populated at app boot via prefetchProfile)
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: authUser ? PROFILE_QUERY_KEY(authUser.id) : ['profile', 'none'],
+    queryFn: () => fetchProfile(authUser!.id),
+    enabled: !!authUser && isAuthReady,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Sync auth user into local state
   useEffect(() => {
     if (!isAuthReady) return;
-    if (!authUser) { setLoading(false); return; }
-    setUser(authUser);
-    const loadProfile = async () => {
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
-      if (profile) {
-        setFullName(profile.full_name || '');
-        setSavedName(profile.full_name || '');
-        setPhone(profile.phone || '');
-        setSavedPhone(profile.phone || '');
-        setCashbackBalance((profile as any).cashback_balance || 0);
-      }
-      setLoading(false);
-    };
-    loadProfile();
+    setUser(authUser || null);
   }, [authUser, isAuthReady]);
+
+  // Seed editable form fields from cached profile
+  useEffect(() => {
+    if (!profile) return;
+    setFullName(profile.full_name || '');
+    setSavedName(profile.full_name || '');
+    setPhone(profile.phone || '');
+    setSavedPhone(profile.phone || '');
+    setCashbackBalance((profile as any).cashback_balance || 0);
+  }, [profile]);
+
+  const loading = !isAuthReady || (!!authUser && profileLoading && !profile);
+
   useEffect(() => { if (user?.id) fetchAddresses(); }, [user?.id]);
 
   const fetchAddresses = async () => {
