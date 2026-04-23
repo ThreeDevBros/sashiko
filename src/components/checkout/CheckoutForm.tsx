@@ -17,6 +17,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, Dr
 import { AddCardForm } from './AddCardForm';
 import { GuestCardPayment } from './GuestCardPayment';
 import { useSavedCards } from '@/hooks/useSavedCards';
+import { useBranding } from '@/hooks/useBranding';
 
 interface Branch {
   id: string;
