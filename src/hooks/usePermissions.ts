@@ -1,67 +1,39 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  USER_ROLES_QUERY_KEY,
+  USER_PERMISSIONS_QUERY_KEY,
+  fetchUserRoles,
+  fetchUserPermissions,
+} from '@/lib/profilePrefetch';
 
 export const usePermissions = () => {
   const { user, isAuthReady } = useAuth();
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [hasStaffRole, setHasStaffRole] = useState(false);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!isAuthReady) return;
+  const { data: userRoles = [], isLoading: rolesLoading } = useQuery({
+    queryKey: user ? USER_ROLES_QUERY_KEY(user.id) : ['user-roles', 'none'],
+    queryFn: () => fetchUserRoles(user!.id),
+    enabled: !!user && isAuthReady,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
-    if (!user) {
-      setPermissions([]);
-      setIsAdmin(false);
-      setHasStaffRole(false);
-      setUserRoles([]);
-      setLoading(false);
-      return;
-    }
+  const isAdmin = userRoles.includes('admin');
+  const hasStaffRole =
+    isAdmin || userRoles.some(r => ['manager', 'staff', 'delivery'].includes(r));
 
-    const fetchPermissions = async () => {
-      try {
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id);
+  const { data: permissionsData = [], isLoading: permsLoading } = useQuery({
+    queryKey: user ? USER_PERMISSIONS_QUERY_KEY(user.id) : ['user-permissions', 'none'],
+    queryFn: () => fetchUserPermissions(user!.id),
+    enabled: !!user && isAuthReady && !isAdmin,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
-        const roles = roleData?.map(r => r.role) || [];
-        setUserRoles(roles);
+  const permissions = isAdmin ? ['all'] : permissionsData;
 
-        const hasAdminRole = roles.includes('admin');
-        setIsAdmin(hasAdminRole);
-
-        const isStaff = roles.some(r => ['manager', 'staff', 'delivery'].includes(r));
-        setHasStaffRole(isStaff || hasAdminRole);
-
-        if (hasAdminRole) {
-          setPermissions(['all']);
-          setLoading(false);
-          return;
-        }
-
-        const { data: permsData } = await supabase
-          .from('user_permissions')
-          .select('permission')
-          .eq('user_id', user.id);
-
-        setPermissions(permsData?.map(p => p.permission) || []);
-      } catch {
-        setPermissions([]);
-        setIsAdmin(false);
-        setHasStaffRole(false);
-        setUserRoles([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPermissions();
-  }, [user, isAuthReady]);
+  const loading =
+    !isAuthReady || (!!user && (rolesLoading || (!isAdmin && permsLoading)));
 
   const hasPermission = (permission: string) => {
     if (isAdmin) return true;

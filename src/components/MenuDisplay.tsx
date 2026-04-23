@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { MenuItem } from '@/components/menu/MenuItem';
 import { MenuItemDetailSheet } from '@/components/menu/MenuItemDetailSheet';
 import { QUERY_KEYS, ANIMATION_DELAYS } from '@/constants';
+import { fetchMenuCategories, fetchBranchMenuItems } from '@/lib/menuPrefetch';
 import type { MenuItem as MenuItemType, MenuCategory } from '@/types';
 
 export const MenuDisplay = () => {
@@ -48,53 +49,15 @@ export const MenuDisplay = () => {
 
   const { data: categories, isLoading: categoriesLoading, refetch: refetchCategories } = useQuery<MenuCategory[]>({
     queryKey: [QUERY_KEYS.MENU_CATEGORIES, branch?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('menu_categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order');
-      if (error) throw error;
-      return data || [];
-    },
+    queryFn: fetchMenuCategories,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: menuItems, isLoading: itemsLoading, refetch: refetchItems } = useQuery<MenuItemType[]>({
     queryKey: [QUERY_KEYS.MENU_ITEMS, branch?.id],
-    queryFn: async () => {
-      if (!branch?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('branch_menu_items')
-        .select(`
-          *,
-          menu_items (
-            id,
-            name,
-            description,
-            price,
-            image_url,
-            is_featured,
-            is_vegetarian,
-            is_vegan,
-            calories,
-            category_id,
-            menu_categories (name)
-          )
-        `)
-        .eq('branch_id', branch.id)
-        .eq('is_available', true)
-        .order('menu_items(name)');
-      
-      if (error) throw error;
-      
-      return data?.map(item => ({
-        ...item.menu_items,
-        price: item.price_override || item.menu_items.price,
-        branch_availability: item.is_available
-      })) || [];
-    },
+    queryFn: () => fetchBranchMenuItems(branch!.id),
     enabled: !!branch?.id,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Auto-open item from query param (e.g. /order?item=xxx)

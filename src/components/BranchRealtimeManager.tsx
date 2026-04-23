@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateEstimatedTime } from '@/lib/branch';
 import { subscribeToResume } from '@/lib/lifecycleManager';
+import { prefetchMenuForBranch } from '@/lib/menuPrefetch';
 import type { Branch } from '@/types';
 
 const BRANCH_QUERY_KEY = ['branch-data'];
@@ -41,6 +42,21 @@ export function BranchRealtimeManager() {
       setResumeCounter(prev => prev + 1);
     });
   }, []);
+
+  // Prefetch menu data as soon as a branch is resolved or switched.
+  // Fires before the user opens /order so the menu paints instantly.
+  useEffect(() => {
+    if (!trackedBranchId) return;
+    prefetchMenuForBranch(queryClient, trackedBranchId);
+
+    const onBranchChanged = () => {
+      const data = queryClient.getQueryData(BRANCH_QUERY_KEY) as any;
+      const id = data?.branch?.id;
+      if (id) prefetchMenuForBranch(queryClient, id);
+    };
+    window.addEventListener('branchChanged', onBranchChanged);
+    return () => window.removeEventListener('branchChanged', onBranchChanged);
+  }, [trackedBranchId, queryClient]);
 
   // Realtime subscription — single channel, reconnects on resume
   useEffect(() => {
