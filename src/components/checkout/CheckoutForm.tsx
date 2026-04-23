@@ -551,7 +551,7 @@ export const CheckoutForm = ({
             country: 'US',
             currency,
             total: {
-              label: 'Order Total',
+              label: merchantLabel,
               amount: Math.round(orderTotal * 100),
             },
             requestPayerName: true,
