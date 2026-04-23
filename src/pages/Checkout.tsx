@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Elements } from '@stripe/react-stripe-js';
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { getStripePromise, initStripeOnce, isNativeStripeReady } from '@/lib/stripeBootstrap';
 import { CheckoutForm, StripeCheckoutForm } from '@/components/checkout/CheckoutForm';
 import { DeliveryMap } from '@/components/checkout/DeliveryMap';
 import { supabase } from '@/integrations/supabase/client';
@@ -94,7 +94,7 @@ const Checkout = () => {
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [pinMapOpen, setPinMapOpen] = useState(false);
   const [branchInfoOpen, setBranchInfoOpen] = useState(false);
-  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
+  const [stripePromise, setStripePromise] = useState(() => getStripePromise());
   const [stripeReady, setStripeReady] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -232,38 +232,22 @@ const Checkout = () => {
     return orderType === 'pickup' ? branchCashSettings.allow_cash_pickup : branchCashSettings.allow_cash_delivery;
   }, [branchCashSettings, orderType]);
 
-  // Load Stripe publishable key in the background so wallet readiness can be accurately gated
-  // On native platforms, also initialize the Capacitor Stripe plugin
+  // Consume the app-boot Stripe singleton — usually already resolved by the time /checkout opens
   useEffect(() => {
-    if (stripePromise) return; // Already loaded
-    const loadStripeKey = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('get-public-keys', {
-          body: { key_type: 'STRIPE_PUBLISHABLE_KEY' },
-        });
-        if (error) throw error;
-        if (data?.key) {
-          const promise = loadStripe(data.key);
-          setStripePromise(promise);
-          promise.then((s) => { if (s) setStripeReady(true); });
-
-          // On native platforms, initialize the Capacitor Stripe plugin independently
-          const { isNativeWalletPlatform, initializeNativeStripe } = await import('@/lib/nativeStripePay');
-          if (isNativeWalletPlatform()) {
-            const nativeOk = await initializeNativeStripe();
-            if (nativeOk) {
-              setStripeReady(true);
-              console.log('Native Stripe plugin ready — wallet payments enabled');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading Stripe key:', error);
-        toast.error('Failed to initialize payment system');
-      }
-    };
-    loadStripeKey();
-  }, [stripePromise]);
+    let cancelled = false;
+    (async () => {
+      await initStripeOnce(); // idempotent; usually a no-op since App.tsx kicked it off at boot
+      if (cancelled) return;
+      const p = getStripePromise();
+      if (!p) return;
+      setStripePromise(p);
+      const s = await p;
+      if (cancelled) return;
+      if (s) setStripeReady(true);
+      if (isNativeStripeReady()) setStripeReady(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Calculate totals with per-item tax
   const globalTaxRate = branding?.vat_rate ?? 10;

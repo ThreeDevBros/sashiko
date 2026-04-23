@@ -18,6 +18,7 @@ import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react"
 import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
 import { prefetchSavedCards } from './hooks/useSavedCards';
+import { initStripeOnce } from '@/lib/stripeBootstrap';
 import { handleGlobalResume } from "@/lib/lifecycleManager";
 import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
 import { AppRuntimeListeners } from "./components/AppRuntimeListeners";
@@ -235,6 +236,11 @@ const AppContent = () => {
 
   useEffect(() => {
     void restoreLiveActivityMappings();
+  }, []);
+
+  // Prefetch Stripe SDK + native plugin at app boot so /checkout opens instantly
+  useEffect(() => {
+    void initStripeOnce();
   }, []);
 
   // Track previous user ID to avoid unnecessary query invalidation on resume
