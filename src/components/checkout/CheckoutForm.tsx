@@ -17,6 +17,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, Dr
 import { AddCardForm } from './AddCardForm';
 import { GuestCardPayment } from './GuestCardPayment';
 import { useSavedCards } from '@/hooks/useSavedCards';
+import { useBranding } from '@/hooks/useBranding';
 
 interface Branch {
   id: string;
@@ -137,6 +138,8 @@ export const CheckoutForm = ({
   }, [paymentType, onPaymentTypeChange, availableWallets]);
 
   const { savedCards: prefetchedCards, isLoading: cardsLoading, refreshCards } = useSavedCards();
+  const { branding } = useBranding();
+  const merchantLabel = branch?.name || branding?.tenant_name || 'Order Total';
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
 
@@ -483,6 +486,7 @@ export const CheckoutForm = ({
             currency,
             tax,
             orderTotal,
+            merchantDisplayName: merchantLabel,
           });
 
           if (result.cancelled) {
@@ -547,7 +551,7 @@ export const CheckoutForm = ({
             country: 'US',
             currency,
             total: {
-              label: 'Order Total',
+              label: merchantLabel,
               amount: Math.round(orderTotal * 100),
             },
             requestPayerName: true,
