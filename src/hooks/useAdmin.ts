@@ -1,54 +1,36 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { USER_ROLES_QUERY_KEY, fetchUserRoles } from '@/lib/profilePrefetch';
 
 type AppRole = 'admin' | 'manager' | 'staff' | 'delivery' | 'user';
 
+const STAFF_ROLES = ['admin', 'manager', 'staff', 'delivery'];
+
 export const useAdmin = () => {
   const { user, isAuthReady } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [userRole, setUserRole] = useState<AppRole | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!isAuthReady) return;
+  const { data: roles = [], isLoading } = useQuery({
+    queryKey: user ? USER_ROLES_QUERY_KEY(user.id) : ['user-roles', 'none'],
+    queryFn: () => fetchUserRoles(user!.id),
+    enabled: !!user && isAuthReady,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
-    if (!user) {
-      setIsAdmin(false);
-      setUserRole(null);
-      setLoading(false);
-      return;
-    }
+  const staffRoles = roles.filter(r => STAFF_ROLES.includes(r));
+  const isAdmin = staffRoles.includes('admin');
+  const userRole: AppRole | null = !user
+    ? null
+    : isAdmin
+      ? 'admin'
+      : (staffRoles[0] as AppRole) || null;
 
-    const checkAdminStatus = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .in('role', ['admin', 'manager', 'staff', 'delivery']);
+  const loading = !isAuthReady || (!!user && isLoading);
 
-        if (error) {
-          setIsAdmin(false);
-          setUserRole(null);
-        } else if (data && data.length > 0) {
-          const roles = data.map(d => d.role);
-          setIsAdmin(roles.includes('admin'));
-          setUserRole(roles.includes('admin') ? 'admin' : roles[0] as AppRole);
-        } else {
-          setIsAdmin(false);
-          setUserRole(null);
-        }
-      } catch {
-        setIsAdmin(false);
-        setUserRole(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAdminStatus();
-  }, [user, isAuthReady]);
-
-  return { isAdmin, userRole, loading, hasRole: (role: AppRole) => userRole === role };
+  return {
+    isAdmin,
+    userRole,
+    loading,
+    hasRole: (role: AppRole) => userRole === role,
+  };
 };
