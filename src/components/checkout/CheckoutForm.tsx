@@ -138,6 +138,8 @@ export const CheckoutForm = ({
   }, [paymentType, onPaymentTypeChange, availableWallets]);
 
   const { savedCards: prefetchedCards, isLoading: cardsLoading, refreshCards } = useSavedCards();
+  const { branding } = useBranding();
+  const merchantLabel = branch?.name || branding?.tenant_name || 'Order Total';
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
 
