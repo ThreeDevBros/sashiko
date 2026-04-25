@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sashiko Asian Fusion</string>
+    <string name="title_activity_main">Sashiko Asian Fusion</string>
+    <string name="package_name">com.sashiko.app</string>
+    <string name="custom_url_scheme">com.sashiko.app</string>
+    <string name="server_client_id">737774269765-te35orqrqmp4pkvb7768hg054e6deeok.apps.googleusercontent.com</string>
+</resources>

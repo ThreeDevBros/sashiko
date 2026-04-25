@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "737774269765",
+    "project_id": "sashiko-asian-fusion-75c70",
+    "storage_bucket": "sashiko-asian-fusion-75c70.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:737774269765:android:ca83e21e6fe7d5fcd03a2c",
+        "android_client_info": {
+          "package_name": "com.sashiko.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZPEt5msJQYo0oeX_9S5gnffRGVws_Mjw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "737774269765-d4ovks9ma5pdvb2qummr6tlr6v47tfe4.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.sashiko.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
