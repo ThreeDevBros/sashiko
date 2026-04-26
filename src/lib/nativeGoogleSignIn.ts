@@ -79,6 +79,22 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       return { error: new Error('GoogleAuth plugin not available') };
     }
 
+    // Android-specific: explicitly initialize the plugin to ensure GoogleSignInClient
+    // is built before signIn() is called. Safe to call multiple times.
+    if (Capacitor.getPlatform() === 'android' && typeof GoogleAuth.initialize === 'function') {
+      try {
+        console.log('[GoogleSignIn] Calling GoogleAuth.initialize() for Android');
+        await GoogleAuth.initialize({
+          clientId: '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com',
+          scopes: ['profile', 'email'],
+          grantOfflineAccess: false,
+        });
+        console.log('[GoogleSignIn] GoogleAuth.initialize() completed');
+      } catch (initErr) {
+        console.warn('[GoogleSignIn] GoogleAuth.initialize() failed (continuing anyway):', initErr);
+      }
+    }
+
     // Generate nonce pair: raw stays in JS, SHA-256 digest goes to native plugin
     const rawNonce = generateRawNonce();
     const nonceDigest = await sha256Hex(rawNonce);
