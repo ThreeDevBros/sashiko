@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { lovable } from '@/integrations/lovable';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -73,27 +74,13 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
     const runtimePlugins = (Capacitor as any).Plugins;
     console.log('[GoogleSignIn] Native runtime plugin keys:', runtimePlugins ? Object.keys(runtimePlugins) : []);
 
-    const GoogleAuth = runtimePlugins?.GoogleAuth;
-    if (!GoogleAuth) {
-      console.error('[GoogleSignIn] GoogleAuth plugin missing from runtime registry');
-      return { error: new Error('GoogleAuth plugin not available') };
-    }
-
-    // Android-specific: explicitly initialize the plugin to ensure GoogleSignInClient
-    // is built before signIn() is called. Safe to call multiple times.
-    if (Capacitor.getPlatform() === 'android' && typeof GoogleAuth.initialize === 'function') {
-      try {
-        console.log('[GoogleSignIn] Calling GoogleAuth.initialize() for Android');
-        await GoogleAuth.initialize({
-          clientId: '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com',
-          scopes: ['profile', 'email'],
-          grantOfflineAccess: false,
-        });
-        console.log('[GoogleSignIn] GoogleAuth.initialize() completed');
-      } catch (initErr) {
-        console.warn('[GoogleSignIn] GoogleAuth.initialize() failed (continuing anyway):', initErr);
-      }
-    }
+    console.log('[GoogleSignIn] Calling GoogleAuth.initialize() immediately before signIn()');
+    GoogleAuth.initialize({
+      clientId: '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com',
+      scopes: ['profile', 'email'],
+      grantOfflineAccess: true,
+    });
+    console.log('[GoogleSignIn] GoogleAuth.initialize() completed');
 
     // Generate nonce pair: raw stays in JS, SHA-256 digest goes to native plugin
     const rawNonce = generateRawNonce();
@@ -103,8 +90,8 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       nonceDigestPrefix: nonceDigest.substring(0, 8) + '…',
     });
 
-    console.log('[GoogleSignIn] Invoking native GoogleAuth.signIn() with nonce');
-    const result = await GoogleAuth.signIn({ nonce: nonceDigest });
+    console.log('[GoogleSignIn] Invoking native GoogleAuth.signIn()');
+    const result = await GoogleAuth.signIn();
     console.log('[GoogleSignIn] Native plugin result received', {
       hasAuthentication: Boolean(result?.authentication),
       hasIdToken: Boolean(result?.authentication?.idToken),
