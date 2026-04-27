@@ -417,10 +417,10 @@ const Auth = () => {
     <div 
       className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4 relative"
       style={{
-        height: '100dvh',
-        minHeight: '100dvh',
+        height: '100vh',
+        minHeight: '100vh',
         ...(branding?.login_bg_color ? {
-          background: `radial-gradient(ellipse at top left, ${branding.login_bg_color}33 0%, transparent 45%), radial-gradient(ellipse at bottom right, ${branding.login_bg_color}33 0%, transparent 45%), hsl(var(--background))`
+          background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
         } : {}),
         overscrollBehavior: 'none',
         paddingTop: 'max(1rem, env(safe-area-inset-top))',
