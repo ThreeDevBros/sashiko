@@ -364,10 +364,17 @@ const Auth = () => {
   if (showOtpVerification) {
     return (
       <div 
-        className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden pt-safe"
-        style={branding?.login_bg_color ? {
-          background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
-        } : undefined}
+        className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4 relative"
+        style={{
+          height: '100dvh',
+          minHeight: '100dvh',
+          background: branding?.login_bg_color
+            ? `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
+            : undefined,
+          overscrollBehavior: 'none',
+          paddingTop: 'max(1rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+        }}
       >
         <div className="absolute inset-0 opacity-10">
           <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
