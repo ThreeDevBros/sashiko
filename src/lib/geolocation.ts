@@ -36,17 +36,6 @@ export async function getCurrentPosition(options?: PositionOptions): Promise<Pos
   if (Capacitor.isNativePlatform()) {
     const { Geolocation } = await import('@capacitor/geolocation');
 
-    // Ensure permission before starting the watch (triggers OS prompt on Android).
-    const status = await Geolocation.checkPermissions();
-    if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
-      const requested = await Geolocation.requestPermissions({
-        permissions: ['location', 'coarseLocation'],
-      });
-      if (requested.location !== 'granted' && requested.coarseLocation !== 'granted') {
-        throw new Error('Location permission denied');
-      }
-    }
-
     // Ensure the OS permission prompt is shown the first time we need location.
     // Without this explicit request, Android may silently fail instead of prompting.
     try {
