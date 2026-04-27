@@ -96,6 +96,18 @@ export async function watchPosition(
 ): Promise<string> {
   if (Capacitor.isNativePlatform()) {
     const { Geolocation } = await import('@capacitor/geolocation');
+
+    // Ensure permission before starting the watch (triggers OS prompt on Android).
+    const status = await Geolocation.checkPermissions();
+    if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
+      const requested = await Geolocation.requestPermissions({
+        permissions: ['location', 'coarseLocation'],
+      });
+      if (requested.location !== 'granted' && requested.coarseLocation !== 'granted') {
+        throw new Error('Location permission denied');
+      }
+    }
+
     const id = await Geolocation.watchPosition(
       {
         enableHighAccuracy: options?.enableHighAccuracy ?? true,
