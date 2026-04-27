@@ -369,7 +369,7 @@ const Auth = () => {
           height: '100dvh',
           minHeight: '100dvh',
           background: branding?.login_bg_color
-            ? `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
+            ? `radial-gradient(ellipse at top left, ${branding.login_bg_color}33 0%, transparent 45%), radial-gradient(ellipse at bottom right, ${branding.login_bg_color}33 0%, transparent 45%), hsl(var(--background))`
             : undefined,
           overscrollBehavior: 'none',
           paddingTop: 'max(1rem, env(safe-area-inset-top))',
