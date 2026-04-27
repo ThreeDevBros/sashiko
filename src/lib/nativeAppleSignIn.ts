@@ -8,9 +8,21 @@ import { lovable } from '@/integrations/lovable/index';
  * Falls back to web OAuth via Lovable Cloud on non-native platforms.
  */
 export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
-  // Only use native flow on iOS native app
-  if (Capacitor.getPlatform() !== 'ios') {
-    // Fallback to Lovable Cloud managed Apple OAuth on web
+  const platform = Capacitor.getPlatform();
+
+  // Android: Apple has no native SDK — use Lovable Cloud's managed OAuth web flow
+  // inside the WebView. Use the production domain as redirect_uri because
+  // window.location.origin on Capacitor Android is "http://localhost", which is
+  // not registered with Apple. Lovable's broker handles the callback in-app.
+  if (platform === 'android') {
+    const result = await lovable.auth.signInWithOAuth('apple', {
+      redirect_uri: 'https://sashikoasianfusion.com',
+    });
+    return { error: result.error ? (result.error instanceof Error ? result.error : new Error(String(result.error))) : null };
+  }
+
+  // Web: standard Lovable Cloud managed Apple OAuth
+  if (platform !== 'ios') {
     const result = await lovable.auth.signInWithOAuth('apple', {
       redirect_uri: window.location.origin,
     });

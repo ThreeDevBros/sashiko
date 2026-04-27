@@ -1,74 +1,57 @@
-## Problem
+## Goal
+Set up Apple Sign-In on Android using the Lovable Cloud web OAuth flow (already supported), keep iOS native Apple Sign-In untouched, and harden the Android in-app flow so the WebView returns cleanly with tokens.
 
-On Android tablets, the `/auth` page renders the login UI in the top half while the bottom half shows a blank white screen. The branded gradient background does not extend to the full screen. Additionally, on some devices the page is scrollable when it should not be.
+## Current state (good news)
+- iOS: native `SignInWithApple` plugin → `supabase.auth.signInWithIdToken`. Working, do not touch.
+- Android & Web: `nativeAppleSignIn` already falls back to `lovable.auth.signInWithOAuth('apple', { redirect_uri: window.location.origin })`. The Lovable OAuth broker handles the Apple flow and returns tokens to the WebView; `setSession` is then called automatically inside the lovable client.
 
-## Root Causes
+So functionally, Apple login on Android already works via the in-app WebView flow. The remaining work is to make sure the redirect actually lands back inside the Android app (instead of opening Apple in an external browser and getting stuck).
 
-1. **Inconsistent root containers across the three Auth views:**
-   - Main login view (line 397–406): uses `fixed inset-0` ✅
-   - Password reset view (line 296–298): uses `min-h-screen` with `bg-gradient-to-br` Tailwind classes — does NOT use the branded `login_bg_color` and relies on `100vh`, which is unreliable in Android WebView (browser chrome causes mismatch).
-   - OTP verification view (line 352–359): uses `min-h-screen` — same `100vh` issue on Android.
+## What needs to change
 
-2. **Inner card is scrollable** on the main view: `<div class="w-full max-w-md ... max-h-full overflow-y-auto">` (line 421). The user explicitly wants the page non-scrollable on every device.
+### 1. `src/lib/nativeAppleSignIn.ts`
+Make the Android branch explicit so future readers (and Capacitor's WebView) know it MUST stay in-app:
+- Detect `Capacitor.getPlatform() === 'android'` separately from web.
+- For Android: pass a `redirect_uri` of `https://sashikoasianfusion.com` (the registered production domain) instead of `window.location.origin` (which is `http://localhost` on Capacitor Android and not registered with Apple). Lovable's broker accepts this and posts tokens back via the OAuth callback intercepted by the WebView.
+- Keep web behavior identical (uses `window.location.origin`).
+- iOS branch: unchanged.
 
-3. **`min-h-screen` (100vh) on Android WebView** does not account for the system bars correctly, leaving a blank strip at the bottom on tablets.
+### 2. `android/app/src/main/AndroidManifest.xml`
+Add an intent-filter so the OAuth callback URL (`https://sashikoasianfusion.com/~oauth/callback` and `com.sashiko.app://auth/callback`) is captured by MainActivity if Apple ever opens an external browser. This is a safety net — the in-WebView flow normally handles it directly.
 
-4. **`pt-safe` adds top padding** without clipping — combined with `fixed inset-0` and large content, this can push content offscreen on small viewports, which is why scrolling was added as a workaround.
+```xml
+<intent-filter android:autoVerify="true">
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="https" android:host="sashikoasianfusion.com" android:pathPrefix="/~oauth" />
+</intent-filter>
 
-## Fix
-
-Apply a single, consistent full-viewport, non-scrollable container pattern to **all three** Auth view branches (main, password reset, OTP) so the branded background covers the entire screen on every device, and content never scrolls.
-
-### Container pattern (applied to all 3 branches)
-
-```text
-<div
-  className="fixed inset-0 w-screen h-screen overflow-hidden flex items-center justify-center p-4"
-  style={{
-    minHeight: '100dvh',  // dynamic viewport height — correct on Android Chrome/WebView
-    height: '100dvh',
-    background: branding?.login_bg_color
-      ? `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
-      : undefined,
-    overscrollBehavior: 'none',
-    paddingTop: 'env(safe-area-inset-top)',
-    paddingBottom: 'env(safe-area-inset-bottom)',
-  }}
->
-  {/* Pattern SVG layer - absolute inset-0 */}
-  {/* Content wrapper - max-w-md, NO overflow-y-auto, NO max-h-full scroll */}
-</div>
+<intent-filter>
+  <action android:name="android.intent.action.VIEW" />
+  <category android:name="android.intent.category.DEFAULT" />
+  <category android:name="android.intent.category.BROWSABLE" />
+  <data android:scheme="com.sashiko.app" android:host="auth" />
+</intent-filter>
 ```
 
-Key changes:
-- `fixed inset-0` + `h-screen` + inline `height: 100dvh` — guarantees full coverage on Android WebView (dvh = dynamic viewport height, which excludes/includes browser chrome correctly).
-- `overflow-hidden` on the root — prevents ANY scrolling.
-- Remove `overflow-y-auto` and `max-h-full` from the inner content wrapper.
-- Apply branded gradient to ALL three views (currently the password reset view uses a hardcoded Tailwind gradient that ignores branding).
-- Use safe-area insets via inline style padding so the gradient still paints behind the notch/status bar (the background still fills edge-to-edge because it's on the parent `fixed inset-0`, padding only insets the children).
+### 3. Apple Developer Console (manual, user action — one-time)
+Confirm these are configured in the Apple Services ID used by Lovable Cloud's managed Apple provider:
+- Authorized domain: `sashikoasianfusion.com` (and `*.lovable.app`)
+- Return URL: the Lovable OAuth broker callback (already configured by the managed provider — no action needed unless using BYOC credentials)
 
-### Content sizing safeguard (so nothing overflows when scrolling is disabled)
+Since the project uses Lovable Cloud's **managed** Apple provider, the Apple Developer setup is already handled by Lovable. No manual Apple Console work required.
 
-Since the content can no longer scroll, on small phones the form must always fit. Add:
-- `max-h-full` to the inner `max-w-md` wrapper (so it caps at viewport height)
-- `overflow-hidden` on the inner wrapper to prevent any internal scroll
-- Reduce vertical spacing on smaller heights via responsive `py-` classes if needed
+## Files to edit
+- `src/lib/nativeAppleSignIn.ts` — explicit Android branch with correct `redirect_uri`
+- `android/app/src/main/AndroidManifest.xml` — add OAuth callback intent-filters as a safety net
 
-The current form is already compact (h-9 inputs, text-xs labels) so it fits in ~600px of vertical space, which works on all target devices (smallest: 320×568 iPhone SE).
+## After changes (user steps)
+```bash
+git pull && npx cap sync android && npm run cap:android
+```
 
-### Files to modify
-
-- `src/pages/Auth.tsx` — update all three view branches:
-  1. Main view container (lines 397–421)
-  2. Password reset view container (lines 296–299)
-  3. OTP verification view container (lines 352–372)
-
-No other files need changes. No native Android/iOS code changes required — this is purely a CSS/layout fix.
-
-## Verification
-
-After the change:
-- Android tablet (e.g., 1280×800, 800×1280): branded gradient fills entire screen, login card centered, no white space, no scroll.
-- Android phone (360×800, 412×915): same.
-- iOS (390×844, 414×896, 768×1024 iPad): same.
-- Desktop preview (any size): same.
+## Result
+- iOS: native Apple sign-in popup (unchanged)
+- Android: tap "Sign in with Apple" → Apple login page opens inside the app's WebView → user authenticates → tokens returned → session set → user logged in
+- Web: unchanged (Lovable Cloud OAuth)

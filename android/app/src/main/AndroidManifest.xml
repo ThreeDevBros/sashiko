@@ -22,6 +22,24 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- OAuth callback (Apple/Google web flow) — App Link to production domain -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https"
+                      android:host="sashikoasianfusion.com"
+                      android:pathPrefix="/~oauth" />
+            </intent-filter>
+
+            <!-- Custom scheme deep link (fallback for OAuth redirects) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.sashiko.app" android:host="auth" />
+            </intent-filter>
+
         </activity>
 
         <provider
