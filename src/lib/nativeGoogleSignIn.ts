@@ -1,5 +1,4 @@
 import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { lovable } from '@/integrations/lovable';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -39,14 +38,62 @@ function jwtHasNonce(token: string): boolean {
 }
 
 /**
+ * iOS path: invoke the custom Swift GoogleAuthPlugin (uses GoogleSignIn 9.x).
+ * Returns an ID token + the raw nonce that was sent in (digest sent to native).
+ */
+async function signInIOS(): Promise<{ idToken: string; rawNonce: string }> {
+  const rawNonce = generateRawNonce();
+  const nonceDigest = await sha256Hex(rawNonce);
+
+  const Plugins = (Capacitor as any).Plugins;
+  const GoogleAuthNative = Plugins?.GoogleAuth;
+  if (!GoogleAuthNative?.signIn) {
+    throw new Error('Native GoogleAuth plugin not registered on iOS');
+  }
+
+  console.log('[GoogleSignIn][iOS] Calling native GoogleAuth.signIn()');
+  const result = await GoogleAuthNative.signIn({ nonce: nonceDigest });
+  const idToken: string | undefined =
+    result?.idToken || result?.authentication?.idToken;
+  if (!idToken) {
+    throw new Error('No ID token received from native iOS GoogleAuth plugin');
+  }
+  return { idToken, rawNonce };
+}
+
+/**
+ * Android path: use the @codetrix-studio/capacitor-google-auth plugin.
+ * Loaded dynamically so iOS bundles never try to resolve a missing native bridge.
+ */
+async function signInAndroid(): Promise<{ idToken: string; rawNonce: string | null }> {
+  const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+
+  GoogleAuth.initialize({
+    clientId: '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com',
+    scopes: ['profile', 'email'],
+    grantOfflineAccess: true,
+  });
+
+  console.log('[GoogleSignIn][Android] Calling GoogleAuth.signIn()');
+  const result = await GoogleAuth.signIn();
+  const idToken = result.authentication?.idToken;
+  if (!idToken) {
+    throw new Error('No ID token received from Android GoogleAuth plugin');
+  }
+  // Android plugin manages its own nonce internally; we don't pass one.
+  return { idToken, rawNonce: null };
+}
+
+/**
  * Performs native Google Sign In on iOS/Android via Capacitor,
  * then exchanges the ID token with Supabase.
- * Falls back to direct Supabase OAuth on web.
+ * Falls back to managed Lovable Cloud OAuth on web.
  */
 export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
+  const platform = Capacitor.getPlatform();
   console.log('[GoogleSignIn] Starting sign-in flow', {
     isNative: Capacitor.isNativePlatform(),
-    platform: Capacitor.getPlatform(),
+    platform,
   });
 
   if (!Capacitor.isNativePlatform()) {
@@ -58,11 +105,6 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       },
     });
 
-    console.log('[GoogleSignIn] Web OAuth result', {
-      redirected: result.redirected,
-      hasError: Boolean(result.error),
-    });
-
     if (result.error) {
       console.error('[GoogleSignIn] Web OAuth error:', result.error);
       return { error: new Error(result.error.message) };
@@ -71,53 +113,15 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
   }
 
   try {
-    const runtimePlugins = (Capacitor as any).Plugins;
-    console.log('[GoogleSignIn] Native runtime plugin keys:', runtimePlugins ? Object.keys(runtimePlugins) : []);
+    const { idToken, rawNonce } =
+      platform === 'ios' ? await signInIOS() : await signInAndroid();
 
-    console.log('[GoogleSignIn] Calling GoogleAuth.initialize() immediately before signIn()');
-    GoogleAuth.initialize({
-      clientId: '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com',
-      scopes: ['profile', 'email'],
-      grantOfflineAccess: true,
-    });
-    console.log('[GoogleSignIn] GoogleAuth.initialize() completed');
+    console.log('[GoogleSignIn] ID token nonce claim present:', jwtHasNonce(idToken));
 
-    // Generate nonce pair: raw stays in JS, SHA-256 digest goes to native plugin
-    const rawNonce = generateRawNonce();
-    const nonceDigest = await sha256Hex(rawNonce);
-    console.log('[GoogleSignIn] Nonce generated', {
-      rawNonceLength: rawNonce.length,
-      nonceDigestPrefix: nonceDigest.substring(0, 8) + '…',
-    });
-
-    console.log('[GoogleSignIn] Invoking native GoogleAuth.signIn()');
-    const result = await GoogleAuth.signIn();
-    console.log('[GoogleSignIn] Native plugin result received', {
-      hasAuthentication: Boolean(result?.authentication),
-      hasIdToken: Boolean(result?.authentication?.idToken),
-      email: result?.email ?? null,
-    });
-
-    const idToken = result.authentication?.idToken;
-    if (!idToken) {
-      console.error('[GoogleSignIn] Missing ID token in native plugin response', result);
-      return { error: new Error('No ID token received from Google') };
-    }
-
-    const tokenHasNonce = jwtHasNonce(idToken);
-    console.log('[GoogleSignIn] ID token nonce claim present:', tokenHasNonce);
-
-    console.log('[GoogleSignIn] Exchanging ID token for app session');
-    const { data, error } = await supabase.auth.signInWithIdToken({
+    const { error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
-      nonce: rawNonce,
-    });
-
-    console.log('[GoogleSignIn] Token exchange finished', {
-      hasSession: Boolean(data.session),
-      hasUser: Boolean(data.user),
-      error: error?.message ?? null,
+      ...(rawNonce ? { nonce: rawNonce } : {}),
     });
 
     if (error) {
@@ -130,10 +134,12 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
     console.error('[GoogleSignIn] Native sign-in threw', {
       message: err?.message,
       code: err?.code,
-      stack: err?.stack,
-      raw: err,
     });
-    if (err?.message?.includes('canceled') || err?.message?.includes('cancelled') || err?.code === '12501') {
+    if (
+      err?.message?.includes('canceled') ||
+      err?.message?.includes('cancelled') ||
+      err?.code === '12501'
+    ) {
       return { error: null };
     }
     return { error: err instanceof Error ? err : new Error(String(err)) };
