@@ -35,6 +35,24 @@ interface PositionOptions {
 export async function getCurrentPosition(options?: PositionOptions): Promise<Position> {
   if (Capacitor.isNativePlatform()) {
     const { Geolocation } = await import('@capacitor/geolocation');
+
+    // Ensure the OS permission prompt is shown the first time we need location.
+    // Without this explicit request, Android may silently fail instead of prompting.
+    try {
+      const status = await Geolocation.checkPermissions();
+      if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
+        const requested = await Geolocation.requestPermissions({
+          permissions: ['location', 'coarseLocation'],
+        });
+        if (requested.location !== 'granted' && requested.coarseLocation !== 'granted') {
+          throw new Error('Location permission denied');
+        }
+      }
+    } catch (permErr) {
+      // Re-throw so callers can show a friendly message / link to settings.
+      throw permErr;
+    }
+
     const pos = await Geolocation.getCurrentPosition({
       enableHighAccuracy: options?.enableHighAccuracy ?? true,
       timeout: options?.timeout ?? 10000,
@@ -78,6 +96,18 @@ export async function watchPosition(
 ): Promise<string> {
   if (Capacitor.isNativePlatform()) {
     const { Geolocation } = await import('@capacitor/geolocation');
+
+    // Ensure permission before starting the watch (triggers OS prompt on Android).
+    const status = await Geolocation.checkPermissions();
+    if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
+      const requested = await Geolocation.requestPermissions({
+        permissions: ['location', 'coarseLocation'],
+      });
+      if (requested.location !== 'granted' && requested.coarseLocation !== 'granted') {
+        throw new Error('Location permission denied');
+      }
+    }
+
     const id = await Geolocation.watchPosition(
       {
         enableHighAccuracy: options?.enableHighAccuracy ?? true,
