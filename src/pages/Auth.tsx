@@ -415,12 +415,16 @@ const Auth = () => {
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center p-4 relative overflow-hidden pt-safe"
+      className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4 relative"
       style={{
+        height: '100dvh',
+        minHeight: '100dvh',
         ...(branding?.login_bg_color ? {
           background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
         } : {}),
         overscrollBehavior: 'none',
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
       }}
     >
       {/* Food Pattern Background */}
