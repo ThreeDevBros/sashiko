@@ -295,8 +295,20 @@ const Auth = () => {
   // Show password reset form if user came from reset email
   if (isPasswordReset) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary to-background p-4 pt-safe">
-        <div className="w-full max-w-md">
+      <div
+        className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4"
+        style={{
+          height: '100dvh',
+          minHeight: '100dvh',
+          background: branding?.login_bg_color
+            ? `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
+            : undefined,
+          overscrollBehavior: 'none',
+          paddingTop: 'max(1rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        <div className="w-full max-w-md max-h-full overflow-hidden">
           <Card className="w-full">
             <CardHeader className="space-y-1">
               <CardTitle className="text-lg font-bold text-center">
