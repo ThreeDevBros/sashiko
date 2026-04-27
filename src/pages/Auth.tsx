@@ -73,6 +73,36 @@ const Auth = () => {
   const passwordsMatch = signupConfirmPassword === password;
   const canCreateAccount = isFullNameValid && email.trim().length > 0 && isPhoneValid && isPasswordValid && passwordsMatch && !loading;
 
+  // Lock html/body to viewport so the gradient background covers the entire screen
+  // (prevents the dark strip from appearing below the fixed background layer)
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      htmlHeight: html.style.height,
+      htmlBg: html.style.backgroundColor,
+      bodyOverflow: body.style.overflow,
+      bodyHeight: body.style.height,
+      bodyBg: body.style.backgroundColor,
+    };
+    const bgColor = branding?.login_bg_color || 'hsl(var(--background))';
+    html.style.overflow = 'hidden';
+    html.style.height = '100%';
+    html.style.backgroundColor = bgColor;
+    body.style.overflow = 'hidden';
+    body.style.height = '100%';
+    body.style.backgroundColor = bgColor;
+    return () => {
+      html.style.overflow = prev.htmlOverflow;
+      html.style.height = prev.htmlHeight;
+      html.style.backgroundColor = prev.htmlBg;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.height = prev.bodyHeight;
+      body.style.backgroundColor = prev.bodyBg;
+    };
+  }, [branding?.login_bg_color]);
+
   useEffect(() => {
     // Check if this is a password reset flow
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
