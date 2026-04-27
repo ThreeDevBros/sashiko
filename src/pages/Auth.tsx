@@ -295,19 +295,33 @@ const Auth = () => {
   // Show password reset form if user came from reset email
   if (isPasswordReset) {
     return (
-      <div
-        className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4"
-        style={{
-          height: '100vh',
-          minHeight: '100vh',
-          background: branding?.login_bg_color
-            ? `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
-            : undefined,
-          overscrollBehavior: 'none',
-          paddingTop: 'max(1rem, env(safe-area-inset-top))',
-          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
-        }}
-      >
+      <>
+        {branding?.login_bg_color && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'fixed',
+              top: '-50vh',
+              left: '-50vw',
+              width: '200vw',
+              height: '200vh',
+              background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`,
+              zIndex: 0,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        <div
+          className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4"
+          style={{
+            height: '100vh',
+            minHeight: '100vh',
+            overscrollBehavior: 'none',
+            paddingTop: 'max(1rem, env(safe-area-inset-top))',
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+            zIndex: 1,
+          }}
+        >
         <div className="w-full max-w-md max-h-full overflow-hidden">
           <Card className="w-full">
             <CardHeader className="space-y-1">
@@ -357,6 +371,7 @@ const Auth = () => {
           </Card>
         </div>
       </div>
+      </>
     );
   }
 
