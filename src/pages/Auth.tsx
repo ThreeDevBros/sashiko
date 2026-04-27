@@ -295,8 +295,20 @@ const Auth = () => {
   // Show password reset form if user came from reset email
   if (isPasswordReset) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary to-background p-4 pt-safe">
-        <div className="w-full max-w-md">
+      <div
+        className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4"
+        style={{
+          height: '100dvh',
+          minHeight: '100dvh',
+          background: branding?.login_bg_color
+            ? `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
+            : undefined,
+          overscrollBehavior: 'none',
+          paddingTop: 'max(1rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        <div className="w-full max-w-md max-h-full overflow-hidden">
           <Card className="w-full">
             <CardHeader className="space-y-1">
               <CardTitle className="text-lg font-bold text-center">
@@ -352,10 +364,17 @@ const Auth = () => {
   if (showOtpVerification) {
     return (
       <div 
-        className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden pt-safe"
-        style={branding?.login_bg_color ? {
-          background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
-        } : undefined}
+        className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4 relative"
+        style={{
+          height: '100dvh',
+          minHeight: '100dvh',
+          background: branding?.login_bg_color
+            ? `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
+            : undefined,
+          overscrollBehavior: 'none',
+          paddingTop: 'max(1rem, env(safe-area-inset-top))',
+          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+        }}
       >
         <div className="absolute inset-0 opacity-10">
           <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -396,12 +415,16 @@ const Auth = () => {
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center p-4 relative overflow-hidden pt-safe"
+      className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4 relative"
       style={{
+        height: '100dvh',
+        minHeight: '100dvh',
         ...(branding?.login_bg_color ? {
           background: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`
         } : {}),
         overscrollBehavior: 'none',
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
       }}
     >
       {/* Food Pattern Background */}
@@ -418,7 +441,7 @@ const Auth = () => {
         </svg>
       </div>
 
-      <div className="w-full max-w-md relative z-10 max-h-full overflow-y-auto [-webkit-overflow-scrolling:touch]">
+      <div className="w-full max-w-md relative z-10 max-h-full overflow-hidden">
         
         {/* Logo Section */}
         <div className="text-center mb-4 mt-4">
