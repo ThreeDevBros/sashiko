@@ -441,7 +441,7 @@ const Auth = () => {
         </svg>
       </div>
 
-      <div className="w-full max-w-md relative z-10 max-h-full overflow-y-auto [-webkit-overflow-scrolling:touch]">
+      <div className="w-full max-w-md relative z-10 max-h-full overflow-hidden">
         
         {/* Logo Section */}
         <div className="text-center mb-4 mt-4">
