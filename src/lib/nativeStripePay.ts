@@ -205,7 +205,7 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
  */
 export async function nativeWalletPay(options: NativePayOptions): Promise<NativePayResult> {
   const platform = Capacitor.getPlatform();
-  const StripePlugin = getStripePlugin();
+  const StripePlugin = await getStripePlugin();
 
   if (!StripePlugin) {
     return { success: false, error: 'Native payment plugin not available' };
