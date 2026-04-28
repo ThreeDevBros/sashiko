@@ -140,26 +140,29 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
   try {
     if (platform === 'ios') {
       if (typeof StripePlugin.isApplePayAvailable === 'function') {
-        const res = await StripePlugin.isApplePayAvailable();
-        nativeWalletAvailable = !!(res?.isApplePayAvailable ?? res?.available ?? true);
+        // Plugin contract: resolves => available, rejects => unavailable.
+        await StripePlugin.isApplePayAvailable();
+        nativeWalletAvailable = true;
       } else {
         nativeWalletAvailable = true;
       }
     } else if (platform === 'android') {
       if (typeof StripePlugin.isGooglePayAvailable === 'function') {
-        const res = await StripePlugin.isGooglePayAvailable();
-        nativeWalletAvailable = !!(res?.isGooglePayAvailable ?? res?.available ?? true);
+        // Plugin contract: resolves => available, rejects => unavailable.
+        // Common rejection reasons:
+        //  - manifest meta-data `com.getcapacitor.community.stripe.enable_google_pay` is missing/false
+        //  - device has no Google Wallet / no card configured
+        //  - Play Services unavailable on the device/emulator
+        await StripePlugin.isGooglePayAvailable();
+        nativeWalletAvailable = true;
       } else {
-        // No probe method on this plugin version; assume available since the
-        // manifest meta-data is set. createGooglePay() will surface the real
-        // result if the device can't actually pay.
         nativeWalletAvailable = true;
       }
     } else {
       nativeWalletAvailable = false;
     }
   } catch (err) {
-    console.warn('Native wallet availability check failed:', err);
+    console.warn(`[nativeStripePay] ${platform} wallet unavailable:`, err);
     nativeWalletAvailable = false;
   }
 
