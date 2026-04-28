@@ -10,15 +10,44 @@ import { lovable } from '@/integrations/lovable/index';
 export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
   const platform = Capacitor.getPlatform();
 
-  // Android: Apple has no native SDK — use Lovable Cloud's managed OAuth web flow
-  // inside the WebView. Use the production domain as redirect_uri because
-  // window.location.origin on Capacitor Android is "http://localhost", which is
-  // not registered with Apple. Lovable's broker handles the callback in-app.
+  // Android: Apple has no native SDK. The Lovable Cloud OAuth broker (`/~oauth/initiate`)
+  // is hosted by the proxy worker on our production domain — it does NOT exist inside
+  // the Capacitor WebView (`https://localhost`). If we let the SDK use
+  // `window.location.href = '/~oauth/initiate?...'` it shows the in-app 404 page.
+  //
+  // Instead, build the broker URL against the production domain and open it in the
+  // device's system browser. Apple completes the OAuth flow there, then the broker
+  // redirects to our App Link (`https://sashikoasianfusion.com/~oauth`) which Android
+  // routes back into our app via the intent-filter in AndroidManifest.xml.
   if (platform === 'android') {
-    const result = await lovable.auth.signInWithOAuth('apple', {
-      redirect_uri: 'https://sashikoasianfusion.com',
-    });
-    return { error: result.error ? (result.error instanceof Error ? result.error : new Error(String(result.error))) : null };
+    try {
+      const productionOrigin = 'https://sashikoasianfusion.com';
+      const state = generateState();
+      const params = new URLSearchParams({
+        provider: 'apple',
+        redirect_uri: productionOrigin,
+        state,
+      });
+      const url = `${productionOrigin}/~oauth/initiate?${params.toString()}`;
+
+      // Try the Capacitor Browser plugin first (in-app Custom Tab on Android).
+      try {
+        const Browser = (Capacitor as any).Plugins?.Browser;
+        if (Browser?.open) {
+          await Browser.open({ url });
+          return { error: null };
+        }
+      } catch {
+        // fall through
+      }
+
+      // Fallback: open in the system browser via window.open with `_system`.
+      // Capacitor intercepts this and launches the external browser.
+      window.open(url, '_system');
+      return { error: null };
+    } catch (err: any) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
   }
 
   // Web: standard Lovable Cloud managed Apple OAuth
@@ -65,4 +94,13 @@ export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
     }
     return { error: err instanceof Error ? err : new Error(String(err)) };
   }
+}
+
+function generateState(length = 16): string {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    return Array.from(crypto.getRandomValues(new Uint8Array(length)))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
