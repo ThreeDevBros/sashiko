@@ -14,6 +14,28 @@
             android:name="com.google.android.gms.wallet.api.enabled"
             android:value="true" />
 
+        <!-- Enables Google Pay inside the @capacitor-community/stripe plugin -->
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.enable_google_pay"
+            android:value="true" />
+
+        <!-- Use Google Pay TEST environment until the APK is signed with the
+             production upload cert registered in the Google Pay & Wallet Console.
+             Switch to false for live builds. -->
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.google_pay_is_testing"
+            android:value="true" />
+
+        <!-- Merchant display name shown inside the Google Pay sheet -->
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.merchant_display_name"
+            android:value="Sashiko Asian Fusion" />
+
+        <!-- Default country (ISO-3166-1 alpha-2) -->
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.country_code"
+            android:value="GR" />
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
             android:name=".MainActivity"
