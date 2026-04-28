@@ -56,15 +56,35 @@ export function isNativeWalletPlatform(): boolean {
 }
 
 /**
- * Get the Capacitor Stripe plugin via dynamic access to avoid web build issues.
+ * Get the Capacitor Stripe plugin. Tries the registered plugin object first
+ * (works after `import '@capacitor-community/stripe'` has registered it via
+ * `registerPlugin('Stripe', ...)`), then falls back to `Capacitor.Plugins.Stripe`
+ * for older code paths.
  */
-function getStripePlugin(): any | null {
+let cachedStripePlugin: any | null = null;
+async function getStripePlugin(): Promise<any | null> {
+  if (cachedStripePlugin) return cachedStripePlugin;
+  if (!isNativeWalletPlatform()) return null;
+  try {
+    // Dynamically import the package so web builds don't try to resolve native bridge.
+    // The package's index calls `registerPlugin('Stripe', ...)` on import,
+    // which makes the native plugin available via Capacitor.
+    const mod = await import('@capacitor-community/stripe');
+    if (mod?.Stripe) {
+      cachedStripePlugin = mod.Stripe;
+      return cachedStripePlugin;
+    }
+  } catch (e) {
+    console.warn('[nativeStripePay] dynamic import @capacitor-community/stripe failed:', e);
+  }
   try {
     const plugins = (Capacitor as any).Plugins;
-    return plugins?.Stripe || null;
-  } catch {
-    return null;
-  }
+    if (plugins?.Stripe) {
+      cachedStripePlugin = plugins.Stripe;
+      return cachedStripePlugin;
+    }
+  } catch {}
+  return null;
 }
 
 /**
@@ -75,9 +95,9 @@ export async function initializeNativeStripe(): Promise<boolean> {
   if (!isNativeWalletPlatform()) return false;
   if (pluginInitialized) return true;
 
-  const StripePlugin = getStripePlugin();
+  const StripePlugin = await getStripePlugin();
   if (!StripePlugin) {
-    console.error('Stripe Capacitor plugin not available');
+    console.error('[nativeStripePay] Stripe Capacitor plugin not available (package import + Capacitor.Plugins both empty)');
     return false;
   }
 
@@ -106,10 +126,10 @@ export async function initializeNativeStripe(): Promise<boolean> {
     });
 
     pluginInitialized = true;
-    console.log('Native Stripe plugin initialized');
+    console.log('[nativeStripePay] Native Stripe plugin initialized');
     return true;
   } catch (err) {
-    console.error('Failed to initialize native Stripe:', err);
+    console.error('[nativeStripePay] Failed to initialize native Stripe:', err);
     return false;
   }
 }
@@ -126,11 +146,12 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
 
   const ready = await initializeNativeStripe();
   if (!ready) {
+    console.warn('[nativeStripePay] initializeNativeStripe returned false — wallet unavailable');
     nativeWalletAvailable = false;
     return false;
   }
 
-  const StripePlugin = getStripePlugin();
+  const StripePlugin = await getStripePlugin();
   if (!StripePlugin) {
     nativeWalletAvailable = false;
     return false;
@@ -151,8 +172,10 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
         // Plugin contract: resolves => available, rejects => unavailable.
         // Common rejection reasons:
         //  - manifest meta-data `com.getcapacitor.community.stripe.enable_google_pay` is missing/false
+        //  - manifest meta-data `com.getcapacitor.community.stripe.publishable_key` is missing
         //  - device has no Google Wallet / no card configured
         //  - Play Services unavailable on the device/emulator
+        //  - Stripe key environment (test/live) does not match google_pay_is_testing flag
         await StripePlugin.isGooglePayAvailable();
         nativeWalletAvailable = true;
       } else {
@@ -161,14 +184,19 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
     } else {
       nativeWalletAvailable = false;
     }
-  } catch (err) {
-    console.warn(`[nativeStripePay] ${platform} wallet unavailable:`, err);
+  } catch (err: any) {
+    console.warn(`[nativeStripePay] ${platform} wallet unavailable. Reason:`, {
+      message: err?.message,
+      code: err?.code,
+      data: err?.data,
+    });
     nativeWalletAvailable = false;
   }
 
   console.log(`[nativeStripePay] Wallet available on ${platform}:`, nativeWalletAvailable);
   return nativeWalletAvailable;
 }
+
 
 /**
  * Perform a native Apple Pay or Google Pay payment.
@@ -177,7 +205,7 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
  */
 export async function nativeWalletPay(options: NativePayOptions): Promise<NativePayResult> {
   const platform = Capacitor.getPlatform();
-  const StripePlugin = getStripePlugin();
+  const StripePlugin = await getStripePlugin();
 
   if (!StripePlugin) {
     return { success: false, error: 'Native payment plugin not available' };

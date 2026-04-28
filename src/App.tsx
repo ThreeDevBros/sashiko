@@ -205,6 +205,10 @@ const AppRoutes = () => {
                 <Route path="/driver-dashboard" element={<AnimatedPage><DriverDashboard /></AnimatedPage>} />
                 <Route path="/driver" element={<Suspense fallback={null}><DriverOrders /></Suspense>} />
                 <Route path="/driver/active" element={<Suspense fallback={null}><DriverActiveDelivery /></Suspense>} />
+                {/* OAuth broker paths — only valid on the production domain. If the
+                    in-app WebView ever lands here (e.g. a stale link), bounce to /auth
+                    instead of showing the 404 page. */}
+                <Route path="/~oauth/*" element={<AnimatedPage><Auth /></AnimatedPage>} />
                 <Route path="*" element={<AnimatedPage><NotFound /></AnimatedPage>} />
               </Routes>
             </AnimatePresence>

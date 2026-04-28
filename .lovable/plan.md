@@ -1,55 +1,51 @@
-# Fix: Google Pay missing on Android checkout
+I found two real issues in the logs/code:
 
-## Root cause
+1. Android Apple OAuth is opening `https://localhost/~oauth/initiate...` inside the Capacitor WebView, so React handles it as an app route and shows the 404 page.
+2. Android Google Pay is hidden because the Stripe Capacitor plugin is not available in JS (`Stripe Capacitor plugin not available`). The Android Stripe plugin also expects Google Pay metadata at native load time, including a publishable key in the Android manifest; currently that key is not present, and `MainActivity` only manually registers GoogleAuth.
 
-`@capacitor-community/stripe` is a hybrid plugin: enabling Google Pay requires **two** Android manifest meta-data tags. We only added one of them (the generic Google Wallet API flag) in the previous fix.
+Plan to fix:
 
-Reading the plugin's source (`MetaData.kt`) shows the plugin reads its own `com.getcapacitor.community.stripe.enable_google_pay` flag from the manifest. If it's missing or `false`, the plugin sets `isAvailable = false` permanently and `isGooglePayAvailable()` **rejects** with "Not implemented on Device" — which is why our probe in `nativeStripePay.ts` falls into the catch branch and the Google Pay button never renders.
+1. Fix Android Apple OAuth flow
+   - Change Android Apple sign-in to launch the Lovable Cloud OAuth broker on the production domain instead of local `https://localhost/~oauth/initiate`.
+   - Keep redirecting back to the real site/deep-link route so Apple does not reject `localhost`.
+   - Add a route/deep-link safety guard so if `/~oauth/...` is ever hit in-app again, it will not render the 404 page.
 
-This is purely a manifest config issue. The TypeScript wiring, plugin initialization, and UI logic are all correct.
+2. Fix Android Stripe plugin registration
+   - Update `MainActivity.java` to manually register the Stripe Capacitor plugin alongside the existing GoogleAuth plugin.
+   - Keep the registration before `super.onCreate(...)`, matching Capacitor 7 guidance.
 
-## Plan
+3. Fix Android Google Pay native metadata
+   - Add the required `com.getcapacitor.community.stripe.publishable_key` manifest metadata for the Stripe plugin’s Google Pay launcher.
+   - Add optional Google Pay metadata defaults so the plugin does not load null values:
+     - email required: false
+     - phone required: false
+     - billing address required: false
+     - billing address format: Min
+     - existing payment method required: false
+   - Keep `google_pay_is_testing=true` as requested for testing.
 
-### 1. Add the plugin's required meta-data flags to `android/app/src/main/AndroidManifest.xml`
+4. Fix JS plugin access and wallet initialization
+   - Stop relying only on `Capacitor.Plugins.Stripe`.
+   - Import/register the Stripe plugin through `@capacitor-community/stripe` in `nativeStripePay.ts`, while still using dynamic import so web builds remain safe.
+   - Improve Google Pay availability logging so if Google Pay is unavailable, the log says whether it is plugin missing, manifest/config issue, or device/wallet availability issue.
 
-Inside the existing `<application>` block (right next to the `com.google.android.gms.wallet.api.enabled` tag we already added):
+5. Fix browser Google Pay detection and usage
+   - Use the app’s actual country/currency instead of the current hardcoded US/USD test check where possible.
+   - Make the web wallet check wait for Stripe to be ready and only show Google Pay when Stripe’s Payment Request API confirms it can be used.
+   - Keep Google Pay hidden on unsupported browsers/devices; that part is required by Stripe/Google.
 
-```xml
-<!-- Enables Google Pay inside the @capacitor-community/stripe plugin -->
-<meta-data
-    android:name="com.getcapacitor.community.stripe.enable_google_pay"
-    android:value="true" />
+6. Manual steps after I implement
+   - You will need to pull the changes, then run `npx cap sync android`, rebuild, and reinstall the Android app.
+   - For testing mode (`google_pay_is_testing=true`): use a device/emulator with Google Play Services and Google Wallet configured. Google Pay may still be hidden if the emulator/account cannot use Google Pay.
+   - Before public release: flip `google_pay_is_testing=false`, use the Stripe live publishable key in the manifest/backend, sign the release build, and make sure that signing certificate/package name are registered/approved for Google Pay.
 
-<!-- Sandbox/test environment until the build is signed with the production cert -->
-<meta-data
-    android:name="com.getcapacitor.community.stripe.google_pay_is_testing"
-    android:value="true" />
+Technical details:
+- Files expected to change:
+  - `android/app/src/main/java/com/sashiko/app/MainActivity.java`
+  - `android/app/src/main/AndroidManifest.xml`
+  - `src/lib/nativeStripePay.ts`
+  - `src/lib/nativeAppleSignIn.ts`
+  - possibly `src/components/AppRuntimeListeners.tsx` or `src/App.tsx` for OAuth route safety
+  - possibly `src/components/checkout/CheckoutForm.tsx` for browser wallet detection polish
 
-<!-- Merchant display name shown in the Google Pay sheet -->
-<meta-data
-    android:name="com.getcapacitor.community.stripe.merchant_display_name"
-    android:value="Sashiko Asian Fusion" />
-
-<!-- Default country (ISO-3166-1 alpha-2) -->
-<meta-data
-    android:name="com.getcapacitor.community.stripe.country_code"
-    android:value="GR" />
-```
-
-`google_pay_is_testing=true` is required while running on the emulator / unsigned debug build — Google Pay only reports "ready" in production environment when the APK is signed with the live signing certificate registered in the Google Pay & Wallet Console. Once you ship a signed release build, flip this to `false`.
-
-### 2. No code changes needed
-
-`src/lib/nativeStripePay.ts` and `src/components/checkout/CheckoutForm.tsx` already do the right thing — the probe will start resolving correctly once the manifest flag is in place.
-
-## What you'll need to do after I make the change
-
-1. `npx cap sync android`
-2. Rebuild the APK and install on the emulator/device
-3. Make sure the test device has Google Wallet installed and at least one card added (the emulator account must be signed into a Google account with a saved card — even a test card works in test mode)
-
-## Production checklist (later, before live launch)
-
-- Switch `google_pay_is_testing` to `false`
-- Sign your release APK with the upload key registered in [Google Pay & Wallet Console](https://pay.google.com/business/console)
-- Use a Stripe **live** publishable key
+No database changes are needed.

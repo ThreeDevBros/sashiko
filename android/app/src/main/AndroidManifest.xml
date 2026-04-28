@@ -14,10 +14,19 @@
             android:name="com.google.android.gms.wallet.api.enabled"
             android:value="true" />
 
-        <!-- Enables Google Pay inside the @capacitor-community/stripe plugin -->
+        <!-- Enables Google Pay inside the @capacitor-community/stripe plugin.
+             When this is true, the plugin reads `publishable_key` below at native
+             load time and configures the GooglePayLauncher. If the key is missing,
+             Google Pay silently fails to initialize. -->
         <meta-data
             android:name="com.getcapacitor.community.stripe.enable_google_pay"
             android:value="true" />
+
+        <!-- Stripe publishable key (TEST). Replace with your LIVE key for production builds.
+             This is required by the Stripe Capacitor plugin to bring up Google Pay on Android. -->
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.publishable_key"
+            android:value="pk_test_replace_with_live_key" />
 
         <!-- Google Pay TEST environment. Flip to false once the release APK is
              signed with the upload cert registered in the Google Pay & Wallet Console
@@ -35,6 +44,23 @@
         <meta-data
             android:name="com.getcapacitor.community.stripe.country_code"
             android:value="GR" />
+
+        <!-- Google Pay sheet defaults — keep all collection off so the sheet stays light -->
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.email_address_required"
+            android:value="false" />
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.phone_number_required"
+            android:value="false" />
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.billing_address_required"
+            android:value="false" />
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.billing_address_format"
+            android:value="Min" />
+        <meta-data
+            android:name="com.getcapacitor.community.stripe.google_pay_existing_payment_method_required"
+            android:value="false" />
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
