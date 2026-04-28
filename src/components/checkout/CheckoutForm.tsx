@@ -151,22 +151,36 @@ export const CheckoutForm = ({
       setPaymentType('card');
     }
   }, [prefetchedCards, cardsLoading]);
-  // Check available wallets - native iOS always gets Apple Pay
+  // Check available wallets — on native, ask the Capacitor Stripe plugin directly.
   useEffect(() => {
-    // On native iOS, Apple Pay is available via the device regardless of Stripe's web detection
     const isNativeIos = Capacitor.getPlatform() === 'ios';
     const isNativeAndroid = Capacitor.getPlatform() === 'android';
-    
-    if (isNativeIos) {
-      setAvailableWallets({ applePay: true, googlePay: false });
-      console.log('Native iOS detected - Apple Pay enabled');
-      return;
-    }
-    
-    if (isNativeAndroid) {
-      setAvailableWallets({ applePay: false, googlePay: true });
-      console.log('Native Android detected - Google Pay enabled');
-      return;
+
+    if (isNativeIos || isNativeAndroid) {
+      let cancelled = false;
+      (async () => {
+        try {
+          const { isNativeWalletAvailable } = await import('@/lib/nativeStripePay');
+          const available = await isNativeWalletAvailable();
+          if (cancelled) return;
+          if (available) {
+            setAvailableWallets({
+              applePay: isNativeIos,
+              googlePay: isNativeAndroid,
+            });
+            console.log(`Native ${isNativeIos ? 'iOS' : 'Android'} wallet ready`);
+          } else {
+            setAvailableWallets({ applePay: false, googlePay: false });
+            console.log(`Native ${isNativeIos ? 'iOS' : 'Android'} wallet NOT available — hiding wallet button`);
+          }
+        } catch (err) {
+          if (!cancelled) {
+            console.warn('Native wallet probe failed:', err);
+            setAvailableWallets({ applePay: false, googlePay: false });
+          }
+        }
+      })();
+      return () => { cancelled = true; };
     }
 
     if (!stripe) {
