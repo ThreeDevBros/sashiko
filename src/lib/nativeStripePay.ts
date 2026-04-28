@@ -115,6 +115,59 @@ export async function initializeNativeStripe(): Promise<boolean> {
 }
 
 /**
+ * Cached availability check for the platform-native wallet (Apple Pay / Google Pay).
+ * Returns true if the device + plugin can present the wallet sheet.
+ */
+let nativeWalletAvailable: boolean | null = null;
+
+export async function isNativeWalletAvailable(): Promise<boolean> {
+  if (!isNativeWalletPlatform()) return false;
+  if (nativeWalletAvailable !== null) return nativeWalletAvailable;
+
+  const ready = await initializeNativeStripe();
+  if (!ready) {
+    nativeWalletAvailable = false;
+    return false;
+  }
+
+  const StripePlugin = getStripePlugin();
+  if (!StripePlugin) {
+    nativeWalletAvailable = false;
+    return false;
+  }
+
+  const platform = Capacitor.getPlatform();
+  try {
+    if (platform === 'ios') {
+      if (typeof StripePlugin.isApplePayAvailable === 'function') {
+        const res = await StripePlugin.isApplePayAvailable();
+        nativeWalletAvailable = !!(res?.isApplePayAvailable ?? res?.available ?? true);
+      } else {
+        nativeWalletAvailable = true;
+      }
+    } else if (platform === 'android') {
+      if (typeof StripePlugin.isGooglePayAvailable === 'function') {
+        const res = await StripePlugin.isGooglePayAvailable();
+        nativeWalletAvailable = !!(res?.isGooglePayAvailable ?? res?.available ?? true);
+      } else {
+        // No probe method on this plugin version; assume available since the
+        // manifest meta-data is set. createGooglePay() will surface the real
+        // result if the device can't actually pay.
+        nativeWalletAvailable = true;
+      }
+    } else {
+      nativeWalletAvailable = false;
+    }
+  } catch (err) {
+    console.warn('Native wallet availability check failed:', err);
+    nativeWalletAvailable = false;
+  }
+
+  console.log(`[nativeStripePay] Wallet available on ${platform}:`, nativeWalletAvailable);
+  return nativeWalletAvailable;
+}
+
+/**
  * Perform a native Apple Pay or Google Pay payment.
  * Creates a payment intent, presents the native wallet sheet,
  * then confirms the order on success.
