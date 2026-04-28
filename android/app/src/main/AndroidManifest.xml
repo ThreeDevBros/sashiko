@@ -19,12 +19,12 @@
             android:name="com.getcapacitor.community.stripe.enable_google_pay"
             android:value="true" />
 
-        <!-- Use Google Pay TEST environment until the APK is signed with the
-             production upload cert registered in the Google Pay & Wallet Console.
-             Switch to false for live builds. -->
+        <!-- Google Pay PRODUCTION environment. Requires the release APK to be
+             signed with the upload cert registered in the Google Pay & Wallet Console
+             AND a Stripe LIVE publishable key. -->
         <meta-data
             android:name="com.getcapacitor.community.stripe.google_pay_is_testing"
-            android:value="true" />
+            android:value="false" />
 
         <!-- Merchant display name shown inside the Google Pay sheet -->
         <meta-data
