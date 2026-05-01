@@ -26,7 +26,7 @@
              This is required by the Stripe Capacitor plugin to bring up Google Pay on Android. -->
         <meta-data
             android:name="com.getcapacitor.community.stripe.publishable_key"
-            android:value="pk_test_replace_with_live_key" />
+            android:value="pk_live_51LxuXZIsawC8FwOEkXg1tJ6Gsu3m655FgHU7cQ0SujDwBBZSRmpJ7kDHwQftuDUXOVPc6NvhuejgByE7D2ONLvYf00vGVuREwg" />
 
         <!-- Google Pay TEST environment. Flip to false once the release APK is
              signed with the upload cert registered in the Google Pay & Wallet Console
