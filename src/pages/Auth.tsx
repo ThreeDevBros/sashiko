@@ -241,10 +241,20 @@ const Auth = () => {
 
   const handleAppleSignIn = async () => {
     try {
+      console.log('[Auth] Apple sign-in starting');
       const { error } = await nativeAppleSignIn();
-      if (error) throw error;
+      if (error) {
+        console.error('[Auth] Apple sign-in error:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          raw: error,
+        });
+        throw error;
+      }
+      console.log('[Auth] Apple sign-in completed without immediate error');
     } catch (error: any) {
-      toast.error("Failed to sign in with Apple. Please try again.");
+      toast.error(`Apple sign-in failed: ${error?.message ?? 'Unknown error'}`);
     }
   };
 

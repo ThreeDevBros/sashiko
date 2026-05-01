@@ -62,10 +62,12 @@ export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
     // Access the plugin via Capacitor's runtime plugin registry
     // This avoids npm import resolution issues at build time
     const SignInWithApple = (Capacitor as any).Plugins?.SignInWithApple;
+    console.log('[AppleNative] plugin available?', !!SignInWithApple);
     if (!SignInWithApple) {
       return { error: new Error('SignInWithApple plugin not available') };
     }
 
+    console.log('[AppleNative] calling authorize with clientId app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10');
     const result = await SignInWithApple.authorize({
       clientId: 'app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10',
       redirectURI: '',
@@ -73,22 +75,48 @@ export async function nativeAppleSignIn(): Promise<{ error: Error | null }> {
     });
 
     const identityToken = result.response.identityToken;
+    console.log('[AppleNative] authorize returned, has identityToken?', !!identityToken);
     if (!identityToken) {
+      console.error('[AppleNative] full result without token:', JSON.stringify(result));
       return { error: new Error('No identity token received from Apple') };
     }
 
-    const { error } = await supabase.auth.signInWithIdToken({
+    // Decode JWT payload (no signature verification — diagnostic only)
+    try {
+      const parts = identityToken.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        console.log('[AppleNative] token claims:', { iss: payload.iss, aud: payload.aud, sub: payload.sub, exp: payload.exp });
+      }
+    } catch (decodeErr) {
+      console.warn('[AppleNative] could not decode token for diagnostics:', decodeErr);
+    }
+
+    console.log('[AppleNative] calling supabase.auth.signInWithIdToken');
+    const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: identityToken,
       nonce: '',
     });
 
     if (error) {
+      console.error('[AppleNative] signInWithIdToken error:', {
+        message: error.message,
+        name: error.name,
+        status: (error as any).status,
+        raw: error,
+      });
       return { error: new Error(error.message) };
     }
 
+    console.log('[AppleNative] signInWithIdToken success, has session?', !!data?.session);
     return { error: null };
   } catch (err: any) {
+    console.error('[AppleNative] caught exception:', {
+      message: err?.message,
+      code: err?.code,
+      raw: err,
+    });
     if (err?.message?.includes('cancelled') || err?.code === '1001') {
       return { error: null };
     }

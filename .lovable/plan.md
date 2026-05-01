@@ -1,51 +1,54 @@
-I found two real issues in the logs/code:
+## Context
 
-1. Android Apple OAuth is opening `https://localhost/~oauth/initiate...` inside the Capacitor WebView, so React handles it as an app route and shows the 404 page.
-2. Android Google Pay is hidden because the Stripe Capacitor plugin is not available in JS (`Stripe Capacitor plugin not available`). The Android Stripe plugin also expects Google Pay metadata at native load time, including a publishable key in the Android manifest; currently that key is not present, and `MainActivity` only manually registers GoogleAuth.
+Web Apple Sign In started working after you reduced Apple's registered Return URLs to just `https://oauth.lovable.app/callback`. Now native iOS Apple Sign In is broken.
 
-Plan to fix:
+## Why this can happen
 
-1. Fix Android Apple OAuth flow
-   - Change Android Apple sign-in to launch the Lovable Cloud OAuth broker on the production domain instead of local `https://localhost/~oauth/initiate`.
-   - Keep redirecting back to the real site/deep-link route so Apple does not reject `localhost`.
-   - Add a route/deep-link safety guard so if `/~oauth/...` is ever hit in-app again, it will not render the 404 page.
+The native iOS flow does NOT use the OAuth broker / Return URLs at all. It:
 
-2. Fix Android Stripe plugin registration
-   - Update `MainActivity.java` to manually register the Stripe Capacitor plugin alongside the existing GoogleAuth plugin.
-   - Keep the registration before `super.onCreate(...)`, matching Capacitor 7 guidance.
+1. Calls the native `SignInWithApple` Capacitor plugin → Apple returns an `identityToken` JWT.
+2. Calls `supabase.auth.signInWithIdToken({ provider: 'apple', token })` → Supabase validates the JWT.
 
-3. Fix Android Google Pay native metadata
-   - Add the required `com.getcapacitor.community.stripe.publishable_key` manifest metadata for the Stripe plugin’s Google Pay launcher.
-   - Add optional Google Pay metadata defaults so the plugin does not load null values:
-     - email required: false
-     - phone required: false
-     - billing address required: false
-     - billing address format: Min
-     - existing payment method required: false
-   - Keep `google_pay_is_testing=true` as requested for testing.
+The validation that matters is the JWT's `aud` (audience) claim. Our native call sends `clientId: 'app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10'`, so Apple issues a token with `aud = app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10`. Supabase's Apple provider must accept that audience.
 
-4. Fix JS plugin access and wallet initialization
-   - Stop relying only on `Capacitor.Plugins.Stripe`.
-   - Import/register the Stripe plugin through `@capacitor-community/stripe` in `nativeStripePay.ts`, while still using dynamic import so web builds remain safe.
-   - Improve Google Pay availability logging so if Google Pay is unavailable, the log says whether it is plugin missing, manifest/config issue, or device/wallet availability issue.
+Two plausible regressions:
 
-5. Fix browser Google Pay detection and usage
-   - Use the app’s actual country/currency instead of the current hardcoded US/USD test check where possible.
-   - Make the web wallet check wait for Stripe to be ready and only show Google Pay when Stripe’s Payment Request API confirms it can be used.
-   - Keep Google Pay hidden on unsupported browsers/devices; that part is required by Stripe/Google.
+- **A.** While editing Apple Developer to remove Return URLs, the **Services ID** `app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10` was deleted, renamed, or had Sign In with Apple disabled. → native plugin call fails or returns a token whose `aud` no longer matches.
+- **B.** The Services ID is fine, but Lovable Cloud's managed Apple provider config no longer has it whitelisted as an additional client ID, so `signInWithIdToken` rejects with "invalid audience" / "Unverified token".
 
-6. Manual steps after I implement
-   - You will need to pull the changes, then run `npx cap sync android`, rebuild, and reinstall the Android app.
-   - For testing mode (`google_pay_is_testing=true`): use a device/emulator with Google Play Services and Google Wallet configured. Google Pay may still be hidden if the emulator/account cannot use Google Pay.
-   - Before public release: flip `google_pay_is_testing=false`, use the Stripe live publishable key in the manifest/backend, sign the release build, and make sure that signing certificate/package name are registered/approved for Google Pay.
+The current code shows a generic toast (`"Failed to sign in with Apple. Please try again."`) and discards the real error, so we can't tell which case it is.
 
-Technical details:
-- Files expected to change:
-  - `android/app/src/main/java/com/sashiko/app/MainActivity.java`
-  - `android/app/src/main/AndroidManifest.xml`
-  - `src/lib/nativeStripePay.ts`
-  - `src/lib/nativeAppleSignIn.ts`
-  - possibly `src/components/AppRuntimeListeners.tsx` or `src/App.tsx` for OAuth route safety
-  - possibly `src/components/checkout/CheckoutForm.tsx` for browser wallet detection polish
+## Plan
 
-No database changes are needed.
+### Step 1 — Surface the real error (5 min)
+
+Edit `src/pages/Auth.tsx` `handleAppleSignIn` to log the full error and include its message in the toast. Edit `src/lib/nativeAppleSignIn.ts` to add `console.log` lines for:
+
+- `[AppleNative] plugin available?`
+- `[AppleNative] authorize result` (without the token itself, just whether identityToken exists + decoded `aud` and `iss` claims)
+- `[AppleNative] supabase signInWithIdToken error` (full error object)
+
+### Step 2 — User retries on iOS device
+
+You attempt Apple Sign In again on the iOS app. The console logs will be captured in the next message and tell us exactly which step fails and why.
+
+### Step 3 — Fix based on what we learn
+
+- If `authorize` fails or returns no token → Apple Developer side. Most likely the Services ID `app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10` was inadvertently changed when you trimmed the Return URLs. Fix: confirm in Apple Developer that this Services ID still exists, has Sign In with Apple enabled, and is associated with the correct App ID / primary App ID. The Bundle ID `com.sashiko.app` must also still have the Sign In with Apple capability.
+- If `authorize` succeeds but `signInWithIdToken` errors with "invalid audience" / "Unverified ID token" → Lovable Cloud Apple provider side. Fix: in Cloud → Users → Auth Settings → Sign In Methods → Apple, ensure the Services ID `app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10` is registered as an accepted Client ID (or, if you switched to BYOC for the web fix, that the BYOC Client ID matches the one we send here).
+- If `signInWithIdToken` errors with something else (e.g. nonce required) → adjust the call accordingly.
+
+### Step 4 — Save a memory rule
+
+Add a project memory: "iOS Apple Sign In uses Supabase `signInWithIdToken` directly with `clientId = app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10`. Do not delete or rename that Services ID in Apple Developer, and keep it whitelisted in Lovable Cloud's Apple provider audience list."
+
+## Files to change in Step 1
+
+- `src/pages/Auth.tsx` — log + show real error in toast
+- `src/lib/nativeAppleSignIn.ts` — add diagnostic console.log calls (decode JWT header/payload locally, no secrets exposed)
+
+No database, no native rebuild required — pure JS, hot-reloads.
+
+## After approval
+
+I will apply the Step 1 logging changes, then ask you to try Apple Sign In on the iOS device once. Logs will be in your next message and I'll fix from there.
