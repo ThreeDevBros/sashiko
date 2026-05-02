@@ -36,6 +36,11 @@ export default function AccountDeletion() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // OAuth users (Google/Apple) have no password — skip password verification for them.
+  const provider = user?.app_metadata?.provider;
+  const isOAuthUser = provider === 'google' || provider === 'apple';
+  const providerLabel = provider === 'apple' ? 'Apple' : provider === 'google' ? 'Google' : '';
+
   // Load profile phone
   useEffect(() => {
     if (!user) return;
@@ -59,8 +64,12 @@ export default function AccountDeletion() {
     setPhoneValid(!!savedTrimmed && trimmed === savedTrimmed);
   }, [phone, profilePhone, profileLoaded]);
 
-  // Validate password with debounce
+  // Validate password with debounce (skip entirely for OAuth users)
   useEffect(() => {
+    if (isOAuthUser) {
+      setPasswordValid(null);
+      return;
+    }
     if (!password || password.length < 6 || !user?.email) {
       setPasswordValid(null);
       return;
@@ -80,9 +89,9 @@ export default function AccountDeletion() {
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [password, user?.email]);
+  }, [password, user?.email, isOAuthUser]);
 
-  const allValid = emailValid && phoneValid && passwordValid === true;
+  const allValid = emailValid && phoneValid && (isOAuthUser || passwordValid === true);
 
   const handleDelete = useCallback(async () => {
     setDeleting(true);
@@ -184,28 +193,36 @@ export default function AccountDeletion() {
             )}
           </div>
 
-          {/* Password */}
-          <div className="space-y-2">
-            <Label htmlFor="del-password">Password</Label>
-            <div className="relative">
-              <Input
-                id="del-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className={
-                  passwordValid === false ? 'border-destructive' : passwordValid === true ? 'border-green-500' : ''
-                }
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <ValidationIcon valid={passwordValid} checking={passwordChecking} />
-              </div>
+          {/* Password — hidden for OAuth users */}
+          {isOAuthUser ? (
+            <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                You signed in with <span className="font-medium text-foreground">{providerLabel}</span>, so no password is required. Your email and phone above are enough to verify your identity.
+              </p>
             </div>
-            {passwordValid === false && (
-              <p className="text-xs text-destructive">Incorrect password</p>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="del-password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="del-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className={
+                    passwordValid === false ? 'border-destructive' : passwordValid === true ? 'border-green-500' : ''
+                  }
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <ValidationIcon valid={passwordValid} checking={passwordChecking} />
+                </div>
+              </div>
+              {passwordValid === false && (
+                <p className="text-xs text-destructive">Incorrect password</p>
+              )}
+            </div>
+          )}
 
           {/* Delete Button */}
           <Button
