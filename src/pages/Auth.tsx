@@ -636,14 +636,16 @@ const Auth = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
-                  <button
-                    type="button"
-                    onClick={handleAppleSignIn}
-                    className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95`}
-                  >
-                    <FaApple className={appleIconClass} />
-                    {t('auth.continueWithApple')}
-                  </button>
+                  {showAppleButton && (
+                    <button
+                      type="button"
+                      onClick={handleAppleSignIn}
+                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95`}
+                    >
+                      <FaApple className={appleIconClass} />
+                      {t('auth.continueWithApple')}
+                    </button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
