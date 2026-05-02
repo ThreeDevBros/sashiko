@@ -96,6 +96,8 @@ export default function OrderTracking() {
   const { branding } = useBranding();
   const { theme } = useTheme();
   const { user, isAuthReady, isAuthRecovering, refreshSession } = useAuth();
+  const directions = useDirections();
+  const useNeutralMapsIcon = isIOSNative();
   const [order, setOrder] = useState<Order | null>(null);
   const orderRef = useRef<Order | null>(null);
   useEffect(() => { orderRef.current = order; }, [order]);
