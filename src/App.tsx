@@ -13,7 +13,7 @@ import { AnimatedPage } from "./components/AnimatedPage";
 import LoadingScreen from "./components/LoadingScreen";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { GlobalDriverTracker } from "./components/driver/GlobalDriverTracker";
-import { PhonePromptDialog } from "./components/PhonePromptDialog";
+import { CompleteProfileDialog } from "./components/CompleteProfileDialog";
 import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getRoleBasedRoute, isRouteAllowedForRoles } from "./hooks/useRoleRedirect";
@@ -461,7 +461,7 @@ const AppContent = () => {
           <Sonner />
           <BranchRealtimeManager />
           <GlobalDriverTracker />
-          <PhonePromptDialog />
+          <CompleteProfileDialog />
           <BrowserRouter>
             <AppRuntimeListeners />
             <ScrollToTop />
