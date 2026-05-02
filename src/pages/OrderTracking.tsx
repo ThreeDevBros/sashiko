@@ -30,6 +30,8 @@ import { toast } from 'sonner';
 import { getGuestOrders } from '@/lib/guestOrders';
 import { areLiveActivitiesSupported, startOrderLiveActivity, updateOrderLiveActivity, endOrderLiveActivity } from '@/lib/nativeLiveActivity';
 import { subscribeToResume } from '@/lib/lifecycleManager';
+import { isIOSNative } from '@/lib/openDirections';
+import { useDirections } from '@/hooks/useDirections';
 
 interface Order {
   id: string;
