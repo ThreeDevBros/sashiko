@@ -32,6 +32,24 @@ import OtpVerification from "@/components/auth/OtpVerification";
 import { useBranding } from "@/hooks/useBranding";
 import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
 import { nativeGoogleSignIn } from "@/lib/nativeGoogleSignIn";
+import { Capacitor } from "@capacitor/core";
+
+// Show Apple Sign In on:
+//  - iOS native app (Capacitor) — uses native plugin
+//  - Safari on any Apple device (macOS, iPhone, iPad) — web flow works smoothly there
+// Hidden on Android app, Chrome/Firefox/Edge on any platform, and non-Apple devices.
+const shouldShowAppleButton = (): boolean => {
+  if (Capacitor.isNativePlatform()) {
+    return Capacitor.getPlatform() === 'ios';
+  }
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const isAppleDevice = /Macintosh|iPhone|iPad|iPod/.test(ua) ||
+    // iPadOS 13+ reports as Mac; detect via touch points
+    (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+  const isSafari = /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(ua);
+  return isAppleDevice && isSafari;
+};
 
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters")
