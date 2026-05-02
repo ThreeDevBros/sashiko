@@ -1072,13 +1072,19 @@ export default function OrderTracking() {
                 </div>
               )}
 
-              {/* Google Maps directions button - pickup/dine_in only */}
+              {/* Maps directions button - pickup/dine_in only */}
               {order.order_type !== 'delivery' && branch.latitude && branch.longitude && (
                 <button
-                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${branch.latitude},${branch.longitude}`, '_blank', 'noopener,noreferrer')}
+                  onClick={() => directions.open({ lat: Number(branch.latitude), lng: Number(branch.longitude), label: branch.name })}
                   className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
                 >
-                  <img src={googleMapsIcon} alt="Google Maps" className="h-9 w-9 rounded-md object-contain" />
+                  {useNeutralMapsIcon ? (
+                    <span className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
+                      <MapPin className="h-5 w-5 text-primary" />
+                    </span>
+                  ) : (
+                    <img src={googleMapsIcon} alt="Google Maps" className="h-9 w-9 rounded-md object-contain" />
+                  )}
                   Need Directions? Open in Maps
                   <ExternalLink className="h-3.5 w-3.5 ml-0.5 opacity-60" />
                 </button>
