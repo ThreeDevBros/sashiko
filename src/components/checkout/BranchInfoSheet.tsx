@@ -10,6 +10,8 @@ import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import type { Branch, BranchHours } from '@/types';
+import { isIOSNative } from '@/lib/openDirections';
+import { useDirections } from '@/hooks/useDirections';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
