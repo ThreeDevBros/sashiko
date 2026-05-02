@@ -1,70 +1,66 @@
-# Fill in Missing Information for OAuth Sign-Ins
+# Fix items visible under the notch on Order/Items page
 
-## Goal
+## Problem
+On the iOS native app, the sticky category chip bar in the menu (`/order`) sits below the notch using `top-safe` (which equals `env(safe-area-inset-top)`). Because that bar is positioned *below* the safe area, the strip of space between the notch and the chips is transparent. Menu items scroll through that transparent strip and are visible up near the notch before reaching the bar — looking messy.
 
-When a user signs in with Google or Apple **for the first time**, automatically save everything the provider gave us (full name, email, avatar) onto their profile. Then, if any of the three mandatory fields — **Full Name, Phone, Email** — is still missing, show a single non-dismissible popup titled **"Fill in Missing Information"** that pre-fills what we already have and forces the user to complete what's missing before continuing.
+You want that strip filled with the page background color so items appear to slide cleanly *under* the sticky bar (hidden), instead of showing in the safe-area gap.
 
-## What providers actually give us
+## Scope
+**Only the Items menu** (`MenuDisplay` used on `/order` and `/menu/:branchId`). Do not touch other sticky bars (e.g. management headers, profile, etc.).
 
-| Field | Google | Apple |
-|---|---|---|
-| Full name | Always | Only on the very first sign-in (and only if the user keeps "Share My Name") |
-| Email | Always | Always (sometimes a `@privaterelay.appleid.com` alias) |
-| Phone | Never | Never |
+## Change
 
-So phone is always missing for OAuth, name is sometimes missing for Apple, and email is always available but currently isn't copied into our `profiles` table.
+### File: `src/components/MenuDisplay.tsx`
 
-## Changes
+Restructure the sticky category bar so the notch area is part of the same opaque sticky block.
 
-### 1. Database — extend the new-user trigger
+Currently:
+```tsx
+<div className="sticky top-safe md:top-14 z-40 bg-background border-b border-border shadow-sm">
+  <div ref={categoryScrollRef} className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
+    {/* chips */}
+  </div>
+</div>
+```
 
-Update `public.handle_new_user()` so that on every new auth user it copies into `profiles`:
-- `full_name` from `raw_user_meta_data.full_name` / `name` / `given_name + family_name`
-- `phone` from `raw_user_meta_data.phone` (covers our email signup which already passes this)
-- `email` from `NEW.email` (new column on `profiles`)
-- `avatar_url` from `raw_user_meta_data.avatar_url` / `picture` (new column on `profiles`)
+Change to:
+```tsx
+<div
+  className="sticky top-0 md:top-14 z-40 bg-background border-b border-border shadow-sm"
+  style={{ paddingTop: 'env(safe-area-inset-top)' }}
+>
+  <div ref={categoryScrollRef} className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
+    {/* chips */}
+  </div>
+</div>
+```
 
-Add `email text` and `avatar_url text` columns to `profiles` if not present. `email` mirrors `auth.users.email` so the UI doesn't need a second query.
+On desktop (`md:`) the `top-14` keeps it pinned below the TopNav as today, and `env(safe-area-inset-top)` resolves to `0` so nothing changes visually on web/desktop. On the iOS native app, the bar now anchors at the very top of the viewport and pads itself down to clear the notch — the entire notch strip is filled with `bg-background`, so items scrolling underneath are completely hidden by it.
 
-### 2. Replace `PhonePromptDialog` with `CompleteProfileDialog`
+### Loading skeleton (same file)
 
-New component `src/components/CompleteProfileDialog.tsx`:
+The skeleton sticky bar uses the same `top-safe` pattern. Apply the same restructure for visual consistency during loading:
 
-- Mounts globally (replaces `PhonePromptDialog` in `src/App.tsx`).
-- Triggers when `user.app_metadata.provider` is `google` or `apple` AND the profile is missing **any** of: `full_name`, `phone`, `email`.
-- Title: **"Fill in Missing Information"** (i18n key `auth.fillMissingInfo`).
-- Description explains that some details couldn't be retrieved from Google/Apple.
-- Renders 3 fields: Full Name, Phone, Email.
-  - Fields the provider supplied are **pre-filled and read-only** (with a small "from Google" / "from Apple" hint).
-  - Missing fields are empty, required, and focused in order.
-- Non-dismissible: blocks outside-click and Escape, no close button. The user cannot proceed until all three are valid.
-- Save button writes the full row to `profiles` (full_name, phone, email) via a single `update`.
-- After save, the dialog closes and the user lands wherever they were (e.g. `/profile`).
+```tsx
+<div
+  className="fixed left-0 right-0 top-0 md:top-14 z-40 bg-background py-3 border-b border-border"
+  style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+>
+  <div className="flex gap-2 px-4 overflow-x-auto">{/* skeleton chips */}</div>
+</div>
+```
 
-Validation: name ≥ 2 chars, phone ≥ 6 digits, email matches standard regex.
+### Section scroll offset (same file)
 
-### 3. Profile page email source
+Each `<section>` currently uses `scroll-mt-safe md:scroll-mt-[68px]` so anchor scrolls land below the sticky bar. Now the bar's effective height = `safe-area-inset-top + chip row height (~64px)`, so update to:
 
-`Profile.tsx` already shows email from the auth session — keep that, but also keep the new `profiles.email` column in sync so other parts of the app (orders, exports) can read it without joining `auth.users`.
+```tsx
+className="scroll-mt-[calc(env(safe-area-inset-top)+64px)] md:scroll-mt-[68px]"
+```
 
-### 4. Memory
+This keeps `scrollToCategory` jumps landing right under the bar on both notched iOS and desktop.
 
-Update `mem://features/oauth-onboarding-flow` to record the new mandatory-three-field dialog in place of the phone-only one.
-
-## Technical details
-
-- Trigger update is idempotent (`CREATE OR REPLACE FUNCTION`); existing users are unaffected because the trigger only fires on insert. Existing OAuth users with a missing phone will still get the dialog on next login because the check is on the `profiles` row, not on auth metadata.
-- Backfill once via migration: `UPDATE profiles SET email = u.email, avatar_url = COALESCE(profiles.avatar_url, u.raw_user_meta_data->>'avatar_url', u.raw_user_meta_data->>'picture') FROM auth.users u WHERE profiles.id = u.id AND profiles.email IS NULL;`
-- The dialog uses the existing `Dialog` primitive with `onPointerDownOutside={e => e.preventDefault()}` and `onEscapeKeyDown={e => e.preventDefault()}` — same pattern as today's `PhonePromptDialog`.
-- Pre-fill source on the client: read `user.user_metadata` (`full_name`, `name`, `given_name`/`family_name`) and `user.email` to know which fields were provider-supplied vs missing. The `profiles` row is the source of truth for "do we still need to ask?".
-- No edge function needed — all writes go through RLS-protected `profiles` update by the user themselves.
-- `PhonePromptDialog.tsx` and its mount in `App.tsx` are removed.
-
-## Files touched
-
-- `supabase/migrations/<new>.sql` — add `email`, `avatar_url` columns, update `handle_new_user`, backfill.
-- `src/components/CompleteProfileDialog.tsx` — new.
-- `src/components/PhonePromptDialog.tsx` — deleted.
-- `src/App.tsx` — swap component import + mount.
-- `src/i18n/locales/en.json` and `el.json` — new strings (`auth.fillMissingInfo`, description, "from Google", "from Apple", per-field hints).
-- `mem://features/oauth-onboarding-flow` — updated rule.
+## Out of scope
+- No changes to `TopNav`, `BottomNav`, admin pages, profile, or any other sticky element.
+- No theme/color changes — uses the existing `bg-background` token, so it adapts to Light / Dark Grey / True Black themes automatically.
+- No Capacitor config or native code changes.
