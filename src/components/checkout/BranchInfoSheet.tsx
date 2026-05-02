@@ -172,11 +172,18 @@ export function BranchInfoSheet({ branch, open, onOpenChange }: BranchInfoSheetP
     };
   }, [open, branch?.id, branch?.name, branch?.latitude, branch?.longitude, branch?.delivery_radius_km, theme]);
 
+  const directions = useDirections();
+  const useNeutralIcon = isIOSNative();
+
   if (!branch) return null;
 
-  const openDirections = () => {
+  const handleDirections = () => {
     if (branch.latitude && branch.longitude) {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${branch.latitude},${branch.longitude}`, '_blank', 'noopener,noreferrer');
+      directions.open({
+        lat: Number(branch.latitude),
+        lng: Number(branch.longitude),
+        label: branch.name,
+      });
     }
   };
 
