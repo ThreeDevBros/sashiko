@@ -7,6 +7,8 @@ import {
   Calendar, Clock, Users, MapPin, Store, Phone, MessageSquare, ExternalLink, Loader2
 } from 'lucide-react';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
+import { isIOSNative } from '@/lib/openDirections';
+import { useDirections } from '@/hooks/useDirections';
 
 interface ReservationDetail {
   id: string;
