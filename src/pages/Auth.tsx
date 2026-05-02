@@ -32,6 +32,24 @@ import OtpVerification from "@/components/auth/OtpVerification";
 import { useBranding } from "@/hooks/useBranding";
 import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
 import { nativeGoogleSignIn } from "@/lib/nativeGoogleSignIn";
+import { Capacitor } from "@capacitor/core";
+
+// Show Apple Sign In on:
+//  - iOS native app (Capacitor) — uses native plugin
+//  - Safari on any Apple device (macOS, iPhone, iPad) — web flow works smoothly there
+// Hidden on Android app, Chrome/Firefox/Edge on any platform, and non-Apple devices.
+const shouldShowAppleButton = (): boolean => {
+  if (Capacitor.isNativePlatform()) {
+    return Capacitor.getPlatform() === 'ios';
+  }
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const isAppleDevice = /Macintosh|iPhone|iPad|iPod/.test(ua) ||
+    // iPadOS 13+ reports as Mac; detect via touch points
+    (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+  const isSafari = /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(ua);
+  return isAppleDevice && isSafari;
+};
 
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters")
@@ -49,6 +67,7 @@ const Auth = () => {
     ? "h-9 rounded-lg bg-black hover:bg-black/90 text-white border-none text-sm font-semibold shadow-md"
     : "h-9 rounded-lg bg-white hover:bg-white/90 text-black border-none text-sm font-semibold shadow-md";
   const appleIconClass = isLightTheme ? "mr-2 !h-7 !w-7 text-white" : "mr-2 !h-7 !w-7 text-black";
+  const showAppleButton = shouldShowAppleButton();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -617,14 +636,16 @@ const Auth = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
-                  <button
-                    type="button"
-                    onClick={handleAppleSignIn}
-                    className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95`}
-                  >
-                    <FaApple className={appleIconClass} />
-                    {t('auth.continueWithApple')}
-                  </button>
+                  {showAppleButton && (
+                    <button
+                      type="button"
+                      onClick={handleAppleSignIn}
+                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95`}
+                    >
+                      <FaApple className={appleIconClass} />
+                      {t('auth.continueWithApple')}
+                    </button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -777,14 +798,16 @@ const Auth = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
-                  <button
-                    type="button"
-                    onClick={handleAppleSignIn}
-                    className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95`}
-                  >
-                    <FaApple className={appleIconClass} />
-                    {t('auth.continueWithApple')}
-                  </button>
+                  {showAppleButton && (
+                    <button
+                      type="button"
+                      onClick={handleAppleSignIn}
+                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95`}
+                    >
+                      <FaApple className={appleIconClass} />
+                      {t('auth.continueWithApple')}
+                    </button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
