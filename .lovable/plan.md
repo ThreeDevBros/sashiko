@@ -1,66 +1,61 @@
-# Fix items visible under the notch on Order/Items page
+## Goal
 
-## Problem
-On the iOS native app, the sticky category chip bar in the menu (`/order`) sits below the notch using `top-safe` (which equals `env(safe-area-inset-top)`). Because that bar is positioned *below* the safe area, the strip of space between the notch and the chips is transparent. Menu items scroll through that transparent strip and are visible up near the notch before reaching the bar — looking messy.
+On **iOS only** (Capacitor native iOS app), change the "Need Directions? Open in Maps" buttons so:
 
-You want that strip filled with the page background color so items appear to slide cleanly *under* the sticky bar (hidden), instead of showing in the safe-area gap.
+1. The Google Maps PNG icon is replaced with a neutral map + pin icon (Lucide), to satisfy Apple's review guidance that we shouldn't promote a single third-party map.
+2. Tapping the button opens a chooser letting the user pick **Google Maps** or **Apple Maps**, instead of jumping straight to Google Maps.
+3. Where possible, use the iOS native share sheet (Capacitor `Share` plugin) so the system shows its built-in "Open in Maps / Open in Google Maps / Copy" menu (similar to the Instagram screenshot). If the native share sheet isn't available, fall back to an in-app bottom sheet with two options.
 
-## Scope
-**Only the Items menu** (`MenuDisplay` used on `/order` and `/menu/:branchId`). Do not touch other sticky bars (e.g. management headers, profile, etc.).
+On **web and Android**, behavior and visuals stay exactly as they are today (Google Maps icon + direct link to Google Maps).
 
-## Change
+## Native picker feasibility
 
-### File: `src/components/MenuDisplay.tsx`
+iOS does not expose a public "default maps app picker" API — apps like Instagram trigger it via `UIActivityViewController` (the share sheet) with a maps URL, and iOS then surfaces installed map apps as share targets. We can replicate this via Capacitor's `@capacitor/share` plugin, which wraps `UIActivityViewController`. This gives the native iOS look in the screenshot. If `Share.share` isn't supported at runtime, we fall back to our own bottom sheet with Google Maps / Apple Maps options.
 
-Restructure the sticky category bar so the notch area is part of the same opaque sticky block.
+## Files to change
 
-Currently:
-```tsx
-<div className="sticky top-safe md:top-14 z-40 bg-background border-b border-border shadow-sm">
-  <div ref={categoryScrollRef} className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
-    {/* chips */}
-  </div>
-</div>
-```
+1. **New helper** `src/lib/openDirections.ts`
+   - `export const isIOSNative()` — `Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'`.
+   - `openDirections({ lat, lng, label })`:
+     - Web/Android: `window.open(googleMapsUrl, ...)` (current behavior).
+     - iOS: try `Share.share({ url: appleMapsUrl, title: 'Directions to <label>' })` to invoke the native share sheet. The Apple Maps URL (`https://maps.apple.com/?daddr=lat,lng&q=label`) is universally handled — iOS will offer "Open in Maps" plus any installed map apps (Google Maps, Waze, etc.) as targets.
+     - If `Share.share` throws / unsupported: open a controlled bottom sheet (state lifted to caller via a small `useDirectionsChooser()` hook returning `{ openFor, sheet }`).
+   - `googleMapsUrl(lat, lng)` and `appleMapsUrl(lat, lng, label?)` exported helpers.
 
-Change to:
-```tsx
-<div
-  className="sticky top-0 md:top-14 z-40 bg-background border-b border-border shadow-sm"
-  style={{ paddingTop: 'env(safe-area-inset-top)' }}
->
-  <div ref={categoryScrollRef} className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide">
-    {/* chips */}
-  </div>
-</div>
-```
+2. **New component** `src/components/DirectionsChooserSheet.tsx`
+   - Bottom `Sheet` with two large rows:
+     - Apple Maps (Lucide `MapPin` icon, system blue tint)
+     - Google Maps (existing `googleMapsIcon` PNG)
+   - Used only as the iOS fallback when the native share sheet is unavailable.
 
-On desktop (`md:`) the `top-14` keeps it pinned below the TopNav as today, and `env(safe-area-inset-top)` resolves to `0` so nothing changes visually on web/desktop. On the iOS native app, the bar now anchors at the very top of the viewport and pads itself down to clear the notch — the entire notch strip is filled with `bg-background`, so items scrolling underneath are completely hidden by it.
+3. **Install plugin**: add `@capacitor/share` (locked to v7 per project memory) so `npx cap sync` picks it up. Register in the dynamic native plugin registry if the project uses one (per memory: "Native Plugin Architecture").
 
-### Loading skeleton (same file)
+4. **Update the 3 button sites** to use the new helper and swap the icon on iOS:
+   - `src/components/checkout/BranchInfoSheet.tsx` (line ~258 button, line ~261 icon)
+   - `src/pages/OrderTracking.tsx` (line ~1073 button, line ~1077 icon)
+   - `src/components/reservation/ReservationDetailSheet.tsx` (line ~199 anchor — convert to a `<button>` calling the helper, line ~205 icon)
 
-The skeleton sticky bar uses the same `top-safe` pattern. Apply the same restructure for visual consistency during loading:
+   Icon swap pattern:
+   ```tsx
+   {isIOSNative() ? (
+     <span className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
+       <MapPin className="h-5 w-5 text-primary" />
+     </span>
+   ) : (
+     <img src={googleMapsIcon} alt="Google Maps" className="h-9 w-9 rounded-md object-contain" />
+   )}
+   ```
+   Button label stays "Need Directions? Open in Maps" on all platforms.
 
-```tsx
-<div
-  className="fixed left-0 right-0 top-0 md:top-14 z-40 bg-background py-3 border-b border-border"
-  style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
->
-  <div className="flex gap-2 px-4 overflow-x-auto">{/* skeleton chips */}</div>
-</div>
-```
-
-### Section scroll offset (same file)
-
-Each `<section>` currently uses `scroll-mt-safe md:scroll-mt-[68px]` so anchor scrolls land below the sticky bar. Now the bar's effective height = `safe-area-inset-top + chip row height (~64px)`, so update to:
-
-```tsx
-className="scroll-mt-[calc(env(safe-area-inset-top)+64px)] md:scroll-mt-[68px]"
-```
-
-This keeps `scrollToCategory` jumps landing right under the bar on both notched iOS and desktop.
+5. **i18n**: no new strings required — the existing label works for both flows.
 
 ## Out of scope
-- No changes to `TopNav`, `BottomNav`, admin pages, profile, or any other sticky element.
-- No theme/color changes — uses the existing `bg-background` token, so it adapts to Light / Dark Grey / True Black themes automatically.
-- No Capacitor config or native code changes.
+
+- `src/components/staff/StaffOrderMap.tsx` — internal staff tool, not user-facing in App Store review. Leave unchanged.
+- Visuals on web and Android remain exactly as today.
+
+## Verification
+
+- iOS build: tap "Need Directions" on a pickup OrderTracking page, on the BranchInfoSheet from checkout, and on a reservation detail. Confirm native iOS share/maps sheet appears with both Apple Maps and Google Maps available.
+- Web preview: button still shows Google Maps icon and opens Google Maps directly.
+- After merging, user runs `npx cap sync` to pick up the new `@capacitor/share` plugin.
