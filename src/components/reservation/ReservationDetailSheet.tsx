@@ -200,22 +200,32 @@ export function ReservationDetailSheet({ reservation, open, onOpenChange }: Rese
               )}
 
               {reservation.branch_latitude && reservation.branch_longitude && (
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${reservation.branch_latitude},${reservation.branch_longitude}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
+                <Button
+                  variant="outline"
+                  className="w-full gap-3"
+                  onClick={() =>
+                    directions.open({
+                      lat: Number(reservation.branch_latitude),
+                      lng: Number(reservation.branch_longitude),
+                      label: reservation.branch_name,
+                    })
+                  }
                 >
-                  <Button variant="outline" className="w-full gap-3">
+                  {useNeutralIcon ? (
+                    <span className="h-5 w-5 rounded-md bg-primary/10 flex items-center justify-center">
+                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                    </span>
+                  ) : (
                     <img src={googleMapsIcon} alt="Google Maps" className="h-5 w-5 object-contain" />
-                    Open in Maps
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
-                </a>
+                  )}
+                  Open in Maps
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
               )}
             </div>
           </div>
         </div>
+        {directions.sheet}
       </SheetContent>
     </Sheet>
   );
