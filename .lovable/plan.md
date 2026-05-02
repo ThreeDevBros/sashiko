@@ -1,54 +1,70 @@
-## Context
+# Fill in Missing Information for OAuth Sign-Ins
 
-Web Apple Sign In started working after you reduced Apple's registered Return URLs to just `https://oauth.lovable.app/callback`. Now native iOS Apple Sign In is broken.
+## Goal
 
-## Why this can happen
+When a user signs in with Google or Apple **for the first time**, automatically save everything the provider gave us (full name, email, avatar) onto their profile. Then, if any of the three mandatory fields — **Full Name, Phone, Email** — is still missing, show a single non-dismissible popup titled **"Fill in Missing Information"** that pre-fills what we already have and forces the user to complete what's missing before continuing.
 
-The native iOS flow does NOT use the OAuth broker / Return URLs at all. It:
+## What providers actually give us
 
-1. Calls the native `SignInWithApple` Capacitor plugin → Apple returns an `identityToken` JWT.
-2. Calls `supabase.auth.signInWithIdToken({ provider: 'apple', token })` → Supabase validates the JWT.
+| Field | Google | Apple |
+|---|---|---|
+| Full name | Always | Only on the very first sign-in (and only if the user keeps "Share My Name") |
+| Email | Always | Always (sometimes a `@privaterelay.appleid.com` alias) |
+| Phone | Never | Never |
 
-The validation that matters is the JWT's `aud` (audience) claim. Our native call sends `clientId: 'app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10'`, so Apple issues a token with `aud = app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10`. Supabase's Apple provider must accept that audience.
+So phone is always missing for OAuth, name is sometimes missing for Apple, and email is always available but currently isn't copied into our `profiles` table.
 
-Two plausible regressions:
+## Changes
 
-- **A.** While editing Apple Developer to remove Return URLs, the **Services ID** `app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10` was deleted, renamed, or had Sign In with Apple disabled. → native plugin call fails or returns a token whose `aud` no longer matches.
-- **B.** The Services ID is fine, but Lovable Cloud's managed Apple provider config no longer has it whitelisted as an additional client ID, so `signInWithIdToken` rejects with "invalid audience" / "Unverified token".
+### 1. Database — extend the new-user trigger
 
-The current code shows a generic toast (`"Failed to sign in with Apple. Please try again."`) and discards the real error, so we can't tell which case it is.
+Update `public.handle_new_user()` so that on every new auth user it copies into `profiles`:
+- `full_name` from `raw_user_meta_data.full_name` / `name` / `given_name + family_name`
+- `phone` from `raw_user_meta_data.phone` (covers our email signup which already passes this)
+- `email` from `NEW.email` (new column on `profiles`)
+- `avatar_url` from `raw_user_meta_data.avatar_url` / `picture` (new column on `profiles`)
 
-## Plan
+Add `email text` and `avatar_url text` columns to `profiles` if not present. `email` mirrors `auth.users.email` so the UI doesn't need a second query.
 
-### Step 1 — Surface the real error (5 min)
+### 2. Replace `PhonePromptDialog` with `CompleteProfileDialog`
 
-Edit `src/pages/Auth.tsx` `handleAppleSignIn` to log the full error and include its message in the toast. Edit `src/lib/nativeAppleSignIn.ts` to add `console.log` lines for:
+New component `src/components/CompleteProfileDialog.tsx`:
 
-- `[AppleNative] plugin available?`
-- `[AppleNative] authorize result` (without the token itself, just whether identityToken exists + decoded `aud` and `iss` claims)
-- `[AppleNative] supabase signInWithIdToken error` (full error object)
+- Mounts globally (replaces `PhonePromptDialog` in `src/App.tsx`).
+- Triggers when `user.app_metadata.provider` is `google` or `apple` AND the profile is missing **any** of: `full_name`, `phone`, `email`.
+- Title: **"Fill in Missing Information"** (i18n key `auth.fillMissingInfo`).
+- Description explains that some details couldn't be retrieved from Google/Apple.
+- Renders 3 fields: Full Name, Phone, Email.
+  - Fields the provider supplied are **pre-filled and read-only** (with a small "from Google" / "from Apple" hint).
+  - Missing fields are empty, required, and focused in order.
+- Non-dismissible: blocks outside-click and Escape, no close button. The user cannot proceed until all three are valid.
+- Save button writes the full row to `profiles` (full_name, phone, email) via a single `update`.
+- After save, the dialog closes and the user lands wherever they were (e.g. `/profile`).
 
-### Step 2 — User retries on iOS device
+Validation: name ≥ 2 chars, phone ≥ 6 digits, email matches standard regex.
 
-You attempt Apple Sign In again on the iOS app. The console logs will be captured in the next message and tell us exactly which step fails and why.
+### 3. Profile page email source
 
-### Step 3 — Fix based on what we learn
+`Profile.tsx` already shows email from the auth session — keep that, but also keep the new `profiles.email` column in sync so other parts of the app (orders, exports) can read it without joining `auth.users`.
 
-- If `authorize` fails or returns no token → Apple Developer side. Most likely the Services ID `app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10` was inadvertently changed when you trimmed the Return URLs. Fix: confirm in Apple Developer that this Services ID still exists, has Sign In with Apple enabled, and is associated with the correct App ID / primary App ID. The Bundle ID `com.sashiko.app` must also still have the Sign In with Apple capability.
-- If `authorize` succeeds but `signInWithIdToken` errors with "invalid audience" / "Unverified ID token" → Lovable Cloud Apple provider side. Fix: in Cloud → Users → Auth Settings → Sign In Methods → Apple, ensure the Services ID `app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10` is registered as an accepted Client ID (or, if you switched to BYOC for the web fix, that the BYOC Client ID matches the one we send here).
-- If `signInWithIdToken` errors with something else (e.g. nonce required) → adjust the call accordingly.
+### 4. Memory
 
-### Step 4 — Save a memory rule
+Update `mem://features/oauth-onboarding-flow` to record the new mandatory-three-field dialog in place of the phone-only one.
 
-Add a project memory: "iOS Apple Sign In uses Supabase `signInWithIdToken` directly with `clientId = app.lovable.6e0c6b4d4b7943e7a8431d08565d9c10`. Do not delete or rename that Services ID in Apple Developer, and keep it whitelisted in Lovable Cloud's Apple provider audience list."
+## Technical details
 
-## Files to change in Step 1
+- Trigger update is idempotent (`CREATE OR REPLACE FUNCTION`); existing users are unaffected because the trigger only fires on insert. Existing OAuth users with a missing phone will still get the dialog on next login because the check is on the `profiles` row, not on auth metadata.
+- Backfill once via migration: `UPDATE profiles SET email = u.email, avatar_url = COALESCE(profiles.avatar_url, u.raw_user_meta_data->>'avatar_url', u.raw_user_meta_data->>'picture') FROM auth.users u WHERE profiles.id = u.id AND profiles.email IS NULL;`
+- The dialog uses the existing `Dialog` primitive with `onPointerDownOutside={e => e.preventDefault()}` and `onEscapeKeyDown={e => e.preventDefault()}` — same pattern as today's `PhonePromptDialog`.
+- Pre-fill source on the client: read `user.user_metadata` (`full_name`, `name`, `given_name`/`family_name`) and `user.email` to know which fields were provider-supplied vs missing. The `profiles` row is the source of truth for "do we still need to ask?".
+- No edge function needed — all writes go through RLS-protected `profiles` update by the user themselves.
+- `PhonePromptDialog.tsx` and its mount in `App.tsx` are removed.
 
-- `src/pages/Auth.tsx` — log + show real error in toast
-- `src/lib/nativeAppleSignIn.ts` — add diagnostic console.log calls (decode JWT header/payload locally, no secrets exposed)
+## Files touched
 
-No database, no native rebuild required — pure JS, hot-reloads.
-
-## After approval
-
-I will apply the Step 1 logging changes, then ask you to try Apple Sign In on the iOS device once. Logs will be in your next message and I'll fix from there.
+- `supabase/migrations/<new>.sql` — add `email`, `avatar_url` columns, update `handle_new_user`, backfill.
+- `src/components/CompleteProfileDialog.tsx` — new.
+- `src/components/PhonePromptDialog.tsx` — deleted.
+- `src/App.tsx` — swap component import + mount.
+- `src/i18n/locales/en.json` and `el.json` — new strings (`auth.fillMissingInfo`, description, "from Google", "from Apple", per-field hints).
+- `mem://features/oauth-onboarding-flow` — updated rule.
