@@ -64,8 +64,12 @@ export default function AccountDeletion() {
     setPhoneValid(!!savedTrimmed && trimmed === savedTrimmed);
   }, [phone, profilePhone, profileLoaded]);
 
-  // Validate password with debounce
+  // Validate password with debounce (skip entirely for OAuth users)
   useEffect(() => {
+    if (isOAuthUser) {
+      setPasswordValid(null);
+      return;
+    }
     if (!password || password.length < 6 || !user?.email) {
       setPasswordValid(null);
       return;
@@ -85,9 +89,9 @@ export default function AccountDeletion() {
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [password, user?.email]);
+  }, [password, user?.email, isOAuthUser]);
 
-  const allValid = emailValid && phoneValid && passwordValid === true;
+  const allValid = emailValid && phoneValid && (isOAuthUser || passwordValid === true);
 
   const handleDelete = useCallback(async () => {
     setDeleting(true);
