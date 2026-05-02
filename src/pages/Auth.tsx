@@ -67,6 +67,7 @@ const Auth = () => {
     ? "h-9 rounded-lg bg-black hover:bg-black/90 text-white border-none text-sm font-semibold shadow-md"
     : "h-9 rounded-lg bg-white hover:bg-white/90 text-black border-none text-sm font-semibold shadow-md";
   const appleIconClass = isLightTheme ? "mr-2 !h-7 !w-7 text-white" : "mr-2 !h-7 !w-7 text-black";
+  const showAppleButton = shouldShowAppleButton();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
