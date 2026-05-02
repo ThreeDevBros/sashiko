@@ -36,6 +36,11 @@ export default function AccountDeletion() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // OAuth users (Google/Apple) have no password — skip password verification for them.
+  const provider = user?.app_metadata?.provider;
+  const isOAuthUser = provider === 'google' || provider === 'apple';
+  const providerLabel = provider === 'apple' ? 'Apple' : provider === 'google' ? 'Google' : '';
+
   // Load profile phone
   useEffect(() => {
     if (!user) return;
