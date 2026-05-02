@@ -10,6 +10,8 @@ import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import type { Branch, BranchHours } from '@/types';
+import { isIOSNative } from '@/lib/openDirections';
+import { useDirections } from '@/hooks/useDirections';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -170,11 +172,18 @@ export function BranchInfoSheet({ branch, open, onOpenChange }: BranchInfoSheetP
     };
   }, [open, branch?.id, branch?.name, branch?.latitude, branch?.longitude, branch?.delivery_radius_km, theme]);
 
+  const directions = useDirections();
+  const useNeutralIcon = isIOSNative();
+
   if (!branch) return null;
 
-  const openDirections = () => {
+  const handleDirections = () => {
     if (branch.latitude && branch.longitude) {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${branch.latitude},${branch.longitude}`, '_blank', 'noopener,noreferrer');
+      directions.open({
+        lat: Number(branch.latitude),
+        lng: Number(branch.longitude),
+        label: branch.name,
+      });
     }
   };
 
@@ -255,10 +264,16 @@ export function BranchInfoSheet({ branch, open, onOpenChange }: BranchInfoSheetP
 
           {branch.latitude && branch.longitude && (
             <button
-              onClick={openDirections}
+              onClick={handleDirections}
               className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-card border border-border rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
             >
-              <img src={googleMapsIcon} alt="Google Maps" className="h-9 w-9 rounded-md object-contain" />
+              {useNeutralIcon ? (
+                <span className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
+                  <MapPin className="h-5 w-5 text-primary" />
+                </span>
+              ) : (
+                <img src={googleMapsIcon} alt="Google Maps" className="h-9 w-9 rounded-md object-contain" />
+              )}
               Need Directions? Open in Maps
               <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-60" />
             </button>
@@ -270,6 +285,7 @@ export function BranchInfoSheet({ branch, open, onOpenChange }: BranchInfoSheetP
             </div>
           )}
         </div>
+        {directions.sheet}
       </SheetContent>
     </Sheet>
   );
