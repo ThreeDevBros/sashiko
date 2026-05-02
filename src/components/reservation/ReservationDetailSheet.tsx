@@ -55,6 +55,9 @@ const getStatusColor = (status: string, isVisited: boolean) => {
 };
 
 export function ReservationDetailSheet({ reservation, open, onOpenChange }: ReservationDetailSheetProps) {
+  const directions = useDirections();
+  const useNeutralIcon = isIOSNative();
+
   if (!reservation) return null;
 
   const now = new Date();
