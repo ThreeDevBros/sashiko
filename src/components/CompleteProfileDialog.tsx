@@ -134,12 +134,12 @@ export function CompleteProfileDialog() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
           full_name: fullName.trim(),
           phone: phone.trim(),
           email: email.trim(),
-        })
-        .eq('id', user.id);
+        }, { onConflict: 'id' });
       if (error) throw error;
 
       toast.success(t('auth.profileCompleted', 'Profile completed!'));
