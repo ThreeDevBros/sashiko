@@ -193,28 +193,36 @@ export default function AccountDeletion() {
             )}
           </div>
 
-          {/* Password */}
-          <div className="space-y-2">
-            <Label htmlFor="del-password">Password</Label>
-            <div className="relative">
-              <Input
-                id="del-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                className={
-                  passwordValid === false ? 'border-destructive' : passwordValid === true ? 'border-green-500' : ''
-                }
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <ValidationIcon valid={passwordValid} checking={passwordChecking} />
-              </div>
+          {/* Password — hidden for OAuth users */}
+          {isOAuthUser ? (
+            <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                You signed in with <span className="font-medium text-foreground">{providerLabel}</span>, so no password is required. Your email and phone above are enough to verify your identity.
+              </p>
             </div>
-            {passwordValid === false && (
-              <p className="text-xs text-destructive">Incorrect password</p>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="del-password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="del-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className={
+                    passwordValid === false ? 'border-destructive' : passwordValid === true ? 'border-green-500' : ''
+                  }
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <ValidationIcon valid={passwordValid} checking={passwordChecking} />
+                </div>
+              </div>
+              {passwordValid === false && (
+                <p className="text-xs text-destructive">Incorrect password</p>
+              )}
+            </div>
+          )}
 
           {/* Delete Button */}
           <Button
