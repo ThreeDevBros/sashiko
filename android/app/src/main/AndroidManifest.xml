@@ -28,12 +28,13 @@
             android:name="com.getcapacitor.community.stripe.publishable_key"
             android:value="pk_live_51LxuXZIsawC8FwOEkXg1tJ6Gsu3m655FgHU7cQ0SujDwBBZSRmpJ7kDHwQftuDUXOVPc6NvhuejgByE7D2ONLvYf00vGVuREwg" />
 
-        <!-- Google Pay TEST environment. Flip to false once the release APK is
-             signed with the upload cert registered in the Google Pay & Wallet Console
-             and you're using a Stripe LIVE publishable key. -->
+        <!-- Google Pay PRODUCTION environment. Must be false when using a Stripe
+             LIVE publishable key, otherwise isGooglePayAvailable() rejects and the
+             Google Pay button is silently hidden. The release APK must be signed with
+             the upload cert registered in the Google Pay & Wallet Console. -->
         <meta-data
             android:name="com.getcapacitor.community.stripe.google_pay_is_testing"
-            android:value="true" />
+            android:value="false" />
 
         <!-- Merchant display name shown inside the Google Pay sheet -->
         <meta-data
