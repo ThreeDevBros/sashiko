@@ -479,6 +479,7 @@ export default function TableBooking() {
 
   const handleTableClick = (table: LayoutObject) => {
     if ((branchLayout as any)?.is_reservations_paused) return;
+    if (!dateTimeValid) return;
     if (reservedTableIds.has(table.id)) return;
     const seats = table.seats || 4;
     const maxSeats = Math.max(partySize + 4, partySize * 2);
@@ -650,7 +651,18 @@ export default function TableBooking() {
             <Input type="time" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} min={opensAt} max={closesAt} className="text-sm" />
             {isTimeInPast() && <p className="text-xs text-destructive mt-1">Please select a future time</p>}
             {isOutsideWorkingHours() && <p className="text-xs text-destructive mt-1">Working hours: {opensAt} – {closesAt}</p>}
+        </div>
+
+        {/* Branch closed at selected time banner */}
+        {branch && isOutsideWorkingHours() && (
+          <div className="mb-4 p-3 sm:p-4 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-2">
+            <span className="text-base leading-none mt-0.5">⚠️</span>
+            <p className="text-destructive font-medium text-xs sm:text-sm break-words">
+              <span className="font-semibold">{branch.name}</span> is closed at {selectedTime}.
+              Working hours: {opensAt} – {closesAt}. Please pick a time within working hours to book a table.
+            </p>
           </div>
+        )}
         </div>
 
         {/* Availability info */}

@@ -1,26 +1,31 @@
 ## Goal
 
-After the user picks a branch, the popup currently asks only "How many people?". Extend it to also collect **Date** and **Time** in the same popup, mirroring the fields already shown on the page. The selected values feed straight into TableBooking's existing `selectedDate` / `selectedTime` state so reservation availability is computed immediately.
+When the selected time falls outside the chosen branch's working hours (e.g. branch closed at that time), the user must be visibly blocked from picking a table or proceeding with a booking.
 
-## Changes
+## Current behavior
+- `isOutsideWorkingHours()` already exists and a small red helper text shows under the Time input.
+- `dateTimeValid` already excludes outside-hours times.
+- BUT: the floor plan tables remain clickable (the per-table `handleTableClick` only checks pause + reservedIds, not `dateTimeValid`), and there's no prominent banner.
 
-### 1. `src/components/booking/PartySizeDialog.tsx`
-Convert into a combined "Reservation details" popup:
-- Keep the `Number of guests` field (mobile native `<select>` / desktop number input).
-- Add a **Date** field — `Calendar` inside a `Popover` with a `CalendarIcon` trigger button (same pattern as `TableBooking.tsx`), disabling past dates.
-- Add a **Time** field — same shadcn `Select` of 30-min slots used on the booking page (or reuse the native time picker on mobile for parity with current UX).
-- New props: `selectedDate`, `onDateChange`, `selectedTime`, `onTimeChange`.
-- "Find Available Tables" button stays disabled until guests + date + time are all set; clicking it calls `onConfirm()` and closes.
-- Dialog title becomes "Reservation details" (or similar); icon row keeps `Users`.
+## Changes — `src/pages/TableBooking.tsx`
 
-### 2. `src/pages/TableBooking.tsx`
-- Pass `selectedDate`, `setSelectedDate`, `selectedTime`, `setSelectedTime` into `PartySizeDialog`.
-- The existing inline Date/Time fields on the page remain (so the user can tweak afterward) — they share the same state, so edits in either place stay in sync.
-- Open flow stays: branch dialog closes → `setPartySizeDialogOpen(true)` (already wired in `handleBranchDialogClose`).
+1. **Block table selection when out of hours**
+   - In `handleTableClick`, add an early `if (!dateTimeValid) return;` so neither the floor-plan tap nor the list "Book Now" can open the booking dialog.
 
-### 3. i18n
-Add any new strings ("Date", "Time", "Pick a date", "Reservation details") to `src/i18n/locales/en.json` and `el.json` if existing labels in PartySizeDialog are translated. (Current file uses hard-coded English, so we'll keep it consistent and not introduce i18n unless requested.)
+2. **Prominent closed-branch banner**
+   - Right above the Date & Time grid (or directly under it), render a destructive alert when `isOutsideWorkingHours()` is true and `branch` is loaded:
+     ```
+     ⚠ {branch.name} is closed at {selectedTime}.
+        Working hours: {opensAt} – {closesAt}. Please pick a time within working hours to book a table.
+     ```
+   - Style: `rounded-xl border border-destructive/30 bg-destructive/10 text-destructive p-3 sm:p-4 font-medium text-sm` — matches the existing "reservations paused" banner pattern already in the file.
+
+3. **Update availability hint**
+   - When out of hours, replace the current "Select a date & time to see availability" text with `Branch is closed at the selected time — choose another time.` for clarity.
+
+4. **Visual cue on the floor plan**
+   - Already handled: `dateTimeValid` is false ⇒ green "Available" / red "Reserved" labels are not rendered. Combined with the click guard, tapping a table simply does nothing. No further canvas changes needed.
 
 ## Out of scope
-- No DB / edge function changes — all state already flows into the existing reservation query.
-- No changes to `BookingDialog` (final confirmation step).
+- No changes to `PartySizeDialog` (the time field there is also a free `<input type="time">`; we'll rely on the page-level banner since the dialog closes on confirm). If you want the same warning inside the popup, that's a quick follow-up.
+- No DB / edge function changes — `create-booking` already validates working hours server-side.
