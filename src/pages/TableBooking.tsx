@@ -479,6 +479,7 @@ export default function TableBooking() {
 
   const handleTableClick = (table: LayoutObject) => {
     if ((branchLayout as any)?.is_reservations_paused) return;
+    if (!dateTimeValid) return;
     if (reservedTableIds.has(table.id)) return;
     const seats = table.seats || 4;
     const maxSeats = Math.max(partySize + 4, partySize * 2);
