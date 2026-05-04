@@ -796,7 +796,17 @@ export default function TableBooking() {
       )}
 
       <BranchSelectorDialog open={branchDialogOpen} onOpenChange={handleBranchDialogClose} />
-      <PartySizeDialog open={partySizeDialogOpen} onOpenChange={setPartySizeDialogOpen} partySize={partySize} onPartySizeChange={setPartySize} onConfirm={() => {}} />
+      <PartySizeDialog
+        open={partySizeDialogOpen}
+        onOpenChange={setPartySizeDialogOpen}
+        partySize={partySize}
+        onPartySizeChange={setPartySize}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
+        selectedTime={selectedTime}
+        onTimeChange={setSelectedTime}
+        onConfirm={() => {}}
+      />
 
       {selectedTable && branch && (
         <BookingDialog
