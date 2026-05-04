@@ -651,19 +651,19 @@ export default function TableBooking() {
             <Input type="time" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} min={opensAt} max={closesAt} className="text-sm" />
             {isTimeInPast() && <p className="text-xs text-destructive mt-1">Please select a future time</p>}
             {isOutsideWorkingHours() && <p className="text-xs text-destructive mt-1">Working hours: {opensAt} – {closesAt}</p>}
+          </div>
         </div>
 
         {/* Branch closed at selected time banner */}
         {branch && isOutsideWorkingHours() && (
-          <div className="mb-4 p-3 sm:p-4 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-2">
+          <div className="mb-4 w-full p-3 sm:p-4 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-2">
             <span className="text-base leading-none mt-0.5">⚠️</span>
-            <p className="text-destructive font-medium text-xs sm:text-sm break-words">
+            <p className="text-destructive font-medium text-xs sm:text-sm break-words flex-1">
               <span className="font-semibold">{branch.name}</span> is closed at {selectedTime}.
               Working hours: {opensAt} – {closesAt}. Please pick a time within working hours to book a table.
             </p>
           </div>
         )}
-        </div>
 
         {/* Availability info */}
         <div className="mb-4">
