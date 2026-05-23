@@ -669,11 +669,31 @@ const Auth = () => {
           </CardHeader>
 
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs defaultValue="signin" className="w-full" onValueChange={() => setAuthError(null)}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
               <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
             </TabsList>
+
+            {authError && (
+              <div
+                role="alert"
+                className="mt-3 w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 flex items-start gap-2"
+              >
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <p className="text-destructive text-xs font-medium flex-1 break-words">
+                  {authError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAuthError(null)}
+                  className="text-destructive/70 hover:text-destructive text-xs leading-none mt-0.5"
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-3">
