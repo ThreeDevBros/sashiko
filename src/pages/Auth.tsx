@@ -234,25 +234,34 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate, isPasswordReset]);
 
+  const showAuthError = (error: any, fallback?: string) => {
+    const msg = getAuthErrorMessage(error);
+    if (msg === null) return; // silent (user cancelled)
+    const finalMsg = msg || fallback || 'Something went wrong. Please try again.';
+    setAuthError(finalMsg);
+    toast.error(finalMsg);
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setAuthError(null);
+
     if (!isFullNameValid) {
-      toast.error("Full name must be at least 2 characters");
-      return;
+      const m = "Full name must be at least 2 characters";
+      setAuthError(m); toast.error(m); return;
     }
     if (!isPhoneValid) {
-      toast.error("Phone number must contain at least 6 digits");
-      return;
+      const m = "Phone number must contain at least 6 digits";
+      setAuthError(m); toast.error(m); return;
     }
     const passwordValidation = passwordSchema.safeParse(password);
     if (!passwordValidation.success) {
-      toast.error(passwordValidation.error.errors[0].message);
-      return;
+      const m = passwordValidation.error.errors[0].message;
+      setAuthError(m); toast.error(m); return;
     }
     if (!passwordsMatch) {
-      toast.error("Passwords do not match");
-      return;
+      const m = "Passwords do not match";
+      setAuthError(m); toast.error(m); return;
     }
     
     setLoading(true);
@@ -271,15 +280,12 @@ const Auth = () => {
       });
 
       if (error) throw error;
-      // Show OTP verification screen
       setSignupEmail(email);
       setShowOtpVerification(true);
       toast.success("Verification code sent to your email!");
     } catch (error: any) {
-      const message = error.message?.includes("already registered") 
-        ? t('auth.alreadyRegistered')
-        : t('auth.createFailed');
-      toast.error(message);
+      console.error('[Auth] Sign up failed:', error);
+      showAuthError(error, t('auth.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -287,6 +293,7 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
     setLoading(true);
 
     try {
@@ -298,8 +305,14 @@ const Auth = () => {
       if (error) throw error;
       toast.success(t('auth.welcomeBack'));
     } catch (error: any) {
-      // Use generic error message to prevent email enumeration
-      toast.error(t('auth.invalidCredentials'));
+      console.error('[Auth] Sign in failed:', error);
+      const mapped = getAuthErrorMessage(error);
+      // For credential errors, use generic message to prevent email enumeration.
+      // For network/rate-limit/etc, show the specific mapped message.
+      const isCredErr = mapped === 'Incorrect email or password.' || !mapped;
+      const finalMsg = isCredErr ? t('auth.invalidCredentials') : mapped;
+      setAuthError(finalMsg);
+      toast.error(finalMsg);
     } finally {
       setLoading(false);
     }
@@ -307,6 +320,7 @@ const Auth = () => {
 
   const handleGoogleSignIn = async () => {
     console.log('[Auth] Google sign-in tapped');
+    setAuthError(null);
     try {
       const { error } = await nativeGoogleSignIn();
       if (error) {
@@ -319,11 +333,12 @@ const Auth = () => {
       console.log('[Auth] Google sign-in completed without immediate error');
     } catch (error: any) {
       console.error('[Auth] Google sign-in failed:', error);
-      toast.error(`Google sign-in failed: ${error?.message ?? 'Unknown error'}`);
+      showAuthError(error, 'Google sign-in failed. Please try again.');
     }
   };
 
   const handleAppleSignIn = async () => {
+    setAuthError(null);
     try {
       console.log('[Auth] Apple sign-in starting');
       const { error } = await nativeAppleSignIn();
@@ -338,7 +353,8 @@ const Auth = () => {
       }
       console.log('[Auth] Apple sign-in completed without immediate error');
     } catch (error: any) {
-      toast.error(`Apple sign-in failed: ${error?.message ?? 'Unknown error'}`);
+      console.error('[Auth] Apple sign-in failed:', error);
+      showAuthError(error, 'Apple sign-in failed. Please try again.');
     }
   };
 
