@@ -140,17 +140,25 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
 
     return { error: null };
   } catch (err: any) {
+    const code = err?.code != null ? String(err.code) : undefined;
+    const message = err?.message ? String(err.message) : String(err);
     console.error('[GoogleSignIn] Native sign-in threw', {
-      message: err?.message,
-      code: err?.code,
+      platform,
+      code,
+      message,
+      errorString: String(err),
     });
     if (
-      err?.message?.includes('canceled') ||
-      err?.message?.includes('cancelled') ||
-      err?.code === '12501'
+      message.includes('canceled') ||
+      message.includes('cancelled') ||
+      code === '12501' ||
+      code === '-5'
     ) {
       return { error: null };
     }
-    return { error: err instanceof Error ? err : new Error(String(err)) };
+    // Preserve the original code on the returned Error so the UI can map it.
+    const wrapped = new Error(message) as Error & { code?: string };
+    if (code) wrapped.code = code;
+    return { error: wrapped };
   }
 }
