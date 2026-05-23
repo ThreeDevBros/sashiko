@@ -51,6 +51,70 @@ const shouldShowAppleButton = (): boolean => {
   return isAppleDevice && isSafari;
 };
 
+/**
+ * Map a raw auth error into a user-friendly message.
+ * Returns null if the error should be silently swallowed (e.g. user cancellation).
+ */
+const getAuthErrorMessage = (error: any): string | null => {
+  const msg = String(error?.message ?? error ?? '').toLowerCase();
+  const code = String(error?.code ?? '').toLowerCase();
+
+  // User cancelled — silent
+  if (
+    code === '12501' || code === '-5' ||
+    msg.includes('cancel') || msg.includes('user closed') ||
+    msg.includes('aborted by user')
+  ) {
+    return null;
+  }
+
+  // Network / connectivity
+  if (
+    code === '7' ||
+    msg.includes('network') || msg.includes('connectivity') ||
+    msg.includes('failed to fetch') || msg.includes('ioexception') ||
+    msg.includes('offline') || msg.includes('timeout') ||
+    msg.includes('timed out')
+  ) {
+    return 'No internet connection. Please check your network and try again.';
+  }
+
+  // Rate limit
+  if (msg.includes('rate limit') || msg.includes('too many') || msg.includes('429')) {
+    return 'Too many attempts. Please wait a moment and try again.';
+  }
+
+  // Email not confirmed
+  if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+    return 'Please verify your email before signing in.';
+  }
+
+  // Invalid credentials
+  if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('invalid email or password')) {
+    return 'Incorrect email or password.';
+  }
+
+  // Already registered
+  if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
+    return 'This email is already registered. Try signing in instead.';
+  }
+
+  // Google Play Services unavailable
+  if (msg.includes('play services') || msg.includes('google_play')) {
+    return 'Google sign-in unavailable. Please update Google Play Services.';
+  }
+
+  // Apple not available
+  if (msg.includes('apple') && (msg.includes('not available') || msg.includes('unavailable'))) {
+    return 'Apple sign-in is not available on this device.';
+  }
+
+  // Fallback: trim and capitalize
+  const raw = error?.message ? String(error.message) : '';
+  if (raw) return raw.charAt(0).toUpperCase() + raw.slice(1);
+  return 'Something went wrong. Please try again.';
+};
+
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters")
   .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
@@ -82,6 +146,7 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Signup validation
   const isFullNameValid = fullName.trim().length >= 2;
@@ -169,25 +234,34 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, [navigate, isPasswordReset]);
 
+  const showAuthError = (error: any, fallback?: string) => {
+    const msg = getAuthErrorMessage(error);
+    if (msg === null) return; // silent (user cancelled)
+    const finalMsg = msg || fallback || 'Something went wrong. Please try again.';
+    setAuthError(finalMsg);
+    toast.error(finalMsg);
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setAuthError(null);
+
     if (!isFullNameValid) {
-      toast.error("Full name must be at least 2 characters");
-      return;
+      const m = "Full name must be at least 2 characters";
+      setAuthError(m); toast.error(m); return;
     }
     if (!isPhoneValid) {
-      toast.error("Phone number must contain at least 6 digits");
-      return;
+      const m = "Phone number must contain at least 6 digits";
+      setAuthError(m); toast.error(m); return;
     }
     const passwordValidation = passwordSchema.safeParse(password);
     if (!passwordValidation.success) {
-      toast.error(passwordValidation.error.errors[0].message);
-      return;
+      const m = passwordValidation.error.errors[0].message;
+      setAuthError(m); toast.error(m); return;
     }
     if (!passwordsMatch) {
-      toast.error("Passwords do not match");
-      return;
+      const m = "Passwords do not match";
+      setAuthError(m); toast.error(m); return;
     }
     
     setLoading(true);
@@ -206,15 +280,12 @@ const Auth = () => {
       });
 
       if (error) throw error;
-      // Show OTP verification screen
       setSignupEmail(email);
       setShowOtpVerification(true);
       toast.success("Verification code sent to your email!");
     } catch (error: any) {
-      const message = error.message?.includes("already registered") 
-        ? t('auth.alreadyRegistered')
-        : t('auth.createFailed');
-      toast.error(message);
+      console.error('[Auth] Sign up failed:', error);
+      showAuthError(error, t('auth.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -222,6 +293,7 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
     setLoading(true);
 
     try {
@@ -233,8 +305,14 @@ const Auth = () => {
       if (error) throw error;
       toast.success(t('auth.welcomeBack'));
     } catch (error: any) {
-      // Use generic error message to prevent email enumeration
-      toast.error(t('auth.invalidCredentials'));
+      console.error('[Auth] Sign in failed:', error);
+      const mapped = getAuthErrorMessage(error);
+      // For credential errors, use generic message to prevent email enumeration.
+      // For network/rate-limit/etc, show the specific mapped message.
+      const isCredErr = mapped === 'Incorrect email or password.' || !mapped;
+      const finalMsg = isCredErr ? t('auth.invalidCredentials') : mapped;
+      setAuthError(finalMsg);
+      toast.error(finalMsg);
     } finally {
       setLoading(false);
     }
@@ -242,6 +320,7 @@ const Auth = () => {
 
   const handleGoogleSignIn = async () => {
     console.log('[Auth] Google sign-in tapped');
+    setAuthError(null);
     try {
       const { error } = await nativeGoogleSignIn();
       if (error) {
@@ -254,11 +333,12 @@ const Auth = () => {
       console.log('[Auth] Google sign-in completed without immediate error');
     } catch (error: any) {
       console.error('[Auth] Google sign-in failed:', error);
-      toast.error(`Google sign-in failed: ${error?.message ?? 'Unknown error'}`);
+      showAuthError(error, 'Google sign-in failed. Please try again.');
     }
   };
 
   const handleAppleSignIn = async () => {
+    setAuthError(null);
     try {
       console.log('[Auth] Apple sign-in starting');
       const { error } = await nativeAppleSignIn();
@@ -273,7 +353,8 @@ const Auth = () => {
       }
       console.log('[Auth] Apple sign-in completed without immediate error');
     } catch (error: any) {
-      toast.error(`Apple sign-in failed: ${error?.message ?? 'Unknown error'}`);
+      console.error('[Auth] Apple sign-in failed:', error);
+      showAuthError(error, 'Apple sign-in failed. Please try again.');
     }
   };
 
@@ -300,7 +381,7 @@ const Auth = () => {
       setResetDialogOpen(false);
     } catch (error: any) {
       console.error("Password reset failed:", error);
-      toast.error(error.message || "Failed to send reset email. Please try again.");
+      toast.error(getAuthErrorMessage(error) || "Failed to send reset email. Please try again.");
     } finally {
       setResetLoading(false);
     }
@@ -588,11 +669,31 @@ const Auth = () => {
           </CardHeader>
 
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs defaultValue="signin" className="w-full" onValueChange={() => setAuthError(null)}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
               <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
             </TabsList>
+
+            {authError && (
+              <div
+                role="alert"
+                className="mt-3 w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 flex items-start gap-2"
+              >
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <p className="text-destructive text-xs font-medium flex-1 break-words">
+                  {authError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAuthError(null)}
+                  className="text-destructive/70 hover:text-destructive text-xs leading-none mt-0.5"
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-3">

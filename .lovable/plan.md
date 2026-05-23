@@ -1,31 +1,35 @@
 ## Goal
+When any sign-in method fails (email/password, Google, Apple, signup, password reset), show the user a clear, specific message on screen instead of generic "Something went wrong" / silent failures.
 
-When the selected time falls outside the chosen branch's working hours (e.g. branch closed at that time), the user must be visibly blocked from picking a table or proceeding with a booking.
+## Approach
+All sign-in handlers already live in `src/pages/Auth.tsx` and use `toast.error()` from `sonner`. The current toasts are either generic or just dump `error.message`. I'll:
 
-## Current behavior
-- `isOutsideWorkingHours()` already exists and a small red helper text shows under the Time input.
-- `dateTimeValid` already excludes outside-hours times.
-- BUT: the floor plan tables remain clickable (the per-table `handleTableClick` only checks pause + reservedIds, not `dateTimeValid`), and there's no prominent banner.
+1. Add a small `getAuthErrorMessage(error)` helper at the top of `Auth.tsx` that maps known patterns to friendly strings:
+   - Network / connectivity → "No internet connection. Please check your network and try again."
+   - User cancelled (code `12501`, `-5`, "canceled") → no toast (silent, expected)
+   - Invalid login credentials → "Incorrect email or password."
+   - Email not confirmed → "Please verify your email before signing in."
+   - Already registered → existing i18n string
+   - Rate limit / "too many requests" → "Too many attempts. Please wait a moment and try again."
+   - Google plugin code `7` (NETWORK_ERROR from Play Services) → "Google sign-in unavailable. Check your internet connection or update Google Play Services."
+   - Apple cancellation / not available → friendly variants
+   - Fallback → `error?.message` or "Something went wrong. Please try again."
 
-## Changes — `src/pages/TableBooking.tsx`
+2. Add a persistent inline error banner (red `bg-destructive/10` rounded box) above the email/password form, driven by a new `authError` state. It clears when the user edits any field or switches tabs. This makes the failure visible even after the toast disappears (important on Android where toasts can be missed).
 
-1. **Block table selection when out of hours**
-   - In `handleTableClick`, add an early `if (!dateTimeValid) return;` so neither the floor-plan tap nor the list "Book Now" can open the booking dialog.
+3. Update each handler — `handleSignIn`, `handleSignUp`, `handleGoogleSignIn`, `handleAppleSignIn`, `handlePasswordReset` — to:
+   - wrap in `try / catch`,
+   - run the error through `getAuthErrorMessage`,
+   - call `toast.error(msg)` AND `setAuthError(msg)`,
+   - log the raw error to console for debugging.
 
-2. **Prominent closed-branch banner**
-   - Right above the Date & Time grid (or directly under it), render a destructive alert when `isOutsideWorkingHours()` is true and `branch` is loaded:
-     ```
-     ⚠ {branch.name} is closed at {selectedTime}.
-        Working hours: {opensAt} – {closesAt}. Please pick a time within working hours to book a table.
-     ```
-   - Style: `rounded-xl border border-destructive/30 bg-destructive/10 text-destructive p-3 sm:p-4 font-medium text-sm` — matches the existing "reservations paused" banner pattern already in the file.
+4. Keep the existing generic "invalid credentials" message for password sign-in (to prevent email enumeration) but show it via the banner too.
 
-3. **Update availability hint**
-   - When out of hours, replace the current "Select a date & time to see availability" text with `Branch is closed at the selected time — choose another time.` for clarity.
+## Files touched
+- `src/pages/Auth.tsx` — add helper, add `authError` state + banner, update 5 handlers.
 
-4. **Visual cue on the floor plan**
-   - Already handled: `dateTimeValid` is false ⇒ green "Available" / red "Reserved" labels are not rendered. Combined with the click guard, tapping a table simply does nothing. No further canvas changes needed.
+No backend/RLS/edge function changes. Pure presentation.
 
 ## Out of scope
-- No changes to `PartySizeDialog` (the time field there is also a free `<input type="time">`; we'll rely on the page-level banner since the dialog closes on confirm). If you want the same warning inside the popup, that's a quick follow-up.
-- No DB / edge function changes — `create-booking` already validates working hours server-side.
+- Fixing the underlying Android Google Play Services connectivity error (that's an emulator / device network issue, not code).
+- Changing OAuth provider configuration.
