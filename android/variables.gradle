@@ -13,4 +13,7 @@ ext {
     androidxJunitVersion = '1.2.1'
     androidxEspressoCoreVersion = '3.6.1'
     cordovaAndroidVersion = '10.1.1'
+    // Pin Google Play Services Auth version used by
+    // @codetrix-studio/capacitor-google-auth (default in plugin is 21.2.0).
+    gmsPlayServicesAuthVersion = '21.2.0'
 }
