@@ -1,35 +1,43 @@
-## Goal
-When any sign-in method fails (email/password, Google, Apple, signup, password reset), show the user a clear, specific message on screen instead of generic "Something went wrong" / silent failures.
+## Problem
 
-## Approach
-All sign-in handlers already live in `src/pages/Auth.tsx` and use `toast.error()` from `sonner`. The current toasts are either generic or just dump `error.message`. I'll:
+The log shows Android native Google Sign-In reaches Google Play Services, then fails before token exchange:
 
-1. Add a small `getAuthErrorMessage(error)` helper at the top of `Auth.tsx` that maps known patterns to friendly strings:
-   - Network / connectivity → "No internet connection. Please check your network and try again."
-   - User cancelled (code `12501`, `-5`, "canceled") → no toast (silent, expected)
-   - Invalid login credentials → "Incorrect email or password."
-   - Email not confirmed → "Please verify your email before signing in."
-   - Already registered → existing i18n string
-   - Rate limit / "too many requests" → "Too many attempts. Please wait a moment and try again."
-   - Google plugin code `7` (NETWORK_ERROR from Play Services) → "Google sign-in unavailable. Check your internet connection or update Google Play Services."
-   - Apple cancellation / not available → friendly variants
-   - Fallback → `error?.message` or "Something went wrong. Please try again."
+- Google Play Services reports `NETWORK_ERROR`
+- Capacitor plugin returns `code: "7"` and message `Something went wrong`
+- Google’s official status code docs define `7` as `NETWORK_ERROR`
 
-2. Add a persistent inline error banner (red `bg-destructive/10` rounded box) above the email/password form, driven by a new `authError` state. It clears when the user edits any field or switches tabs. This makes the failure visible even after the toast disappears (important on Android where toasts can be missed).
+So the app is not failing in the backend token exchange. The Android native Google sign-in plugin is failing inside Google Play Services, likely because the emulator/device Play Services network stack cannot obtain the OAuth token, or because the local native OAuth setup needs a more explicit Android/server client configuration.
 
-3. Update each handler — `handleSignIn`, `handleSignUp`, `handleGoogleSignIn`, `handleAppleSignIn`, `handlePasswordReset` — to:
-   - wrap in `try / catch`,
-   - run the error through `getAuthErrorMessage`,
-   - call `toast.error(msg)` AND `setAuthError(msg)`,
-   - log the raw error to console for debugging.
+## Plan
 
-4. Keep the existing generic "invalid credentials" message for password sign-in (to prevent email enumeration) but show it via the banner too.
+1. **Preserve the real Android error code**
+   - Update `src/lib/nativeGoogleSignIn.ts` so errors returned from the Android plugin keep their `code`, `message`, and raw details.
+   - Replace `[object Object]` logging with structured logs that show the actual code/message in logcat.
 
-## Files touched
-- `src/pages/Auth.tsx` — add helper, add `authError` state + banner, update 5 handlers.
+2. **Improve the on-screen error message**
+   - Update `src/pages/Auth.tsx` so Google error `code: 7` shows a specific message like:
+     - `Google sign-in could not connect through Google Play Services. Check internet, update Play Services, or try a physical device.`
+   - Keep cancellation silent.
+   - Keep normal email/password auth messages unchanged.
 
-No backend/RLS/edge function changes. Pure presentation.
+3. **Harden Android GoogleAuth config**
+   - Update the Android Google sign-in initialization to pass both the Android/web client values the plugin expects, instead of only `clientId`.
+   - Keep `server_client_id` in `strings.xml` as fallback.
+   - Set the plugin’s optional Play Services Auth version in `android/variables.gradle` so dependency resolution is explicit and aligned with the plugin docs.
 
-## Out of scope
-- Fixing the underlying Android Google Play Services connectivity error (that's an emulator / device network issue, not code).
-- Changing OAuth provider configuration.
+4. **Add a safe fallback path for Android native only**
+   - If native Android Google Sign-In fails with code `7`, optionally fall back to the managed browser OAuth flow inside the native app, so users still have a way to sign in when Google Play Services fails.
+   - Use the app’s existing deep-link OAuth callback configuration.
+
+## Files to change
+
+- `src/lib/nativeGoogleSignIn.ts`
+- `src/pages/Auth.tsx`
+- `android/variables.gradle`
+
+## Validation
+
+- Confirm code `7` is mapped correctly and no longer appears as only `Something went wrong`.
+- Confirm logcat prints the actual native GoogleAuth error details.
+- Confirm email/password and Apple sign-in error handling are not regressed.
+- After implementation, Android needs a fresh native sync/rebuild for native Gradle changes to apply.

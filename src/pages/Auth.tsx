@@ -68,9 +68,14 @@ const getAuthErrorMessage = (error: any): string | null => {
     return null;
   }
 
+  // Google Play Services network error (status code 7) — very common on
+  // emulators or when Play Services can't reach Google's servers.
+  if (code === '7') {
+    return "Google sign-in couldn't reach Google Play Services. Check your internet, update Google Play Services, or try on a physical device.";
+  }
+
   // Network / connectivity
   if (
-    code === '7' ||
     msg.includes('network') || msg.includes('connectivity') ||
     msg.includes('failed to fetch') || msg.includes('ioexception') ||
     msg.includes('offline') || msg.includes('timeout') ||
@@ -324,15 +329,17 @@ const Auth = () => {
     try {
       const { error } = await nativeGoogleSignIn();
       if (error) {
-        console.error('[Auth] Google sign-in returned error:', {
-          message: error.message,
-          stack: error.stack,
-        });
+        const code = (error as any)?.code;
+        console.error(
+          `[Auth] Google sign-in returned error: code=${code ?? 'n/a'} message=${error.message}`
+        );
         throw error;
       }
       console.log('[Auth] Google sign-in completed without immediate error');
     } catch (error: any) {
-      console.error('[Auth] Google sign-in failed:', error);
+      console.error(
+        `[Auth] Google sign-in failed: code=${error?.code ?? 'n/a'} message=${error?.message ?? String(error)}`
+      );
       showAuthError(error, 'Google sign-in failed. Please try again.');
     }
   };

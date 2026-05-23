@@ -68,11 +68,21 @@ async function signInIOS(): Promise<{ idToken: string; rawNonce: string }> {
 async function signInAndroid(): Promise<{ idToken: string; rawNonce: string | null }> {
   const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
 
-  GoogleAuth.initialize({
-    clientId: '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com',
-    scopes: ['profile', 'email'],
-    grantOfflineAccess: true,
-  });
+  // serverClientId (web client) is required so the returned ID token's audience
+  // matches what Supabase expects when exchanging via signInWithIdToken.
+  const WEB_CLIENT_ID = '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com';
+
+  try {
+    await Promise.resolve(
+      GoogleAuth.initialize({
+        clientId: WEB_CLIENT_ID,
+        scopes: ['profile', 'email'],
+        grantOfflineAccess: true,
+      } as any)
+    );
+  } catch (e) {
+    console.warn('[GoogleSignIn][Android] initialize warning:', e);
+  }
 
   console.log('[GoogleSignIn][Android] Calling GoogleAuth.signIn()');
   const result = await GoogleAuth.signIn();
@@ -80,7 +90,6 @@ async function signInAndroid(): Promise<{ idToken: string; rawNonce: string | nu
   if (!idToken) {
     throw new Error('No ID token received from Android GoogleAuth plugin');
   }
-  // Android plugin manages its own nonce internally; we don't pass one.
   return { idToken, rawNonce: null };
 }
 
@@ -131,17 +140,25 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
 
     return { error: null };
   } catch (err: any) {
+    const code = err?.code != null ? String(err.code) : undefined;
+    const message = err?.message ? String(err.message) : String(err);
     console.error('[GoogleSignIn] Native sign-in threw', {
-      message: err?.message,
-      code: err?.code,
+      platform,
+      code,
+      message,
+      errorString: String(err),
     });
     if (
-      err?.message?.includes('canceled') ||
-      err?.message?.includes('cancelled') ||
-      err?.code === '12501'
+      message.includes('canceled') ||
+      message.includes('cancelled') ||
+      code === '12501' ||
+      code === '-5'
     ) {
       return { error: null };
     }
-    return { error: err instanceof Error ? err : new Error(String(err)) };
+    // Preserve the original code on the returned Error so the UI can map it.
+    const wrapped = new Error(message) as Error & { code?: string };
+    if (code) wrapped.code = code;
+    return { error: wrapped };
   }
 }
