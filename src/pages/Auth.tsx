@@ -68,9 +68,14 @@ const getAuthErrorMessage = (error: any): string | null => {
     return null;
   }
 
+  // Google Play Services network error (status code 7) — very common on
+  // emulators or when Play Services can't reach Google's servers.
+  if (code === '7') {
+    return "Google sign-in couldn't reach Google Play Services. Check your internet, update Google Play Services, or try on a physical device.";
+  }
+
   // Network / connectivity
   if (
-    code === '7' ||
     msg.includes('network') || msg.includes('connectivity') ||
     msg.includes('failed to fetch') || msg.includes('ioexception') ||
     msg.includes('offline') || msg.includes('timeout') ||
