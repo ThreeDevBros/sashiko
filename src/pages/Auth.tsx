@@ -51,6 +51,70 @@ const shouldShowAppleButton = (): boolean => {
   return isAppleDevice && isSafari;
 };
 
+/**
+ * Map a raw auth error into a user-friendly message.
+ * Returns null if the error should be silently swallowed (e.g. user cancellation).
+ */
+const getAuthErrorMessage = (error: any): string | null => {
+  const msg = String(error?.message ?? error ?? '').toLowerCase();
+  const code = String(error?.code ?? '').toLowerCase();
+
+  // User cancelled — silent
+  if (
+    code === '12501' || code === '-5' ||
+    msg.includes('cancel') || msg.includes('user closed') ||
+    msg.includes('aborted by user')
+  ) {
+    return null;
+  }
+
+  // Network / connectivity
+  if (
+    code === '7' ||
+    msg.includes('network') || msg.includes('connectivity') ||
+    msg.includes('failed to fetch') || msg.includes('ioexception') ||
+    msg.includes('offline') || msg.includes('timeout') ||
+    msg.includes('timed out')
+  ) {
+    return 'No internet connection. Please check your network and try again.';
+  }
+
+  // Rate limit
+  if (msg.includes('rate limit') || msg.includes('too many') || msg.includes('429')) {
+    return 'Too many attempts. Please wait a moment and try again.';
+  }
+
+  // Email not confirmed
+  if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+    return 'Please verify your email before signing in.';
+  }
+
+  // Invalid credentials
+  if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('invalid email or password')) {
+    return 'Incorrect email or password.';
+  }
+
+  // Already registered
+  if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
+    return 'This email is already registered. Try signing in instead.';
+  }
+
+  // Google Play Services unavailable
+  if (msg.includes('play services') || msg.includes('google_play')) {
+    return 'Google sign-in unavailable. Please update Google Play Services.';
+  }
+
+  // Apple not available
+  if (msg.includes('apple') && (msg.includes('not available') || msg.includes('unavailable'))) {
+    return 'Apple sign-in is not available on this device.';
+  }
+
+  // Fallback: trim and capitalize
+  const raw = error?.message ? String(error.message) : '';
+  if (raw) return raw.charAt(0).toUpperCase() + raw.slice(1);
+  return 'Something went wrong. Please try again.';
+};
+
 const passwordSchema = z.string()
   .min(12, "Password must be at least 12 characters")
   .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
