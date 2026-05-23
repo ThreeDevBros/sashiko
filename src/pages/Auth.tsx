@@ -146,6 +146,7 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Signup validation
   const isFullNameValid = fullName.trim().length >= 2;
