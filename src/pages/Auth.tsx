@@ -381,7 +381,7 @@ const Auth = () => {
       setResetDialogOpen(false);
     } catch (error: any) {
       console.error("Password reset failed:", error);
-      toast.error(error.message || "Failed to send reset email. Please try again.");
+      toast.error(getAuthErrorMessage(error) || "Failed to send reset email. Please try again.");
     } finally {
       setResetLoading(false);
     }
