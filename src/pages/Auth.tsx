@@ -329,15 +329,17 @@ const Auth = () => {
     try {
       const { error } = await nativeGoogleSignIn();
       if (error) {
-        console.error('[Auth] Google sign-in returned error:', {
-          message: error.message,
-          stack: error.stack,
-        });
+        const code = (error as any)?.code;
+        console.error(
+          `[Auth] Google sign-in returned error: code=${code ?? 'n/a'} message=${error.message}`
+        );
         throw error;
       }
       console.log('[Auth] Google sign-in completed without immediate error');
     } catch (error: any) {
-      console.error('[Auth] Google sign-in failed:', error);
+      console.error(
+        `[Auth] Google sign-in failed: code=${error?.code ?? 'n/a'} message=${error?.message ?? String(error)}`
+      );
       showAuthError(error, 'Google sign-in failed. Please try again.');
     }
   };
