@@ -68,11 +68,21 @@ async function signInIOS(): Promise<{ idToken: string; rawNonce: string }> {
 async function signInAndroid(): Promise<{ idToken: string; rawNonce: string | null }> {
   const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
 
-  GoogleAuth.initialize({
-    clientId: '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com',
-    scopes: ['profile', 'email'],
-    grantOfflineAccess: true,
-  });
+  // serverClientId (web client) is required so the returned ID token's audience
+  // matches what Supabase expects when exchanging via signInWithIdToken.
+  const WEB_CLIENT_ID = '737774269765-vm8humggkeo8457qopvm0n7u2ij9js5s.apps.googleusercontent.com';
+
+  try {
+    await Promise.resolve(
+      GoogleAuth.initialize({
+        clientId: WEB_CLIENT_ID,
+        scopes: ['profile', 'email'],
+        grantOfflineAccess: true,
+      } as any)
+    );
+  } catch (e) {
+    console.warn('[GoogleSignIn][Android] initialize warning:', e);
+  }
 
   console.log('[GoogleSignIn][Android] Calling GoogleAuth.signIn()');
   const result = await GoogleAuth.signIn();
@@ -80,7 +90,6 @@ async function signInAndroid(): Promise<{ idToken: string; rawNonce: string | nu
   if (!idToken) {
     throw new Error('No ID token received from Android GoogleAuth plugin');
   }
-  // Android plugin manages its own nonce internally; we don't pass one.
   return { idToken, rawNonce: null };
 }
 
