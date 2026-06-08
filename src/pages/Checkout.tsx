@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from '@/contexts/CartContext';
 import { useBranding } from '@/hooks/useBranding';
 import { useBranch } from '@/hooks/useBranch';
+import { useDynamicDeliveryInfo } from '@/hooks/useDynamicDeliveryInfo';
 import { isBranchOpen, formatBranchTime } from '@/lib/branch';
 import { formatCurrency } from '@/lib/currency';
 import { FloatingBranchWidget } from '@/components/FloatingBranchWidget';
