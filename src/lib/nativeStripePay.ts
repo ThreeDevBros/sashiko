@@ -63,6 +63,9 @@ export function isNativeWalletPlatform(): boolean {
  * for older code paths.
  */
 let cachedStripePlugin: any | null = null;
+// Capacitor plugin proxies can behave like thenables because unknown properties
+// become native method calls. Never return the proxy directly from an async
+// function, otherwise Promise resolution may read `.then` and hang forever.
 interface StripePluginHandle {
   plugin: any;
 }
@@ -182,7 +185,9 @@ export async function initializeNativeStripe(): Promise<boolean> {
     }
   })();
 
-  return initializePromise;
+  const initialized = await initializePromise;
+  if (!initialized) initializePromise = null;
+  return initialized;
 }
 
 /**
