@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from '@/contexts/CartContext';
 import { useBranding } from '@/hooks/useBranding';
 import { useBranch } from '@/hooks/useBranch';
+import { useDynamicDeliveryInfo } from '@/hooks/useDynamicDeliveryInfo';
 import { isBranchOpen, formatBranchTime } from '@/lib/branch';
 import { formatCurrency } from '@/lib/currency';
 import { FloatingBranchWidget } from '@/components/FloatingBranchWidget';
@@ -51,6 +52,7 @@ const Checkout = () => {
   const { items } = useCart();
   const { branding } = useBranding();
   const { branch } = useBranch();
+  const dynamicDeliveryInfo = useDynamicDeliveryInfo();
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
   const [deliveryTiming, setDeliveryTiming] = useState<'standard' | 'schedule'>('standard');
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
@@ -908,7 +910,7 @@ const Checkout = () => {
                   <Clock className="h-5 w-5" />
                   <div>
                     <p className="font-medium">{t('checkout.standardOrder')}</p>
-                    <p className="text-sm text-muted-foreground">{t('checkout.estimatedTime')}</p>
+                    <p className="text-sm text-muted-foreground">{dynamicDeliveryInfo.loading ? '...' : `${t('checkout.estimatedTime').split(':')[0]}: ${dynamicDeliveryInfo.timeLabel}`}</p>
                   </div>
                 </div>
               </Label>
