@@ -116,32 +116,41 @@ export async function initializeNativeStripe(): Promise<boolean> {
   try {
     // Fetch publishable key if not cached
     if (!publishableKey) {
+      console.log('[nativeStripePay] initializeNativeStripe: no cached key, fetching from get-public-keys...');
       try {
         const { data, error } = await supabase.functions.invoke('get-public-keys', {
           body: { key_type: 'STRIPE_PUBLISHABLE_KEY' },
         });
         if (error || !data?.key) {
-          console.error('Failed to fetch Stripe publishable key');
+          console.error('[nativeStripePay] ❌ Failed to fetch Stripe publishable key. error:', error, 'data:', data);
           return false;
         }
         publishableKey = data.key;
+        console.log('[nativeStripePay] ✅ Stripe publishable key fetched. Mode:', publishableKey?.startsWith('pk_live') ? 'LIVE' : 'TEST');
         try { localStorage.setItem(STRIPE_KEY_CACHE, publishableKey); } catch {}
       } catch (e) {
-        console.error('Failed to fetch Stripe publishable key:', e);
+        console.error('[nativeStripePay] ❌ Failed to fetch Stripe publishable key (exception):', e);
         return false;
       }
+    } else {
+      console.log('[nativeStripePay] initializeNativeStripe: using cached key. Mode:', publishableKey?.startsWith('pk_live') ? 'LIVE' : 'TEST');
     }
 
+    console.log('[nativeStripePay] Calling StripePlugin.initialize()...');
     await StripePlugin.initialize({
       publishableKey,
       stripeAccount: undefined,
     });
 
     pluginInitialized = true;
-    console.log('[nativeStripePay] Native Stripe plugin initialized');
+    console.log('[nativeStripePay] ✅ Native Stripe plugin initialized successfully');
     return true;
-  } catch (err) {
-    console.error('[nativeStripePay] Failed to initialize native Stripe:', err);
+  } catch (err: any) {
+    console.error('[nativeStripePay] ❌ Failed to initialize native Stripe:', {
+      message: err?.message,
+      code: err?.code,
+      raw: err,
+    });
     return false;
   }
 }
