@@ -153,29 +153,43 @@ export const CheckoutForm = ({
   }, [prefetchedCards, cardsLoading]);
   // Check available wallets — on native, ask the Capacitor Stripe plugin directly.
   useEffect(() => {
-    const isNativeIos = Capacitor.getPlatform() === 'ios';
-    const isNativeAndroid = Capacitor.getPlatform() === 'android';
+    const platform = Capacitor.getPlatform();
+    const isNativeIos = platform === 'ios';
+    const isNativeAndroid = platform === 'android';
+
+    console.log('[CheckoutForm] Wallet probe starting. Platform:', platform, {
+      isNativePlatform: Capacitor.isNativePlatform(),
+      hasPluginsObject: !!(Capacitor as any).Plugins,
+      stripePluginPresent: !!(Capacitor as any).Plugins?.Stripe,
+    });
 
     if (isNativeIos || isNativeAndroid) {
       let cancelled = false;
       (async () => {
         try {
+          console.log('[CheckoutForm] Importing nativeStripePay module...');
           const { isNativeWalletAvailable } = await import('@/lib/nativeStripePay');
+          console.log('[CheckoutForm] Calling isNativeWalletAvailable()...');
           const available = await isNativeWalletAvailable();
+          console.log('[CheckoutForm] isNativeWalletAvailable returned:', available);
           if (cancelled) return;
           if (available) {
             setAvailableWallets({
               applePay: isNativeIos,
               googlePay: isNativeAndroid,
             });
-            console.log(`Native ${isNativeIos ? 'iOS' : 'Android'} wallet ready`);
+            console.log(`[CheckoutForm] Native ${isNativeIos ? 'iOS' : 'Android'} wallet ready — showing button`);
           } else {
             setAvailableWallets({ applePay: false, googlePay: false });
-            console.log(`Native ${isNativeIos ? 'iOS' : 'Android'} wallet NOT available — hiding wallet button`);
+            console.warn(`[CheckoutForm] Native ${isNativeIos ? 'iOS' : 'Android'} wallet NOT available — hiding wallet button`);
           }
-        } catch (err) {
+        } catch (err: any) {
           if (!cancelled) {
-            console.warn('Native wallet probe failed:', err);
+            console.error('[CheckoutForm] Native wallet probe THREW:', {
+              message: err?.message,
+              stack: err?.stack,
+              raw: err,
+            });
             setAvailableWallets({ applePay: false, googlePay: false });
           }
         }
