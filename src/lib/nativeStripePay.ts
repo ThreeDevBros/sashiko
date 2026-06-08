@@ -63,27 +63,39 @@ export function isNativeWalletPlatform(): boolean {
  */
 let cachedStripePlugin: any | null = null;
 async function getStripePlugin(): Promise<any | null> {
-  if (cachedStripePlugin) return cachedStripePlugin;
-  if (!isNativeWalletPlatform()) return null;
+  if (cachedStripePlugin) {
+    console.log('[nativeStripePay] getStripePlugin: returning cached plugin');
+    return cachedStripePlugin;
+  }
+  if (!isNativeWalletPlatform()) {
+    console.warn('[nativeStripePay] getStripePlugin: not a native platform (', Capacitor.getPlatform(), ')');
+    return null;
+  }
   try {
-    // Dynamically import the package so web builds don't try to resolve native bridge.
-    // The package's index calls `registerPlugin('Stripe', ...)` on import,
-    // which makes the native plugin available via Capacitor.
+    console.log('[nativeStripePay] getStripePlugin: dynamic import @capacitor-community/stripe...');
     const mod = await import('@capacitor-community/stripe');
+    console.log('[nativeStripePay] getStripePlugin: import result keys:', mod ? Object.keys(mod) : 'null');
     if (mod?.Stripe) {
       cachedStripePlugin = mod.Stripe;
+      console.log('[nativeStripePay] getStripePlugin: ✅ resolved via package import. Methods:', Object.keys(mod.Stripe || {}));
       return cachedStripePlugin;
     }
+    console.warn('[nativeStripePay] getStripePlugin: package import returned no .Stripe export');
   } catch (e) {
-    console.warn('[nativeStripePay] dynamic import @capacitor-community/stripe failed:', e);
+    console.error('[nativeStripePay] getStripePlugin: ❌ dynamic import @capacitor-community/stripe failed:', e);
   }
   try {
     const plugins = (Capacitor as any).Plugins;
+    console.log('[nativeStripePay] getStripePlugin: fallback Capacitor.Plugins keys:', plugins ? Object.keys(plugins) : 'none');
     if (plugins?.Stripe) {
       cachedStripePlugin = plugins.Stripe;
+      console.log('[nativeStripePay] getStripePlugin: ✅ resolved via Capacitor.Plugins.Stripe');
       return cachedStripePlugin;
     }
-  } catch {}
+  } catch (e) {
+    console.error('[nativeStripePay] getStripePlugin: Capacitor.Plugins access failed:', e);
+  }
+  console.error('[nativeStripePay] getStripePlugin: ❌ Stripe plugin not found anywhere');
   return null;
 }
 
