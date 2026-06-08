@@ -910,7 +910,7 @@ const Checkout = () => {
                   <Clock className="h-5 w-5" />
                   <div>
                     <p className="font-medium">{t('checkout.standardOrder')}</p>
-                    <p className="text-sm text-muted-foreground">{t('checkout.estimatedTime')}</p>
+                    <p className="text-sm text-muted-foreground">{dynamicDeliveryInfo.loading ? '...' : `${t('checkout.estimatedTime').split(':')[0]}: ${dynamicDeliveryInfo.timeLabel}`}</p>
                   </div>
                 </div>
               </Label>
