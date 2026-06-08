@@ -52,6 +52,7 @@ const Checkout = () => {
   const { items } = useCart();
   const { branding } = useBranding();
   const { branch } = useBranch();
+  const dynamicDeliveryInfo = useDynamicDeliveryInfo();
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery');
   const [deliveryTiming, setDeliveryTiming] = useState<'standard' | 'schedule'>('standard');
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
