@@ -62,10 +62,30 @@ export function isNativeWalletPlatform(): boolean {
  * for older code paths.
  */
 let cachedStripePlugin: any | null = null;
-async function getStripePlugin(): Promise<any | null> {
+interface StripePluginHandle {
+  plugin: any;
+}
+
+const stripePluginHandle = (plugin: any): StripePluginHandle => ({ plugin });
+
+const withNativeTimeout = async <T,>(label: string, promise: Promise<T>, timeoutMs = 10000): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+async function getStripePlugin(): Promise<StripePluginHandle | null> {
   if (cachedStripePlugin) {
-    console.log('[nativeStripePay] getStripePlugin: returning cached plugin');
-    return cachedStripePlugin;
+    console.log('[nativeStripePay] getStripePlugin: returning cached plugin handle');
+    return stripePluginHandle(cachedStripePlugin);
   }
   if (!isNativeWalletPlatform()) {
     console.warn('[nativeStripePay] getStripePlugin: not a native platform (', Capacitor.getPlatform(), ')');
@@ -78,7 +98,7 @@ async function getStripePlugin(): Promise<any | null> {
     if (mod?.Stripe) {
       cachedStripePlugin = mod.Stripe;
       console.log('[nativeStripePay] getStripePlugin: ✅ resolved via package import. Methods:', Object.keys(mod.Stripe || {}));
-      return cachedStripePlugin;
+      return stripePluginHandle(cachedStripePlugin);
     }
     console.warn('[nativeStripePay] getStripePlugin: package import returned no .Stripe export');
   } catch (e) {
@@ -90,7 +110,7 @@ async function getStripePlugin(): Promise<any | null> {
     if (plugins?.Stripe) {
       cachedStripePlugin = plugins.Stripe;
       console.log('[nativeStripePay] getStripePlugin: ✅ resolved via Capacitor.Plugins.Stripe');
-      return cachedStripePlugin;
+      return stripePluginHandle(cachedStripePlugin);
     }
   } catch (e) {
     console.error('[nativeStripePay] getStripePlugin: Capacitor.Plugins access failed:', e);
