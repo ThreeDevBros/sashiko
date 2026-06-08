@@ -127,7 +127,7 @@ export async function initializeNativeStripe(): Promise<boolean> {
   if (!isNativeWalletPlatform()) return false;
   if (pluginInitialized) return true;
 
-  const StripePlugin = await getStripePlugin();
+  const StripePlugin = (await getStripePlugin())?.plugin;
   if (!StripePlugin) {
     console.error('[nativeStripePay] Stripe Capacitor plugin not available (package import + Capacitor.Plugins both empty)');
     return false;
@@ -157,10 +157,10 @@ export async function initializeNativeStripe(): Promise<boolean> {
     }
 
     console.log('[nativeStripePay] Calling StripePlugin.initialize()...');
-    await StripePlugin.initialize({
+    await withNativeTimeout('Stripe.initialize', StripePlugin.initialize({
       publishableKey,
       stripeAccount: undefined,
-    });
+    }));
 
     pluginInitialized = true;
     console.log('[nativeStripePay] ✅ Native Stripe plugin initialized successfully');
@@ -192,7 +192,7 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
     return false;
   }
 
-  const StripePlugin = await getStripePlugin();
+  const StripePlugin = (await getStripePlugin())?.plugin;
   if (!StripePlugin) {
     nativeWalletAvailable = false;
     return false;
@@ -204,7 +204,7 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
     if (platform === 'ios') {
       if (typeof StripePlugin.isApplePayAvailable === 'function') {
         console.log('[nativeStripePay] Calling StripePlugin.isApplePayAvailable()...');
-        const result = await StripePlugin.isApplePayAvailable();
+        const result = await withNativeTimeout('Stripe.isApplePayAvailable', StripePlugin.isApplePayAvailable(), 8000);
         console.log('[nativeStripePay] ✅ isApplePayAvailable() resolved. Result:', result);
         nativeWalletAvailable = true;
       } else {
@@ -214,7 +214,7 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
     } else if (platform === 'android') {
       if (typeof StripePlugin.isGooglePayAvailable === 'function') {
         console.log('[nativeStripePay] Calling StripePlugin.isGooglePayAvailable()...');
-        await StripePlugin.isGooglePayAvailable();
+        await withNativeTimeout('Stripe.isGooglePayAvailable', StripePlugin.isGooglePayAvailable(), 8000);
         nativeWalletAvailable = true;
       } else {
         nativeWalletAvailable = true;
@@ -252,7 +252,7 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
  */
 export async function nativeWalletPay(options: NativePayOptions): Promise<NativePayResult> {
   const platform = Capacitor.getPlatform();
-  const StripePlugin = await getStripePlugin();
+  const StripePlugin = (await getStripePlugin())?.plugin;
 
   if (!StripePlugin) {
     return { success: false, error: 'Native payment plugin not available' };
