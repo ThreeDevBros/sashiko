@@ -179,24 +179,21 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
   }
 
   const platform = Capacitor.getPlatform();
+  console.log('[nativeStripePay] isNativeWalletAvailable: probing', platform, '— plugin methods:', Object.keys(StripePlugin || {}));
   try {
     if (platform === 'ios') {
       if (typeof StripePlugin.isApplePayAvailable === 'function') {
-        // Plugin contract: resolves => available, rejects => unavailable.
-        await StripePlugin.isApplePayAvailable();
+        console.log('[nativeStripePay] Calling StripePlugin.isApplePayAvailable()...');
+        const result = await StripePlugin.isApplePayAvailable();
+        console.log('[nativeStripePay] ✅ isApplePayAvailable() resolved. Result:', result);
         nativeWalletAvailable = true;
       } else {
+        console.warn('[nativeStripePay] ⚠️ isApplePayAvailable method MISSING on plugin — assuming available');
         nativeWalletAvailable = true;
       }
     } else if (platform === 'android') {
       if (typeof StripePlugin.isGooglePayAvailable === 'function') {
-        // Plugin contract: resolves => available, rejects => unavailable.
-        // Common rejection reasons:
-        //  - manifest meta-data `com.getcapacitor.community.stripe.enable_google_pay` is missing/false
-        //  - manifest meta-data `com.getcapacitor.community.stripe.publishable_key` is missing
-        //  - device has no Google Wallet / no card configured
-        //  - Play Services unavailable on the device/emulator
-        //  - Stripe key environment (test/live) does not match google_pay_is_testing flag
+        console.log('[nativeStripePay] Calling StripePlugin.isGooglePayAvailable()...');
         await StripePlugin.isGooglePayAvailable();
         nativeWalletAvailable = true;
       } else {
@@ -206,15 +203,24 @@ export async function isNativeWalletAvailable(): Promise<boolean> {
       nativeWalletAvailable = false;
     }
   } catch (err: any) {
-    console.warn(`[nativeStripePay] ${platform} wallet unavailable. Reason:`, {
+    console.error(`[nativeStripePay] ❌ ${platform} wallet unavailable. FULL ERROR:`, {
       message: err?.message,
       code: err?.code,
       data: err?.data,
+      errorMessage: err?.errorMessage,
+      stack: err?.stack,
+      raw: JSON.stringify(err, Object.getOwnPropertyNames(err || {})),
     });
+    console.error('[nativeStripePay] 💡 Common Apple Pay reasons it would reject:');
+    console.error('  1. Apple Pay capability NOT enabled in Xcode target → Signing & Capabilities');
+    console.error('  2. Merchant ID "merchant.sashiko.app" not created in Apple Developer account');
+    console.error('  3. Merchant ID not associated with your Stripe account');
+    console.error('  4. Running on iOS Simulator with no card in Wallet (Features → Wallet → Add Card)');
+    console.error('  5. Device region/country does not support Apple Pay');
     nativeWalletAvailable = false;
   }
 
-  console.log(`[nativeStripePay] Wallet available on ${platform}:`, nativeWalletAvailable);
+  console.log(`[nativeStripePay] 🏁 Final wallet availability on ${platform}:`, nativeWalletAvailable);
   return nativeWalletAvailable;
 }
 
