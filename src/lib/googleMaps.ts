@@ -1,6 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 
-const CACHE_KEY = 'cached-google-maps-api-key';
+const CACHE_KEY = 'cached-google-maps-api-key-v2';
+
+// Clear any old cached key from previous versions
+try { localStorage.removeItem('cached-google-maps-api-key'); } catch {}
 
 let apiKey: string | null = null;
 let mapsReady = false;
