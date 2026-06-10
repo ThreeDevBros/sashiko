@@ -43,11 +43,7 @@ let initializePromise: Promise<boolean> | null = null;
 let publishableKey: string | null = null;
 
 const STRIPE_KEY_CACHE = 'cached-stripe-publishable-key';
-// Restore from localStorage on module load
-try {
-  const cached = localStorage.getItem(STRIPE_KEY_CACHE);
-  if (cached) publishableKey = cached;
-} catch {}
+try { localStorage.removeItem(STRIPE_KEY_CACHE); } catch {}
 
 /**
  * Check if native wallet payment is supported on this platform.
@@ -156,7 +152,6 @@ export async function initializeNativeStripe(): Promise<boolean> {
         }
         publishableKey = data.key;
         console.log('[nativeStripePay] ✅ Stripe publishable key fetched. Mode:', publishableKey?.startsWith('pk_live') ? 'LIVE' : 'TEST');
-        try { localStorage.setItem(STRIPE_KEY_CACHE, publishableKey); } catch {}
       } catch (e) {
         console.error('[nativeStripePay] ❌ Failed to fetch Stripe publishable key (exception):', e);
         return false;
