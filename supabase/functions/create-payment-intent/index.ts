@@ -221,10 +221,7 @@ serve(async (req) => {
       amount: Math.round(order_total * 100),
       currency: requestCurrency.toLowerCase(),
       customer: customerId,
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: 'never',
-      },
+      payment_method_types: ['card'],
       setup_future_usage: user ? 'off_session' : undefined,
       metadata: {
         user_id: user?.id || '',
@@ -251,10 +248,11 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating payment intent:', error);
+    const stripeMessage = typeof error?.message === 'string' ? error.message : null;
     return new Response(
-      JSON.stringify({ error: 'Failed to initialize payment. Please try again.' }),
+      JSON.stringify({ error: stripeMessage || 'Failed to initialize payment. Please try again.' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
