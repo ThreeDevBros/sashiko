@@ -1,102 +1,109 @@
-# Sashiko → White-Label Restaurant Platform
+# Lovable-Only Multi-Tenant Platform Plan
 
-Advisory plan. No code changes. Confirms the architecture, tells you where Lovable helps and where it hurts, and lays out a build order.
+Advisory plan. No code changes yet. Approve to start Phase 1.
 
-## My recommendation, in one line
+## Verdict
 
-**Keep Lovable for the two web apps (the template + the operator panel). Do the release/orchestration work in Claude Code on your machine.** Do NOT migrate everything off Lovable — the parts Lovable is bad at are the same parts Claude Code is good at, and vice versa. Using both is cheaper in hours than picking one.
+Yes — you can run this entirely inside Lovable. The only thing that physically cannot live in Lovable is the machine that compiles the iOS/Android binary and uploads it to the stores. Everything else (template code, per-client customizations, operator panel, provisioning, monitoring, "upgrade all clients" workflows) is authored in Lovable projects and executed via the GitHub + Supabase Management connectors from edge functions.
 
-Why not "just Claude Code for everything": you already have ~200 files of polished UI, i18n, Capacitor plumbing, Stripe, Live Activities, push, RLS, edge functions. Rewriting that outside Lovable buys you nothing. Lovable's speed advantage is exactly on the surface (screens, forms, admin CRUD) you'll keep editing per client.
+For the native build step, the operator panel will fire a generic webhook / GitHub workflow_dispatch. What sits behind that trigger (your Mac, GitHub Actions macOS runners, Codemagic, EAS) can be swapped without changing anything in Lovable.
 
-Why not "just Lovable for everything": Lovable cannot submit to App Store / Play Store, cannot run Fastlane, cannot script the Supabase Management API to spin up new projects, and cannot manage N git repos at once. Those are terminal jobs.
-
-## Target architecture
+## Architecture
 
 ```text
-                    ┌───────────────────────────┐
-                    │   Operator Panel (web)    │  ← built in Lovable
-                    │   your admin over all     │    (own Supabase)
-                    │   clients & releases      │
-                    └───────────┬───────────────┘
-                                │ Supabase Mgmt API + GitHub API
-                ┌───────────────┼───────────────┐
-                ▼               ▼               ▼
-       ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-       │ sashiko repo │  │ client-B repo│  │ client-C repo│
-       │ (this one)   │  │ (fork)       │  │ (fork)       │
-       └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-              │                 │                 │
-       Supabase A         Supabase B        Supabase C
-       iOS+Android A      iOS+Android B     iOS+Android C
+┌─────────────────────────────────────────────────────────────┐
+│  Lovable project: TEMPLATE (this Sashiko project, cleaned) │
+│  - Source of truth for shared code                          │
+│  - Reads client.config.ts + src/overrides/<client>/         │
+└───────────────┬─────────────────────────────────────────────┘
+                │ git fork
+                ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Lovable project per client (Client A, Client B, ...)       │
+│  - Own GitHub repo, own Supabase project, own bundle IDs    │
+│  - You open it in Lovable to tweak that client's UI         │
+│  - Pulls template updates via automated PR                  │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  Lovable project: OPERATOR PANEL (separate Supabase)        │
+│  - clients registry table                                   │
+│  - "Provision new client" wizard                            │
+│  - "Upgrade all clients to template v.X" button             │
+│  - Per-client metrics dashboard                             │
+│  - Native build trigger (webhook — swappable)               │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-- **Template repo** = this project, cleaned up. Source of truth for shared code.
-- **Client repos** = git forks of the template. Each has its own Supabase project, its own Capacitor bundle IDs, its own store listings.
-- **Overlay layer** = a small `client.config.ts` + `src/overrides/` folder per client. Branding, feature flags, custom screens live there. Everything else is inherited from the template.
-- **Operator panel** = a separate Lovable project with its own Supabase. Reads a registry table of all clients, calls GitHub Actions + Supabase Management API to provision, monitor, and update them.
+## Roles per piece
 
-## Tool split (be strict about this)
+| Piece | Where it lives | How you edit it |
+|---|---|---|
+| Template code | Lovable project + GitHub | Lovable chat |
+| Per-client UI tweaks | That client's Lovable project | Lovable chat (open the client's project) |
+| Operator panel UI | Panel Lovable project | Lovable chat |
+| Provisioning (fork repo, create Supabase, seed data) | Edge function in panel, using GitHub + Supabase Management connectors | Lovable chat |
+| Upgrade-all-clients | GitHub Action in template repo, dispatched by panel edge function | Lovable chat authors the workflow YAML; GitHub runs it |
+| Native build + store upload | External CI runner (swappable) | Configured once outside Lovable |
 
-| Job                                              | Tool                   | Why                                                        |
-| ------------------------------------------------ | ---------------------- | ---------------------------------------------------------- |
-| Edit template UI / screens / edge functions      | **Lovable (template)** | Fastest surface iteration                                  |
-| Build operator panel UI (client list, deploys)   | **Lovable (panel)**    | It's just another React+Supabase app                       |
-| Per-client branding & custom features            | **Lovable (client)**   | Only touches `src/overrides/` — safe from template updates |
-| Spin up new Supabase project for a client        | **Claude Code**        | Supabase Management API + secrets                          |
-| Fork template repo, wire secrets, first deploy   | **Claude Code**        | GitHub API + gh CLI                                        |
-| Rebase a client onto latest template ("upgrade") | **Claude Code**        | Git merges must run locally, cannot be done in Lovable     |
-| iOS/Android build, sign, submit                  | **Claude Code + Fastlane** | Needs Xcode/Android Studio, certs, keychain            |
-| Push OTA JS-only updates (Capacitor Live Update) | Either                 | Triggered from the operator panel, executed via CI         |
-| Monitor errors, uptime, revenue per client       | **Lovable (panel)**    | Reads Supabase + Sentry + Stripe APIs                      |
+## Overlay convention (per client)
 
-Rule of thumb: **if it touches a filesystem outside a Lovable sandbox (git merges, signing certs, App Store Connect), it is not a Lovable job.**
+```text
+client.config.ts        // branding, feature flags, tenant identifiers
+src/overrides/
+  components/           // shadowed components (client-specific replacements)
+  screens/              // client-only screens
+public/branding/        // logos, splash, icons
+```
 
-## What the operator panel actually does (built in Lovable)
+Template components read `client.config.ts` for anything that varies. Overrides folder is git-ignored by rebase logic during upgrades so template updates never fight per-client custom work.
 
-Its own Supabase with a `clients` registry:
+## Phased build
 
-- `clients` (id, name, slug, supabase_project_ref, supabase_anon_key, github_repo, template_version, custom_domain, ios_bundle_id, android_package_id, store_status, plan, created_at)
-- `client_features` (client_id, feature_key, enabled) — feature flags per client
-- `client_deployments` (client_id, template_version, status, deployed_at, released_by)
-- `client_metrics_daily` (client_id, orders, revenue, active_users, errors) — populated by a nightly edge function that fans out to each client's Supabase
+### Phase 1 — Template-ize Sashiko (in this project)
+- Extract tenant-specific values (name, colors, bundle IDs, Supabase URL, feature flags) into `client.config.ts`.
+- Establish `src/overrides/` convention with a documented resolver.
+- Document "what makes a client repo": file list, required secrets, minimum Supabase schema.
+- Deliverable: this repo can be forked and a new `client.config.ts` produces a fully-branded working app.
 
-Screens: client list, client detail, "provision new client" wizard, "upgrade to template vX" action (which fires a GitHub Actions workflow), a global feature-flag matrix, revenue & error dashboards, secret rotation. All of that is comfortable Lovable territory.
+### Phase 2 — Operator panel MVP (new Lovable project)
+- New Lovable project with its own Supabase (Lovable Cloud).
+- `clients` table registry.
+- List view + per-client detail page.
+- "Provision new client" wizard — edge function calls:
+  - GitHub connector → fork template repo, commit `client.config.ts`.
+  - Supabase Management API → create new project, run initial migrations, return keys.
+  - Writes client row to registry.
+- Auth: admin-only, RBAC via `user_roles` per your standard.
 
-## What the template repo needs before it can be forked cleanly
+### Phase 3 — Upgrade pipeline
+- `.github/workflows/upgrade-client.yml` in template repo.
+- Accepts a target client repo, rebases it onto template `main`, opens a PR in the client repo. Conflicts are surfaced in the PR for you to resolve in Lovable by opening the client's project.
+- Panel button "Upgrade all clients to latest" → edge function loops registry and dispatches the workflow per client.
 
-The current Sashiko codebase has ~80 places where tenant details are baked in (bundle ID `com.sashiko.app`, domain `sashikoasianfusion.com`, Google client IDs in `android/app/`, tenant name in `AdminLayout`, hardcoded copy). Before fork #1, we need one pass to move all of that behind:
+### Phase 4 — Native build trigger (swappable)
+- Panel button "Build & submit iOS/Android for client X" → edge function fires a `workflow_dispatch` at a per-client repo action.
+- Initially the workflow can just email/notify you to build manually on your Mac.
+- Later, swap the workflow's contents for Fastlane + hosted macOS runner, or Codemagic, or EAS — the panel doesn't change.
 
-- `client.config.ts` — one file per client: name, bundle IDs, domains, colors, feature flags, provider IDs.
-- Rename or template-ize: `capacitor.config.ts`, `AndroidManifest.xml`, `google-services.json`, iOS Info.plist, `index.html` meta, i18n brand strings, `useBranding` fallbacks.
-- Move Sashiko-specific screens (if any) to `src/overrides/sashiko/` so removing them for another client is a delete, not a hunt.
+### Phase 5 — Monitoring
+- Nightly edge function in panel pulls basic metrics (order count, errors) from each client's Supabase via stored service-role keys, writes to panel Supabase for the dashboard.
 
-This is a one-time ~1–2 day chore. Without it, every client fork will drift and "update all to latest template" is impossible.
+### Phase 6 — Per-client custom work (ongoing)
+- Open that client's Lovable project directly, edit `src/overrides/<client>/…`.
+- Feature flags in `client.config.ts` toggle template features on/off per client.
 
-## Phased build order
+## Costs you should know before starting
 
-**Phase 0 — Decide & inventory (0.5 day, chat only).** Confirm this plan. List the tenant-specific hardcoded strings you're aware of.
+- **Lovable projects at 10 clients**: 1 template + 1 panel + 10 clients = 12 projects. Confirm your workspace pricing tolerates this.
+- **Supabase projects at 10 clients**: 12 Supabase projects (each Lovable Cloud project = 1 Supabase project). Free tier caps and paid tier costs apply per project.
+- **Secrets storage**: per-client service role keys live in panel Supabase, encrypted at rest via the secrets tool. Rotation is manual per client for now.
+- **Store review time**: unchanged — every client, every submission, still goes through Apple/Google review individually.
 
-**Phase 1 — Template-ize Sashiko (Lovable, 1–2 days).** Introduce `client.config.ts`, move hardcoded values behind it, add `src/overrides/` convention, document what a client fork must change. Sashiko itself becomes "client #1" using the new system, still deployed to the current stores — no user-visible change.
+## What I need before Phase 1
 
-**Phase 2 — Fork tooling (Claude Code, 2–3 days).** Scripts that: create a new Supabase project via Management API, fork the template repo via GitHub API, write the new `client.config.ts`, seed initial data, wire secrets. Output: `npm run new-client -- --slug=foo` provisions a working staging copy in <10 min.
+1. Approve this plan.
+2. Confirm future clients' native apps go on **your** Apple/Google developer accounts or **each client's own** accounts. This changes how signing secrets are stored (one set vs. one per client) but doesn't change Lovable architecture.
+3. Name the feature flags you already know you'll need (loyalty, reservations, delivery, table booking, cashback). Cheap to define now, expensive to retrofit later.
 
-**Phase 3 — Operator panel MVP (Lovable, 3–5 days).** New Lovable project. Clients registry, list view, "provision" button that calls the Phase-2 script via a GitHub Actions dispatch, per-client metrics pulled nightly.
-
-**Phase 4 — Store submission pipeline (Claude Code + Fastlane, 2–4 days).** One Fastlane setup per platform, reused across clients. GitHub Action that takes a client slug + version and produces signed IPAs/AABs and uploads to TestFlight / Play Internal.
-
-**Phase 5 — "Update all to latest template" (Claude Code, 2 days).** Script that rebases each client repo onto latest template main, runs tests, opens a PR per client, and — on green + operator approval in the panel — merges and triggers a release. Overlays in `src/overrides/` survive because they don't touch template files.
-
-**Phase 6 — Per-client custom features (Lovable, ongoing).** Each client repo is its own Lovable project. Custom UI/features live under `src/overrides/<client>/` and behind feature flags read from the panel. Never edit template files inside a client repo — that's the discipline that keeps upgrades cheap.
-
-## Honest tradeoffs
-
-- **Cost:** 2 Lovable projects per client (template + client fork) plus 1 for the panel. At 10 clients that's 12 projects. Not free — factor it in.
-- **Custom feature request from one client:** default answer is "we build it under a feature flag in the template," not "we hack it into their fork." One-off fork-only code is where hybrid platforms die.
-- **Store review is still per client, per submission.** No platform removes that.
-- **The "one-line upgrade" is a lie the first two times.** Expect merge conflicts on the first 2–3 clients while you learn where the template's boundaries need to move. It settles down.
-
-## What I'd like from you before Phase 1
-
-1. Confirm the plan.
-2. Tell me: do the future clients need to run on **your** Apple/Google developer accounts (simpler, you own the listings) or on **each client's own** developer accounts (more paperwork, cleaner ownership)? This changes Phase 4 significantly.
-3. Any client-facing feature you already know will need to be a flag (loyalty on/off, reservations on/off, delivery on/off)? Cheap to list now, expensive to retrofit.
+Answer those three and I'll start Phase 1 in this project.
