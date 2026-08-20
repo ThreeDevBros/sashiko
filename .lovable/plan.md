@@ -1,32 +1,23 @@
-# Android 16 (API 36) Target Update — Release Phase
+# Clear the Android 16 (API 36) Policy Warning
 
-Google Play requires apps to target Android 16 (API level 36) for updates after Nov 1, 2026. The uploaded bundle `version 7 / 1.6` already contains the API 36 fix, but it is currently **Inactive** in Play Console. The policy warning will only clear once this bundle is rolled out to production.
+No code changes are needed. `android/variables.gradle` already targets API 36 and `android/app/build.gradle` is at versionCode 6 / versionName 1.6. The warning stays until the API 36 bundle is actually **live in production at 100%**.
 
-## Current state
+The Play Console notification "Your recent app update has been approved and is ready for you to publish" means the release passed review but has **not been published yet**.
 
-- Latest production release: **6 (1.5)** — Active, 80% install base.
-- Uploaded but inactive bundle: **7 (1.6)** — needs to be promoted to a release track.
+## Steps in Play Console
 
-## Play Console release steps
+1. Open **Publishing overview** (from the notification link).
+2. You will see changes listed as "Ready to publish". Click **Send changes for review / Publish changes** to release them.
+3. Go to **Test and release > Production** and confirm the API 36 bundle is the active release with rollout at **100%** (not halted, not staged at a lower percentage).
+4. Under **Test and release > App bundle explorer**, check the live bundle's **Target SDK = 36**.
+5. Confirm no older, still-active release (e.g. 1.5 targeting API 35) remains on any active track (production, open, closed, internal). Any active track with API 35 keeps the warning alive — deactivate or replace those releases too.
+6. After the API 36 release is 100% live, the warning on **Policy status** clears automatically, usually within a few hours (occasionally up to ~24h).
 
-1. In **Latest releases and bundles**, click the arrow on the right of the **7 / 1.6** row (or go to **Production** > **Create release**).
-2. Choose **Production** as the track.
-3. Select the existing **7 / 1.6** App Bundle (AAB) for the release.
-4. Fill in the release notes:
-   - Title: `Target Android 16 (API 36) update`
-   - Body: `Updated target SDK to Android 16 (API 36) to comply with Google Play policy.`
-5. Review the release. Confirm:
-   - Target SDK is **36**.
-   - No new permissions or feature changes are introduced.
-6. Start the **full rollout** to all countries (currently 176 of 177).
-7. Wait for review. For a target-SDK-only bump, review is usually quick, but it can take from a few hours up to a couple of days.
-8. Once the release is **live and rolled out to 100%**, the policy warning on the Dashboard will clear within a few hours.
+## If it still shows after rollout is 100%
 
-## After release is live
+- The warning text names your "highest non-compliant target API level". If it still says 35, an older bundle is still active on some track — find it in App bundle explorer and retire that track's release.
+- Play Console policy status is a cached report; it can lag a day. If the release is 100% live with target 36 on every active track and the warning persists after ~48h, use **Get support** from that same Policy status page.
 
-- No code changes are needed on the repo side; the uploaded bundle already contains the API 36 target.
-- Future local builds: remember that Play Console already has `versionCode 7`, so your next build must use `versionCode 8` or higher before you can upload again.
+## Repo note
 
-## Rollback plan
-
-If the new release causes issues, you can pause the rollout in Play Console and re-promote the previous production release **6 (1.5)**. Note that older releases target API 35, so you can only use them temporarily; a permanent fix must still target API 36.
+Play Console now holds versionCode 7 (the uploaded bundle) while the repo says 6. Before the next upload, bump `android/app/build.gradle` to versionCode 8 or higher. Say the word and I can bump it now so the repo can't collide on the next build.
