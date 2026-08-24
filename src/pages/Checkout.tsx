@@ -4,6 +4,8 @@ import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
 import { CheckoutSection } from '@/components/checkout/CheckoutSection';
 import { FloatingLabelTextarea } from '@/components/checkout/FloatingLabelField';
+import { OutOfRangeNotice } from '@/components/checkout/OutOfRangeNotice';
+
 import { ChevronLeft, Bike, ShoppingBag, Clock, Loader2, Navigation, Coins, CalendarIcon, AlertTriangle as AlertTriangleIcon, MapPin, MapPinned, Store, Info } from "lucide-react";
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import { format, addDays } from "date-fns";
