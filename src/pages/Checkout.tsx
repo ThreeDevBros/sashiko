@@ -900,8 +900,8 @@ const Checkout = () => {
         </Card>
 
         {/* When */}
-        <Card className="p-4">
-          <h2 className="font-semibold mb-4">{t('checkout.when')}</h2>
+        <CheckoutSection title={t('checkout.when')}>
+
           <RadioGroup value={deliveryTiming} onValueChange={(value: any) => {
             setDeliveryTiming(value);
             if (value === 'standard') setScheduleError('');
