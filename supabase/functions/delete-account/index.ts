@@ -38,45 +38,52 @@ serve(async (req) => {
 
     const uid = user.id;
 
-    // Cascade-delete all user-related data before removing the auth user
+    // Cascade-delete all user-related data before removing the auth user.
+    // Table/column names must match the real schema — a mismatch here would
+    // silently leave personal data behind after "account deletion".
     const tablesToClean = [
       { table: "order_items", fk: "order_id", subquery: true },
+      { table: "live_activity_tokens", fk: "user_id" },
+      { table: "driver_locations", fk: "driver_id" },
       { table: "orders", fk: "user_id" },
-      { table: "reservations", fk: "user_id" },
-      { table: "cashback_transactions", fk: "user_id" },
+      { table: "table_reservations", fk: "user_id" },
       { table: "user_addresses", fk: "user_id" },
       { table: "user_roles", fk: "user_id" },
       { table: "user_permissions", fk: "user_id" },
-      { table: "push_devices", fk: "user_id" },
-      { table: "saved_cards", fk: "user_id" },
+      { table: "push_device_tokens", fk: "user_id" },
       { table: "profiles", fk: "id" },
     ];
 
     for (const entry of tablesToClean) {
-      try {
-        if (entry.subquery) {
-          // Delete order_items for this user's orders
-          const { data: userOrders } = await supabaseAdmin
-            .from("orders")
-            .select("id")
-            .eq("user_id", uid);
+      if (entry.subquery) {
+        // Delete order_items for this user's orders
+        const { data: userOrders, error: ordersError } = await supabaseAdmin
+          .from("orders")
+          .select("id")
+          .eq("user_id", uid);
 
-          if (userOrders && userOrders.length > 0) {
-            const orderIds = userOrders.map((o: any) => o.id);
-            await supabaseAdmin
-              .from("order_items")
-              .delete()
-              .in("order_id", orderIds);
-          }
-        } else {
-          await supabaseAdmin
-            .from(entry.table)
-            .delete()
-            .eq(entry.fk, uid);
+        if (ordersError) {
+          throw new Error(`Failed to read orders during deletion: ${ordersError.message}`);
         }
-      } catch (e) {
-        // Log but don't fail — table may not exist or have no rows
-        console.warn(`[delete-account] Failed to clean ${entry.table}:`, e);
+
+        if (userOrders && userOrders.length > 0) {
+          const orderIds = userOrders.map((o: any) => o.id);
+          const { error: itemsError } = await supabaseAdmin
+            .from("order_items")
+            .delete()
+            .in("order_id", orderIds);
+          if (itemsError) {
+            throw new Error(`Failed to clean order_items: ${itemsError.message}`);
+          }
+        }
+      } else {
+        const { error: delError } = await supabaseAdmin
+          .from(entry.table)
+          .delete()
+          .eq(entry.fk, uid);
+        if (delError) {
+          throw new Error(`Failed to clean ${entry.table}: ${delError.message}`);
+        }
       }
     }
 
@@ -86,6 +93,7 @@ serve(async (req) => {
     if (deleteError) {
       throw deleteError;
     }
+
 
     return new Response(
       JSON.stringify({ success: true, message: "Account deleted successfully" }),
