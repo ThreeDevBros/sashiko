@@ -301,7 +301,7 @@ const Auth = () => {
       setSignupEmail(email);
       setShowOtpVerification(true);
       haptics.success();
-      toast.success("Verification code sent to your email!");
+      toast.success("Verification email sent — check your inbox!");
     } catch (error: any) {
       console.error('[Auth] Sign up failed:', error);
       showAuthError(error, t('auth.createFailed'));
