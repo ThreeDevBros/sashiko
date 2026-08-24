@@ -729,7 +729,8 @@ const Checkout = () => {
               </AlertDescription>
             </Alert>
           )}
-        </Card>
+        </CheckoutSection>
+
 
         {/* Delivery Address Display */}
         {orderType === 'delivery' && (
