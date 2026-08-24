@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendFcmV2 } from "../_shared/fcm-v2.ts";
 import { sendLiveActivityUpdate } from "../_shared/apns-live-activity.ts";
+import { requireRole, STAFF_ROLES } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,6 +64,10 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Only staff/admin/driver accounts may push order updates to customers
+    const authResult = await requireRole(req, supabase, STAFF_ROLES, corsHeaders);
+    if ('response' in authResult) return authResult.response;
 
     const { order_id, new_status } = await req.json();
     if (!order_id || !new_status) {

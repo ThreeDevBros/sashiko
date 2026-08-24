@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@14.21.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { computeOrderPricing } from '../_shared/order-pricing.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -132,27 +133,43 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
 
-    // SERVER-SIDE PRICE VERIFICATION
-    const { priceMap, subtotal } = await getVerifiedPrices(supabaseAdmin, items, branch_id);
+    // SERVER-SIDE VERIFICATION: prices, tax and delivery fee recomputed from DB
+    const pricing = await computeOrderPricing(supabaseAdmin, {
+      items,
+      branchId: branch_id,
+      orderType: order_type,
+      deliveryAddressId: delivery_address_id,
+      clientDeliveryFee,
+    });
 
-    const tax = clientTax !== undefined ? clientTax : subtotal * 0.1;
-    const deliveryFee = order_type === 'delivery' ? clientDeliveryFee : 0;
-    const total = subtotal + tax + deliveryFee;
+    const priceMap = pricing.itemMap;
+    const { subtotal, tax, deliveryFee } = pricing;
+    const serviceFee = pricing.serviceFee;
+    const total = pricing.total;
 
     const stripeCurrency = requestCurrency.toLowerCase();
 
-    // Create Stripe line items using verified prices
-    const line_items = items.map((item) => ({
-      price_data: {
-        currency: stripeCurrency,
-        product_data: {
-          name: priceMap.get(item.id)?.name || item.name,
-          images: item.image_url ? [item.image_url] : [],
+    // Create Stripe line items using verified, tax-exclusive unit prices so the
+    // separate tax line never double-charges tax-inclusive items.
+    const line_items = items.map((item) => {
+      const verified = priceMap.get(item.id);
+      const rate = verified?.tax_rate ?? null;
+      const gross = verified?.price ?? 0;
+      const net = verified?.tax_included_in_price && rate != null
+        ? gross / (1 + rate / 100)
+        : gross;
+      return {
+        price_data: {
+          currency: stripeCurrency,
+          product_data: {
+            name: verified?.name || item.name,
+            images: item.image_url ? [item.image_url] : [],
+          },
+          unit_amount: Math.round(net * 100),
         },
-        unit_amount: Math.round((priceMap.get(item.id)?.price ?? 0) * 100),
-      },
-      quantity: item.quantity,
-    }));
+        quantity: item.quantity,
+      };
+    });
 
     if (tax > 0) {
       line_items.push({
@@ -176,6 +193,18 @@ serve(async (req) => {
       });
     }
 
+    if (serviceFee > 0) {
+      line_items.push({
+        price_data: {
+          currency: stripeCurrency,
+          product_data: { name: 'Service Fee', images: [] },
+          unit_amount: Math.round(serviceFee * 100),
+        },
+        quantity: 1,
+      });
+    }
+
+
     const origin = req.headers.get('origin') || 'http://localhost:8080';
 
     const session = await stripe.checkout.sessions.create({
@@ -193,6 +222,8 @@ serve(async (req) => {
         subtotal: subtotal.toString(),
         tax: tax.toString(),
         delivery_fee: deliveryFee.toString(),
+        service_fee: serviceFee.toString(),
+        total: total.toString(),
         items: JSON.stringify(items),
       },
     });

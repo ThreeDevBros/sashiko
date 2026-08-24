@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireRole } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -123,6 +124,10 @@ serve(async (req) => {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+      // Persisting rating/place data to a branch is an admin/manager action
+      const authResult = await requireRole(req, supabase, ['admin', 'manager', 'branch_manager'], corsHeaders);
+      if ('response' in authResult) return authResult.response;
 
       const { error: updateError } = await supabase
         .from('branches')
