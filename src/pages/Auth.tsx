@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useTheme } from "@/components/ThemeProvider";
 import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
 import EmailSentNotice from "@/components/auth/EmailSentNotice";
+import { authRedirectUrl, siteUrl } from "@/config/site";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { PasswordChecklist } from "@/components/auth/PasswordChecklist";
 import { useHaptics } from "@/hooks/useHaptics";
