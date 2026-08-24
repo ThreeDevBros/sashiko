@@ -886,18 +886,21 @@ const Checkout = () => {
         />
 
         {/* Order Instructions */}
-        <Card className="p-4">
-          <h2 className="font-semibold mb-3">{t('checkout.orderInstructions')} <span className="text-muted-foreground font-normal text-sm">({t('checkout.orderInstructionsOptional')})</span></h2>
+        <CheckoutSection
+          title={t('checkout.orderInstructions')}
+          note={`(${t('checkout.orderInstructionsOptional')})`}
+        >
           <textarea
             value={orderInstructions}
             onChange={(e) => setOrderInstructions(e.target.value.slice(0, 300))}
             placeholder="e.g. Gate code, floor, ring the bell, leave at the door, call when outside…"
             maxLength={300}
             rows={3}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 resize-none max-h-32 overflow-y-auto"
+            className="flex w-full border-0 border-b border-border/60 bg-transparent px-0 py-2 text-sm placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:border-primary transition-colors disabled:cursor-not-allowed disabled:opacity-50 resize-none max-h-32 overflow-y-auto"
           />
-          <p className="text-xs text-muted-foreground text-right mt-1">{orderInstructions.length}/300</p>
-        </Card>
+          <p className="text-[11px] text-muted-foreground/70 text-right mt-1.5">{orderInstructions.length}/300</p>
+        </CheckoutSection>
+
 
         {/* When */}
         <CheckoutSection title={t('checkout.when')}>
