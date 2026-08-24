@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useTheme } from "@/components/ThemeProvider";
 import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
 import EmailSentNotice from "@/components/auth/EmailSentNotice";
+import { authRedirectUrl, siteUrl } from "@/config/site";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { PasswordChecklist } from "@/components/auth/PasswordChecklist";
 import { useHaptics } from "@/hooks/useHaptics";
@@ -298,12 +299,13 @@ const Auth = () => {
             full_name: fullName,
             phone: phone.trim(),
           },
-          // The email's "Verify Email" button lands here. On native we send the
-          // user to the public site (custom schemes aren't email-safe) with a
-          // flag so the page offers a deep link back into the app.
-          emailRedirectTo: Capacitor.isNativePlatform()
-            ? "https://sashikoasianfusion.com/auth/confirmed?src=app"
-            : `${window.location.origin}/auth/confirmed?src=web`,
+          // The email's "Verify Email" button always lands on our own domain
+          // (never a build/preview host). `src=app` makes /auth/confirmed
+          // offer a deep link back into the native app.
+          emailRedirectTo: authRedirectUrl(
+            "/auth/confirmed",
+            Capacitor.isNativePlatform() ? "app" : "web",
+          ),
         },
       });
 
@@ -421,7 +423,10 @@ const Auth = () => {
     setResetLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.resetPasswordForEmail(resetEmail);
+      // Keep recovery links on our own domain (no build/preview hosts).
+      const { data, error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: siteUrl("/"),
+      });
 
       if (error) {
         console.error("Password reset error:", error);

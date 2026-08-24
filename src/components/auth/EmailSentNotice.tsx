@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { authRedirectUrl } from "@/config/site";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +30,16 @@ const EmailSentNotice = ({ email, onBack }: EmailSentNoticeProps) => {
   const handleResend = async () => {
     setResendLoading(true);
     try {
-      const { error } = await supabase.auth.resend({ type: "signup", email });
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: authRedirectUrl(
+            "/auth/confirmed",
+            Capacitor.isNativePlatform() ? "app" : "web",
+          ),
+        },
+      });
       if (error) throw error;
       toast.success("We sent the verification email again");
       setCooldown(60);
