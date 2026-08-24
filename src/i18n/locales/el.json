@@ -410,5 +410,14 @@
     "rejectedReason": "Αιτία:",
     "noReason": "Δεν δόθηκε αιτία.",
     "okGotIt": "OK, Κατάλαβα"
+  },
+  "payment": {
+    "processingTitle": "Επεξεργασία πληρωμής",
+    "processingSubtitle": "Μην κλείσετε αυτή τη σελίδα",
+    "successTitle": "Η πληρωμή ολοκληρώθηκε",
+    "successSubtitle": "Μεταφορά στην παραγγελία σας",
+    "failedTitle": "Η πληρωμή απέτυχε",
+    "failedSubtitle": "Κάτι πήγε λάθος. Δοκιμάστε ξανά.",
+    "tryAgain": "Δοκιμάστε ξανά"
   }
 }
