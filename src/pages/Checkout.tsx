@@ -1241,11 +1241,9 @@ const Checkout = () => {
                   ? 'Add a delivery address to continue.'
                   : (orderType === 'delivery' && !canDeliver && !!selectedAddressId)
                     ? 'This address is outside the delivery area — switch to pickup or pick another address.'
-                    : (isGuest && (!guestInfo.name.trim() || !guestInfo.email.trim() || !guestInfo.phone.trim()))
-                      ? 'Fill in your name, email and phone to continue.'
-                      : (currentPaymentType === 'wallet' && !stripeReady)
-                        ? 'Preparing your wallet payment…'
-                        : null;
+                    : (currentPaymentType === 'wallet' && !stripeReady)
+                      ? 'Preparing your wallet payment…'
+                      : null;
             if (!blockReason) return null;
             return (
               <p className="mt-4 text-xs text-muted-foreground flex items-start gap-1.5">
