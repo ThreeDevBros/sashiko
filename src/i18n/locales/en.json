@@ -119,6 +119,7 @@
     "branchClosed": "This branch is currently closed. You can schedule your order for later or try again during operating hours",
     "branchBusyBtn": "Branch Busy",
     "branchClosedBtn": "Branch Closed",
+    "deliveryNotPossible": "Sorry, delivery not possible there",
     "checkingDelivery": "Checking delivery zone...",
     "freeDelivery": "Free",
     "useCashback": "Use Cashback",
