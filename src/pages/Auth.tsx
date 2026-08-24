@@ -649,6 +649,41 @@ const Auth = () => {
     );
   }
 
+  const socialRow = (
+    <div className="flex flex-col gap-3">
+      {showAppleButton && (
+        <button
+          type="button"
+          onClick={handleAppleSignIn}
+          disabled={socialPending !== null || loading}
+          aria-busy={socialPending === 'apple'}
+          className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-border/70 bg-transparent text-sm font-medium text-foreground transition-all hover:bg-foreground/[0.04] active:scale-[0.985] disabled:opacity-60"
+        >
+          {socialPending === 'apple' ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <FaApple className="h-[18px] w-[18px]" />
+          )}
+          {t('auth.continueWithApple')}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={handleGoogleSignIn}
+        disabled={socialPending !== null || loading}
+        aria-busy={socialPending === 'google'}
+        className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-border/70 bg-transparent text-sm font-medium text-foreground transition-all hover:bg-foreground/[0.04] active:scale-[0.985] disabled:opacity-60"
+      >
+        {socialPending === 'google' ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <FcGoogle className="!h-[18px] !w-[18px]" />
+        )}
+        {t('auth.continueWithGoogle')}
+      </button>
+    </div>
+  );
+
   return (
     <>
       {branding?.login_bg_color && (
@@ -656,220 +691,149 @@ const Auth = () => {
           aria-hidden="true"
           style={{
             position: 'fixed',
-            top: '-50vh',
-            left: '-50vw',
-            width: '200vw',
-            height: '200vh',
+            inset: 0,
             backgroundColor: 'hsl(var(--background))',
-            backgroundImage: `linear-gradient(135deg, hsl(var(--background)) 0%, ${branding.login_bg_color} 30%, ${branding.login_bg_color} 70%, hsl(var(--background)) 100%)`,
-            backgroundSize: '100vw 100vh',
-            backgroundPosition: '50vw 50vh',
-            backgroundRepeat: 'no-repeat',
+            backgroundImage: `radial-gradient(120% 80% at 50% -10%, ${branding.login_bg_color} 0%, transparent 70%)`,
             zIndex: 0,
             pointerEvents: 'none',
           }}
         />
       )}
-      <div 
-        className="fixed inset-0 w-screen overflow-hidden flex items-center justify-center p-4"
-        style={{
-          height: '100vh',
-          minHeight: '100vh',
-          overscrollBehavior: 'none',
-          paddingTop: 'max(1rem, env(safe-area-inset-top))',
-          paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
-          zIndex: 1,
-        }}
+      <div
+        className="fixed inset-0 z-[1] w-screen overflow-y-auto"
+        style={{ overscrollBehavior: 'none' }}
       >
-      {/* Food Pattern Background */}
-      <div className="absolute inset-0 opacity-10">
-        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="food-bg" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
-              <path d="M20 20 Q30 10 40 20 Q50 30 40 40 Q30 50 20 40 Z" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" opacity="0.3"/>
-              <circle cx="70" cy="30" r="8" stroke="hsl(var(--accent))" strokeWidth="2" fill="none" opacity="0.3"/>
-              <path d="M80 70 L90 80 M80 80 L90 70" stroke="hsl(var(--primary))" strokeWidth="2" opacity="0.3"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#food-bg)" />
-        </svg>
-      </div>
-
-      <div className="w-full max-w-md relative z-10 max-h-full overflow-hidden">
-        
-        {/* Logo Section */}
-        <div className="text-center mb-4 mt-4">
-          <div className="mx-auto mb-2 flex items-center justify-center" style={{ width: `${Math.min((branding as any)?.login_logo_size || 160, 300)}px`, height: `${Math.min((branding as any)?.login_logo_size || 160, 300)}px` }}>
-            <img 
-              src={branding?.login_logo_url || sashikoLogo} 
-              alt={branding?.tenant_name || "Sashiko Asian Fusion"} 
-              className="w-full h-full object-contain animate-enter invert dark:invert"
-            />
-          </div>
-          <p
-            className="text-xs"
-            style={{
-              color: (branding as any)?.login_tagline_color || undefined,
-              fontWeight: (branding as any)?.login_tagline_bold ? 'bold' : 'normal',
-              fontStyle: (branding as any)?.login_tagline_italic ? 'italic' : 'normal',
-              textDecoration: (branding as any)?.login_tagline_underline ? 'underline' : 'none',
-            }}
-          >
-            {(branding as any)?.login_tagline || 'Authentic Asian Cuisine'}
-          </p>
-        </div>
-
-        <Card className="w-full bg-card/95 backdrop-blur-xl border-border/50">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl font-bold text-center text-foreground">
-              {activeTab === 'signin' ? t('auth.welcomeBackTitle') : t('auth.createAccountTitle')}
-            </CardTitle>
-            <CardDescription className="text-center text-xs">
-              {activeTab === 'signin' ? t('auth.signInSubtitle') : t('auth.signUpSubtitle')}
-            </CardDescription>
-          </CardHeader>
-
-        <CardContent>
-          <Tabs
-            value={activeTab}
-            className="w-full"
-            onValueChange={(v) => { setActiveTab(v as 'signin' | 'signup'); setAuthError(null); }}
-          >
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
-              <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
-            </TabsList>
-
-            {authError && (
-              <div
-                role="alert"
-                aria-live="polite"
-                className="mt-3 w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 flex items-start gap-2"
-              >
-                <span className="text-base leading-none mt-0.5">⚠️</span>
-                <p className="text-destructive text-xs font-medium flex-1 break-words">
-                  {authError}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setAuthError(null)}
-                  className="text-destructive/70 hover:text-destructive text-xs leading-none mt-0.5"
-                  aria-label="Dismiss"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            <TabsContent
-              value="signin"
-              className="data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-left-6 data-[state=active]:duration-300 data-[state=active]:ease-out"
+        <div
+          className="mx-auto flex min-h-full w-full max-w-md flex-col px-7"
+          style={{
+            paddingTop: 'max(2.5rem, calc(env(safe-area-inset-top) + 1.5rem))',
+            paddingBottom: 'max(1.75rem, env(safe-area-inset-bottom))',
+          }}
+        >
+          {/* Brand */}
+          <div className="mb-10 flex flex-col items-center text-center">
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: `${Math.min((branding as any)?.login_logo_size || 150, 300)}px`,
+                height: `${Math.min((branding as any)?.login_logo_size || 150, 300)}px`,
+              }}
             >
-              <form onSubmit={handleSignIn} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="signin-email" className="sr-only">{t('auth.email')}</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder={t('auth.email')}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoFocus={!isMobile}
-                    autoComplete="email"
-                    inputMode="email"
-                    enterKeyHint="next"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    className="h-9 rounded-lg bg-muted/50 border-border/30 placeholder:text-muted-foreground/60"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="signin-password" className="sr-only">{t('auth.password')}</Label>
-                  <PasswordField
-                    id="signin-password"
-                    placeholder={t('auth.password')}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
-                    enterKeyHint="go"
-                    className="h-9 rounded-lg bg-muted/50 border-border/30"
-                  />
-                </div>
+              <img
+                src={branding?.login_logo_url || sashikoLogo}
+                alt={branding?.tenant_name || 'Sashiko Asian Fusion'}
+                className="h-full w-full animate-enter object-contain invert dark:invert"
+              />
+            </div>
+            <p
+              className="mt-1 text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground"
+              style={{
+                color: (branding as any)?.login_tagline_color || undefined,
+                fontWeight: (branding as any)?.login_tagline_bold ? 'bold' : undefined,
+                fontStyle: (branding as any)?.login_tagline_italic ? 'italic' : undefined,
+                textDecoration: (branding as any)?.login_tagline_underline ? 'underline' : undefined,
+              }}
+            >
+              {(branding as any)?.login_tagline || 'Authentic Asian Cuisine'}
+            </p>
+          </div>
 
-                <Button
-                  type="submit"
-                  className="w-full h-9 rounded-lg text-sm font-semibold"
-                  disabled={loading || socialPending !== null}
-                  aria-busy={loading}
-                >
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {t('auth.login')}
-                </Button>
+          {/* Social first — fastest path in */}
+          {socialRow}
 
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border/30" />
-                  </div>
-                  <div className="relative flex justify-center text-xs">
-                    <span className="bg-card px-3 text-foreground font-medium">
-                      {t('auth.or')}
-                    </span>
-                  </div>
-                </div>
+          <div className="my-8 flex items-center gap-4">
+            <span className="h-px flex-1 bg-border/60" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              {t('auth.or')}
+            </span>
+            <span className="h-px flex-1 bg-border/60" />
+          </div>
 
-                <div className="grid grid-cols-1 gap-3">
-                  {showAppleButton && (
-                    <button
-                      type="button"
-                      onClick={handleAppleSignIn}
-                      disabled={socialPending !== null || loading}
-                      aria-busy={socialPending === 'apple'}
-                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95 disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
-                    >
-                      {socialPending === 'apple' ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <FaApple className={appleIconClass} />
-                      )}
-                      {t('auth.continueWithApple')}
-                    </button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleGoogleSignIn}
-                    disabled={socialPending !== null || loading}
-                    aria-busy={socialPending === 'google'}
-                    className="h-9 rounded-lg bg-[#4285F4] hover:bg-[#3b78e7] dark:bg-[#4285F4] dark:hover:bg-[#3b78e7] border-none text-white dark:text-white text-sm font-semibold shadow-md"
-                  >
-                    {socialPending === 'google' ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <div className="mr-2 bg-white rounded-full w-6 h-6 flex items-center justify-center">
-                        <FcGoogle className="!h-5 !w-5" />
-                      </div>
-                    )}
-                    {t('auth.continueWithGoogle')}
-                  </Button>
-                </div>
-                
+          {/* Sign in / Sign up switch */}
+          <div className="mb-8 flex border-b border-border/60">
+            {(['signin', 'signup'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => { setActiveTab(tab); setAuthError(null); haptics.light(); }}
+                className={`relative flex-1 pb-3 font-editorial text-2xl leading-none transition-colors duration-200 ${
+                  activeTab === tab ? 'text-foreground' : 'text-muted-foreground/60 hover:text-muted-foreground'
+                }`}
+              >
+                {tab === 'signin' ? t('auth.signIn') : t('auth.signUp')}
+                <span
+                  aria-hidden
+                  className={`absolute -bottom-px left-0 h-[2px] w-full bg-primary transition-transform duration-300 ease-out ${
+                    activeTab === tab ? 'scale-x-100' : 'scale-x-0'
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+
+          {authError && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="mb-6 flex items-start gap-2 border-l-2 border-destructive pl-3"
+            >
+              <p className="flex-1 break-words text-xs font-medium text-destructive">{authError}</p>
+              <button
+                type="button"
+                onClick={() => setAuthError(null)}
+                className="text-xs leading-none text-destructive/70 hover:text-destructive"
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'signin' ? (
+            <form
+              key="signin"
+              onSubmit={handleSignIn}
+              className="flex flex-col gap-5 animate-in fade-in-0 slide-in-from-left-6 duration-300 ease-out"
+            >
+              <AuthField
+                id="signin-email"
+                label={t('auth.email')}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus={!isMobile}
+                autoComplete="email"
+                inputMode="email"
+                enterKeyHint="next"
+                autoCapitalize="none"
+                spellCheck={false}
+              />
+              <AuthField
+                id="signin-password"
+                label={t('auth.password')}
+                reveal
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                enterKeyHint="go"
+              />
+
+              <div className="flex justify-end">
                 <Dialog
                   open={resetDialogOpen}
                   onOpenChange={(o) => { setResetDialogOpen(o); if (o && email) setResetEmail(email); }}
                 >
                   <DialogTrigger asChild>
-                    <Button variant="link" className="w-full text-xs text-primary">
+                    <button type="button" className="text-xs text-muted-foreground transition-colors hover:text-primary">
                       {t('auth.forgotPassword')}
-                    </Button>
+                    </button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>{t('auth.resetPassword')}</DialogTitle>
-                      <DialogDescription>
-                        {t('auth.resetPasswordDesc')}
-                      </DialogDescription>
+                      <DialogDescription>{t('auth.resetPasswordDesc')}</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handlePasswordReset} className="space-y-3">
                       <div className="space-y-1.5">
@@ -895,207 +859,147 @@ const Auth = () => {
                     </form>
                   </DialogContent>
                 </Dialog>
-              </form>
-            </TabsContent>
+              </div>
 
-            <TabsContent
-              value="signup"
-              className="data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-right-6 data-[state=active]:duration-300 data-[state=active]:ease-out"
+              <button
+                type="submit"
+                disabled={loading || socialPending !== null}
+                aria-busy={loading}
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold tracking-wide text-primary-foreground shadow-[0_8px_24px_-12px_hsl(var(--primary))] transition-all hover:opacity-95 active:scale-[0.985] disabled:opacity-60"
+              >
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t('auth.login')}
+              </button>
+            </form>
+          ) : (
+            <form
+              key="signup"
+              onSubmit={handleSignUp}
+              className="flex flex-col gap-5 animate-in fade-in-0 slide-in-from-right-6 duration-300 ease-out"
             >
-              <form onSubmit={handleSignUp} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="signup-name" className="sr-only">{t('auth.fullName')}</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder={t('auth.fullName')}
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    autoComplete="name"
-                    autoCapitalize="words"
-                    enterKeyHint="next"
-                    className="h-9 rounded-lg bg-muted/50 border-border/30 placeholder:text-muted-foreground/60"
+              <AuthField
+                id="signup-name"
+                label={t('auth.fullName')}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                autoComplete="name"
+                autoCapitalize="words"
+                enterKeyHint="next"
+              />
+              <AuthField
+                id="signup-email"
+                label={t('auth.email')}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                inputMode="email"
+                enterKeyHint="next"
+                autoCapitalize="none"
+                spellCheck={false}
+              />
+              <AuthField
+                id="signup-phone"
+                label={t('auth.phone')}
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+                autoComplete="tel"
+                inputMode="tel"
+                enterKeyHint="next"
+              />
+              <div className="flex flex-col gap-2">
+                <AuthField
+                  id="signup-password"
+                  label={t('auth.password')}
+                  reveal
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={12}
+                  autoComplete="new-password"
+                  enterKeyHint="next"
+                />
+                <PasswordChecklist value={password} />
+              </div>
+
+              <div
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{
+                  maxHeight: showConfirmField ? '96px' : '0px',
+                  opacity: showConfirmField ? 1 : 0,
+                  transform: showConfirmField ? 'translateY(0)' : 'translateY(-8px)',
+                }}
+              >
+                <AuthField
+                  id="signup-confirm-password"
+                  label={t('auth.confirmPassword')}
+                  reveal
+                  value={signupConfirmPassword}
+                  onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  enterKeyHint="go"
+                />
+                {signupConfirmPassword.length > 0 && !passwordsMatch && (
+                  <p className="mt-1.5 text-[10px] text-destructive">Passwords do not match</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={!canCreateAccount || socialPending !== null}
+                aria-busy={loading}
+                className="relative inline-flex h-12 w-full items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold tracking-wide text-primary-foreground shadow-[0_8px_24px_-12px_hsl(var(--primary))] transition-all hover:opacity-95 active:scale-[0.985] disabled:opacity-50"
+              >
+                {signupCooldown > 0 && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 left-0 bg-primary-foreground/15 transition-[width] duration-1000 ease-linear"
+                    style={{ width: `${(signupCooldown / Math.max(signupCooldown, 30)) * 100}%` }}
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="signup-email" className="sr-only">{t('auth.email')}</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder={t('auth.email')}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                    inputMode="email"
-                    enterKeyHint="next"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    className="h-9 rounded-lg bg-muted/50 border-border/30 placeholder:text-muted-foreground/60"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="signup-phone" className="sr-only">{t('auth.phone')}</Label>
-                  <Input
-                    id="signup-phone"
-                    type="tel"
-                    placeholder={t('auth.phone')}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                    autoComplete="tel"
-                    inputMode="tel"
-                    enterKeyHint="next"
-                    className="h-9 rounded-lg bg-muted/50 border-border/30 placeholder:text-muted-foreground/60"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="signup-password" className="sr-only">{t('auth.password')}</Label>
-                  <PasswordField
-                    id="signup-password"
-                    placeholder={t('auth.password')}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={12}
-                    autoComplete="new-password"
-                    enterKeyHint="next"
-                    className="h-9 rounded-lg bg-muted/50 border-border/30"
-                  />
-                  <PasswordChecklist value={password} />
+                )}
+                <span className="relative flex items-center justify-center gap-2">
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {signupCooldown > 0 ? `Try again in ${signupCooldown}s` : t('auth.createAccount')}
+                </span>
+              </button>
+            </form>
+          )}
 
-                </div>
-                <div
-                  className="overflow-hidden transition-all duration-300 ease-in-out"
-                  style={{
-                    maxHeight: showConfirmField ? '80px' : '0px',
-                    opacity: showConfirmField ? 1 : 0,
-                    transform: showConfirmField ? 'translateY(0)' : 'translateY(-8px)',
-                  }}
-                >
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-confirm-password" className="sr-only">{t('auth.confirmPassword')}</Label>
-                    <PasswordField
-                      id="signup-confirm-password"
-                      placeholder={t('auth.confirmPassword')}
-                      value={signupConfirmPassword}
-                      onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                      autoComplete="new-password"
-                      enterKeyHint="go"
-                      className="h-9 rounded-lg bg-muted/50 border-border/30"
-                    />
-                    {signupConfirmPassword.length > 0 && !passwordsMatch && (
-                      <p className="text-[10px] text-destructive">
-                        Passwords do not match
-                      </p>
-                    )}
-                  </div>
-                </div>
+          {/* Guest */}
+          <div className="pt-7 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('guestMode', 'true');
+                navigate('/');
+              }}
+              className="border-b border-primary/30 pb-0.5 text-sm font-medium text-primary transition-colors hover:border-primary"
+            >
+              {t('auth.continueAsGuest')}
+            </button>
+          </div>
 
-                <Button
-                  type="submit"
-                  className="relative w-full h-9 rounded-lg text-sm font-semibold overflow-hidden"
-                  disabled={!canCreateAccount || socialPending !== null}
-                  aria-busy={loading}
-                >
-                  {/* Cooldown fill: sweeps from 100% -> 0% while the button is
-                      locked, giving the user a visible sense of remaining time. */}
-                  {signupCooldown > 0 && (
-                    <span
-                      aria-hidden
-                      className="absolute inset-0 bg-primary-foreground/15 transition-[width] duration-1000 ease-linear pointer-events-none"
-                      style={{ width: `${(signupCooldown / Math.max(signupCooldown, 30)) * 100}%` }}
-                    />
-                  )}
-                  <span className="relative flex items-center justify-center gap-2">
-                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {signupCooldown > 0
-                      ? `Try again in ${signupCooldown}s`
-                      : t('auth.createAccount')}
-                  </span>
-                </Button>
-
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border/30" />
-                  </div>
-                  <div className="relative flex justify-center text-xs">
-                    <span className="bg-card px-3 text-foreground font-medium">
-                      {t('auth.or')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3">
-                  {showAppleButton && (
-                    <button
-                      type="button"
-                      onClick={handleAppleSignIn}
-                      disabled={socialPending !== null || loading}
-                      aria-busy={socialPending === 'apple'}
-                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95 disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
-                    >
-                      {socialPending === 'apple' ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <FaApple className={appleIconClass} />
-                      )}
-                      {t('auth.continueWithApple')}
-                    </button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleGoogleSignIn}
-                    disabled={socialPending !== null || loading}
-                    aria-busy={socialPending === 'google'}
-                    className="h-9 rounded-lg bg-[#4285F4] hover:bg-[#3b78e7] dark:bg-[#4285F4] dark:hover:bg-[#3b78e7] border-none text-white dark:text-white text-sm font-semibold shadow-md"
-                  >
-                    {socialPending === 'google' ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <div className="mr-2 bg-white rounded-full w-6 h-6 flex items-center justify-center">
-                        <FcGoogle className="!h-5 !w-5" />
-                      </div>
-                    )}
-                    {t('auth.continueWithGoogle')}
-                  </Button>
-                </div>
-
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              localStorage.setItem('guestMode', 'true');
-              navigate('/');
-            }}
-            className="mt-3 w-full h-9 rounded-lg text-sm font-semibold"
-          >
-            {t('auth.continueAsGuest')}
-          </Button>
-        </CardContent>
-
-        <CardFooter className="flex flex-col gap-2">
-          <p className="text-xs text-center text-muted-foreground w-full">
-            By continuing, you agree to our{' '}
-            <button type="button" onClick={() => navigate('/legal/terms')} className="underline hover:text-foreground transition-colors">Terms of Service</button>
-            {' '}and{' '}
-            <button type="button" onClick={() => navigate('/legal/privacy')} className="underline hover:text-foreground transition-colors">Privacy Policy</button>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {branding?.tenant_name || 'Sashiko'} © {new Date().getFullYear()} · All rights reserved
-          </p>
-        </CardFooter>
-        </Card>
+          {/* Legal */}
+          <div className="mt-auto pt-12 text-center">
+            <p className="text-[10px] uppercase leading-relaxed tracking-[0.12em] text-muted-foreground/70">
+              By continuing, you agree to our{' '}
+              <button type="button" onClick={() => navigate('/legal/terms')} className="underline">Terms of Service</button>
+              {' '}&{' '}
+              <button type="button" onClick={() => navigate('/legal/privacy')} className="underline">Privacy Policy</button>
+            </p>
+            <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground/50">
+              {branding?.tenant_name || 'Sashiko'} © {new Date().getFullYear()}
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
     </>
   );
 };
+
 
 export default Auth;
