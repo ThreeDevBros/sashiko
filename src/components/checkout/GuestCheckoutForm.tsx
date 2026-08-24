@@ -18,7 +18,6 @@ export const GuestCheckoutForm = ({ guestInfo, onGuestInfoChange, errors }: Gues
 
       <div className="space-y-4">
         <FloatingLabelInput
-          containerClassName="[&>div]:w-full"
           data-field="guest-name"
           id="guest-name"
           label="Full Name"
