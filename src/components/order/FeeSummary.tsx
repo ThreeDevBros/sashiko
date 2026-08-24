@@ -9,7 +9,7 @@ interface FeeSummaryProps {
   deliveryFee: number | null;
   tax: number;
   total: number;
-  /** Renders the delivery row as "Free delivery" instead of a 0 amount. */
+  /** Kept for backwards compatibility; any zero fee is now rendered as "Free". */
   isFreeDelivery?: boolean;
   /** Shown when the delivery fee is still an estimate (distance unknown). */
   deliveryNote?: string;
@@ -17,6 +17,8 @@ interface FeeSummaryProps {
   showTotal?: boolean;
   className?: string;
 }
+
+const isZero = (amount: number) => Math.round(amount * 100) <= 0;
 
 /**
  * Single source of truth for how the money breakdown is rendered, shared by
@@ -36,15 +38,24 @@ export const FeeSummary = ({
 }: FeeSummaryProps) => {
   const { t } = useTranslation();
 
+  const FeeValue = ({ amount, forceFree = false }: { amount: number; forceFree?: boolean }) => {
+    if (forceFree || isZero(amount)) {
+      return <span className="font-medium text-primary">{t('checkout.free')}</span>;
+    }
+    return <span>{formatCurrency(amount, currency)}</span>;
+  };
+
+  const deliveryIsFree = deliveryFee !== null && (isFreeDelivery || isZero(deliveryFee));
+
   return (
     <div className={`space-y-2 ${className}`}>
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">{t('checkout.subtotal')}</span>
-        <span>{formatCurrency(subtotal, currency)}</span>
+        <FeeValue amount={subtotal} />
       </div>
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">{t('checkout.serviceFee')}</span>
-        <span>{formatCurrency(serviceFee, currency)}</span>
+        <FeeValue amount={serviceFee} />
       </div>
       {deliveryFee !== null && (
         <div className="flex justify-between text-sm">
@@ -54,21 +65,20 @@ export const FeeSummary = ({
               <span className="text-xs text-muted-foreground/70"> · {deliveryNote}</span>
             )}
           </span>
-          <span className={isFreeDelivery ? 'font-medium text-primary' : ''}>
-            {isFreeDelivery ? t('checkout.freeDelivery') : formatCurrency(deliveryFee, currency)}
-          </span>
+          <FeeValue amount={deliveryFee} forceFree={deliveryIsFree} />
         </div>
       )}
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">{t('checkout.tax')}</span>
-        <span>{formatCurrency(tax, currency)}</span>
+        <FeeValue amount={tax} />
       </div>
       {showTotal && (
         <div className="flex justify-between border-t border-border pt-2 font-bold">
           <span>{t('checkout.grandTotal')}</span>
-          <span>{formatCurrency(total, currency)}</span>
+          <FeeValue amount={total} />
         </div>
       )}
     </div>
   );
 };
+
