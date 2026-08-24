@@ -32,7 +32,7 @@ const Order = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <header className="bg-background pt-safe pb-3 px-4">
+      <header className="bg-background pt-safe pb-1 px-4">
         <div className="pt-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">

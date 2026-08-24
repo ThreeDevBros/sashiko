@@ -195,7 +195,7 @@ export default function Profile() {
   if (loading) {
     return (
       <div className="min-h-screen pb-20 pt-safe">
-        <main className="container mx-auto px-4 py-8 max-w-2xl">
+        <main className="container mx-auto px-4 pt-3 pb-8 max-w-2xl">
           <div className="mb-6"><BackButton /></div>
           <div className="h-8 w-40 bg-muted animate-pulse rounded mb-6" />
           <div className="space-y-4">
@@ -214,7 +214,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen pb-20 pt-safe">
       <FloatingBranchWidget />
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
+      <main className="container mx-auto px-4 pt-3 pb-8 max-w-2xl">
         <div className="mb-6">
           <BackButton />
         </div>

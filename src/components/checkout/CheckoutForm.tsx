@@ -828,7 +828,7 @@ export const CheckoutForm = ({
           
           {/* Payment Method Drawer - Always visible so user can switch */}
           {(
-          <Drawer open={isPaymentDrawerOpen} onOpenChange={setIsPaymentDrawerOpen} shouldScaleBackground={false}>
+          <Drawer open={isPaymentDrawerOpen} onOpenChange={setIsPaymentDrawerOpen} shouldScaleBackground={false} noBodyStyles repositionInputs={false}>
             <DrawerTrigger asChild>
               <button 
                 type="button"
@@ -849,7 +849,7 @@ export const CheckoutForm = ({
               </button>
             </DrawerTrigger>
             
-            <DrawerContent className="z-[100] max-h-[86vh] rounded-t-2xl">
+            <DrawerContent className="z-[100] max-h-[min(86dvh,720px)] rounded-t-2xl">
               <DrawerHeader className="pb-2">
                 <DrawerTitle>Select Payment Method</DrawerTitle>
                 <DrawerDescription>Choose the option that works best for this order</DrawerDescription>
