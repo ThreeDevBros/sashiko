@@ -157,7 +157,17 @@ export async function nativeGoogleSignIn(): Promise<{ error: Error | null }> {
       return { error: null };
     }
     // Preserve the original code on the returned Error so the UI can map it.
-    const wrapped = new Error(message) as Error & { code?: string };
+    // Surface the raw native code in the message too: on Android, code 10
+    // (DEVELOPER_ERROR) / 12500 means the SHA-1 fingerprint or server_client_id
+    // registered in Google Cloud does not match this build.
+    let hint = '';
+    if (platform === 'android' && (code === '10' || code === '12500')) {
+      hint =
+        ' — Android OAuth client mismatch (DEVELOPER_ERROR): the app signing SHA-1 fingerprint or web client ID is not registered for com.sashiko.app.';
+    }
+    const wrapped = new Error(
+      `${message}${code ? ` [code ${code}]` : ''}${hint}`
+    ) as Error & { code?: string };
     if (code) wrapped.code = code;
     return { error: wrapped };
   }
