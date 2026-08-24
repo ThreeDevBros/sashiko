@@ -630,13 +630,19 @@ const Checkout = () => {
   return <div className="min-h-screen bg-background pb-32 font-body">
       <FloatingBranchWidget />
       
-      {/* Header */}
-      <div className="bg-background/90 backdrop-blur border-b border-border/50 sticky top-0 z-10 pt-safe">
+      {/* Header — fixed so it stays visible (and gets dimmed) while drawers are open */}
+      <div className="fixed inset-x-0 top-0 z-10 bg-background/90 backdrop-blur border-b border-border/50 pt-safe">
         <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
           <BackButton />
           <div className="flex-1 text-center">
             <h1 className="font-display text-lg font-semibold tracking-tight text-foreground">{branch?.name || branding?.tenant_name || 'Checkout'}</h1>
           </div>
+        </div>
+      </div>
+      {/* Spacer matching the fixed header height */}
+      <div className="pt-safe" aria-hidden>
+        <div className="py-4">
+          <div className="h-10" />
         </div>
       </div>
 
@@ -1416,7 +1422,8 @@ const Checkout = () => {
               if (firstField) {
                 const section = document.querySelector('[data-section="guest-info"]');
                 if (section) {
-                  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  const top = section.getBoundingClientRect().top + window.scrollY - 140;
+                  window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
                 }
                 setTimeout(() => {
                   const el = document.getElementById(firstField);
