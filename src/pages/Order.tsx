@@ -13,7 +13,6 @@ import { BottomNav } from "@/components/BottomNav";
 import { useCart } from "@/contexts/CartContext";
 import { BranchSelectorDialog } from "@/components/BranchSelectorDialog";
 import { DeliveryLocationSelector } from "@/components/DeliveryLocationSelector";
-import { StickyCartBar } from "@/components/order/StickyCartBar";
 
 import { BranchInfoPill } from "@/components/BranchInfoPill";
 import { getAddressIcon } from "@/lib/addressIcons";
@@ -80,7 +79,6 @@ const Order = () => {
         <MenuDisplay />
       )}
 
-      <StickyCartBar />
       {itemCount > 0 && <BottomNav />}
 
       <BranchSelectorDialog open={branchDialogOpen} onOpenChange={setBranchDialogOpen} />
