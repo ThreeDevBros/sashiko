@@ -656,6 +656,7 @@ const Checkout = () => {
         )}
 
         {/* Order Type */}
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 1 · Order details</p>
         <Card className="p-4" data-section="order-type">
           <h2 className="font-semibold mb-4">{t('checkout.orderType')}</h2>
           <div className="relative flex items-center bg-muted rounded-full p-1 h-12">
@@ -997,6 +998,7 @@ const Checkout = () => {
         )}
 
         {/* Payment */}
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 2 · Payment</p>
         <Card className="p-4">
           <h2 className="font-semibold mb-4">{t('checkout.paymentMethod')}</h2>
           
@@ -1163,6 +1165,7 @@ const Checkout = () => {
         </Card>
 
         {/* Summary */}
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 3 · Review & pay</p>
         <Card className="p-4">
           <h2 className="font-semibold mb-4">{t('checkout.summary')}</h2>
 
