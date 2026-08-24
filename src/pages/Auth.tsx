@@ -423,8 +423,9 @@ const Auth = () => {
     setResetLoading(true);
 
     try {
+      // Keep recovery links on our own domain (no build/preview hosts).
       const { data, error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: siteUrl("/auth/reset-password"),
+        redirectTo: siteUrl("/"),
       });
 
       if (error) {
