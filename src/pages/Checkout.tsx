@@ -1378,7 +1378,7 @@ const Checkout = () => {
               {loading ? <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {buttonText.loading}
-                </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ? 'Sorry, delivery not possible there' : buttonText.action}
+                </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ? t('checkout.deliveryNotPossible') : buttonText.action}
             </Button>}
 
         </CheckoutSection>
