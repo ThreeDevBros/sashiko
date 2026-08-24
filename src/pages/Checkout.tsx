@@ -1397,7 +1397,8 @@ const Checkout = () => {
                 </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : buttonText.action}
             </Button>}
 
-        </Card>
+        </CheckoutSection>
+
       </div>
       <BranchInfoSheet branch={branch} open={branchInfoOpen} onOpenChange={setBranchInfoOpen} />
     </div>;
