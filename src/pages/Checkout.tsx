@@ -521,10 +521,10 @@ const Checkout = () => {
     if (selectedAddressId === 'current-location' && deviceLocationData) {
       return (
         <div 
-          className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
+          className="flex items-center gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
           onClick={() => setAddressDialogOpen(true)}
         >
-          <Navigation className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+          <Navigation className="h-10 w-10 text-primary flex-shrink-0" />
           <div className="flex-1">
             <p className="font-medium text-foreground">Current Location</p>
             <p className="text-sm text-muted-foreground">{deviceLocationData.address}</p>
@@ -536,10 +536,10 @@ const Checkout = () => {
     if (selectedAddressId === 'selected-location' && selectedLocationData) {
       return (
         <div 
-          className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
+          className="flex items-center gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
           onClick={() => setAddressDialogOpen(true)}
         >
-          <MapPinned className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+          <MapPinned className="h-10 w-10 text-primary flex-shrink-0" />
           <div className="flex-1">
             <p className="font-medium text-foreground">Selected Location</p>
             <p className="text-sm text-muted-foreground">{selectedLocationData.address}</p>
@@ -554,10 +554,10 @@ const Checkout = () => {
         const SelectedAddressIcon = getAddressIcon(selectedAddress.label, false);
         return (
           <div 
-            className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
+            className="flex items-center gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
             onClick={() => setAddressDialogOpen(true)}
           >
-            <SelectedAddressIcon className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+            <SelectedAddressIcon className="h-10 w-10 text-primary flex-shrink-0" />
             <div className="flex-1">
               <p className="font-medium text-foreground">{selectedAddress.label}</p>
               <p className="text-sm text-muted-foreground">
@@ -682,12 +682,7 @@ const Checkout = () => {
 
           {/* Out of range notice — delivery only */}
           {orderType === 'delivery' && isOutOfRange && (
-            <OutOfRangeNotice
-              distanceKm={deliveryDistance}
-              radiusKm={deliveryRadiusKm}
-              onChangeAddress={() => setAddressDialogOpen(true)}
-              onSwitchToPickup={() => setOrderType('pickup')}
-            />
+            <OutOfRangeNotice />
           )}
 
 
@@ -726,17 +721,10 @@ const Checkout = () => {
 
         {/* Delivery Address Display */}
         {orderType === 'delivery' && (
-          <CheckoutSection title={t('checkout.deliveryAddress')} dataSection="delivery-address">
-            {isOutOfRange && (
-              <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-yellow-500/50 px-2.5 py-1 text-[11px] font-medium text-yellow-700 dark:text-yellow-400">
-                <AlertTriangle className="h-3 w-3" />
-                Out of range
-              </p>
-            )}
+          <CheckoutSection dataSection="delivery-address">
             <div className={isOutOfRange ? 'rounded-xl ring-1 ring-yellow-500/50' : undefined}>
               {renderDeliveryAddressCard()}
             </div>
-
           </CheckoutSection>
         )}
 
@@ -1242,7 +1230,7 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* Explain what's blocking the order instead of a silently dead button */}
+          {/* Explain what's blocking the order for non-address reasons */}
           {(() => {
             const blockReason = branchIsPaused
               ? 'This branch is busy and not accepting orders right now.'
@@ -1250,11 +1238,9 @@ const Checkout = () => {
                 ? 'This branch is closed — schedule your order for later.'
                 : (orderType === 'delivery' && !selectedAddressId)
                   ? 'Add a delivery address to continue.'
-                  : (orderType === 'delivery' && !canDeliver && !!selectedAddressId)
-                    ? 'This address is outside the delivery area — switch to pickup or pick another address.'
-                    : (currentPaymentType === 'wallet' && !stripeReady)
-                      ? 'Preparing your wallet payment…'
-                      : null;
+                  : (currentPaymentType === 'wallet' && !stripeReady)
+                    ? 'Preparing your wallet payment…'
+                    : null;
             if (!blockReason) return null;
             return (
               <p className="mt-4 text-xs text-muted-foreground flex items-start gap-1.5">
@@ -1299,12 +1285,6 @@ const Checkout = () => {
               setTimeout(() => deliverySection.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2'), 3000);
             }
             toast.error('Please set your delivery location to continue.');
-            return;
-          }
-
-          // --- Delivery out of range ---
-          if (orderType === 'delivery' && !canDeliver && !!selectedAddressId) {
-            toast.error('Your selected location is outside our delivery area. Please choose a different address or switch to Pickup.');
             return;
           }
 
@@ -1383,7 +1363,7 @@ const Checkout = () => {
           const form = document.querySelector('form');
           if (form) form.requestSubmit();
           // The form's handleSubmit will manage its own guard
-        }} disabled={loading || (currentPaymentType === 'wallet' && !stripeReady)}
+        }} disabled={loading || (currentPaymentType === 'wallet' && !stripeReady) || (orderType === 'delivery' && !canDeliver && !!selectedAddressId)}
         className={`w-full mt-4 ${
           (!loading && (
             branchIsPaused ||
@@ -1398,7 +1378,7 @@ const Checkout = () => {
               {loading ? <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {buttonText.loading}
-                </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : buttonText.action}
+                </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ? t('checkout.deliveryNotPossible') : buttonText.action}
             </Button>}
 
         </CheckoutSection>
