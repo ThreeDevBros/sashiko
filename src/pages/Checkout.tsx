@@ -4,6 +4,8 @@ import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
 import { CheckoutSection } from '@/components/checkout/CheckoutSection';
 import { FloatingLabelTextarea } from '@/components/checkout/FloatingLabelField';
+import { OutOfRangeNotice } from '@/components/checkout/OutOfRangeNotice';
+
 import { ChevronLeft, Bike, ShoppingBag, Clock, Loader2, Navigation, Coins, CalendarIcon, AlertTriangle as AlertTriangleIcon, MapPin, MapPinned, Store, Info } from "lucide-react";
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import { format, addDays } from "date-fns";
@@ -159,15 +161,9 @@ const Checkout = () => {
   const canDeliver = orderType !== 'delivery' ? true :
     (!hasDeliveryLocation ? false : isWithinRadius);
 
-  // Delivery option is unavailable when an address is set but out of range
-  const deliveryAvailable = hasDeliveryLocation ? isWithinRadius : true;
+  // Delivery stays selectable even when out of range, so the user can fix the address
+  const isOutOfRange = hasDeliveryLocation && !isWithinRadius;
 
-  // Auto-switch to pickup when delivery becomes unavailable
-  useEffect(() => {
-    if (!deliveryAvailable && orderType === 'delivery') {
-      setOrderType('pickup');
-    }
-  }, [deliveryAvailable, orderType]);
 
   const branchIsOpen = branch ? isBranchOpen(branch.opens_at, branch.closes_at) : true;
   const branchIsPaused = branch?.is_paused === true;
@@ -660,14 +656,16 @@ const Checkout = () => {
             />
             <button
               type="button"
-              onClick={() => deliveryAvailable && setOrderType('delivery')}
-              disabled={!deliveryAvailable}
-              className={`relative z-10 flex-1 h-full flex items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors ${
+              onClick={() => setOrderType('delivery')}
+              className={`relative z-10 flex-1 h-full flex items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors cursor-pointer ${
                 orderType === 'delivery' ? 'text-primary-foreground' : 'text-foreground'
-              } ${!deliveryAvailable ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+              }`}
             >
               <Bike className="h-4 w-4" />
               <span>{t('checkout.delivery')}</span>
+              {isOutOfRange && orderType !== 'delivery' && (
+                <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+              )}
             </button>
             <button
               type="button"
@@ -682,12 +680,16 @@ const Checkout = () => {
             </button>
           </div>
 
-          {/* Out of range hint */}
-          {!deliveryAvailable && hasDeliveryLocation && (
-            <p className="mt-2 text-xs text-muted-foreground text-center">
-              Delivery unavailable — address is outside our delivery area
-            </p>
+          {/* Out of range notice — delivery only */}
+          {orderType === 'delivery' && isOutOfRange && (
+            <OutOfRangeNotice
+              distanceKm={deliveryDistance}
+              radiusKm={deliveryRadiusKm}
+              onChangeAddress={() => setAddressDialogOpen(true)}
+              onSwitchToPickup={() => setOrderType('pickup')}
+            />
           )}
+
 
           {/* Branch paused warning */}
           {branchIsPaused && (
@@ -725,7 +727,16 @@ const Checkout = () => {
         {/* Delivery Address Display */}
         {orderType === 'delivery' && (
           <CheckoutSection title={t('checkout.deliveryAddress')} dataSection="delivery-address">
-            {renderDeliveryAddressCard()}
+            {isOutOfRange && (
+              <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-yellow-500/50 px-2.5 py-1 text-[11px] font-medium text-yellow-700 dark:text-yellow-400">
+                <AlertTriangle className="h-3 w-3" />
+                Out of range
+              </p>
+            )}
+            <div className={isOutOfRange ? 'rounded-xl ring-1 ring-yellow-500/50' : undefined}>
+              {renderDeliveryAddressCard()}
+            </div>
+
           </CheckoutSection>
         )}
 
