@@ -26,7 +26,7 @@ export const AuthField = forwardRef<HTMLInputElement, AuthFieldProps>(
           type={inputType}
           placeholder=" "
           className={cn(
-            "peer w-full bg-transparent border-b border-border/70 pt-6 pb-2 text-base text-foreground",
+            "peer w-full bg-transparent border-b border-foreground/20 pt-6 pb-2 text-base text-foreground",
             "placeholder:text-transparent focus:outline-none focus:border-primary",
             "transition-colors duration-200 rounded-none",
             reveal && "pr-14",

@@ -659,7 +659,7 @@ const Auth = () => {
           onClick={handleAppleSignIn}
           disabled={socialPending !== null || loading}
           aria-busy={socialPending === 'apple'}
-          className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-border/70 bg-transparent text-sm font-medium text-foreground transition-all hover:bg-foreground/[0.04] active:scale-[0.985] disabled:opacity-60"
+          className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-foreground/15 bg-background/70 backdrop-blur-sm text-sm font-medium text-foreground transition-all hover:bg-background active:scale-[0.985] disabled:opacity-60"
         >
           {socialPending === 'apple' ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -674,7 +674,7 @@ const Auth = () => {
         onClick={handleGoogleSignIn}
         disabled={socialPending !== null || loading}
         aria-busy={socialPending === 'google'}
-        className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-border/70 bg-transparent text-sm font-medium text-foreground transition-all hover:bg-foreground/[0.04] active:scale-[0.985] disabled:opacity-60"
+        className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-foreground/15 bg-background/70 backdrop-blur-sm text-sm font-medium text-foreground transition-all hover:bg-background active:scale-[0.985] disabled:opacity-60"
       >
         {socialPending === 'google' ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -744,15 +744,15 @@ const Auth = () => {
           {socialRow}
 
           <div className="my-8 flex items-center gap-4">
-            <span className="h-px flex-1 bg-border/60" />
+            <span className="h-px flex-1 bg-foreground/15" />
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {t('auth.or')}
             </span>
-            <span className="h-px flex-1 bg-border/60" />
+            <span className="h-px flex-1 bg-foreground/15" />
           </div>
 
           {/* Sign in / Sign up switch */}
-          <div className="mb-8 flex border-b border-border/60">
+          <div className="mb-8 flex border-b border-foreground/12">
             {(['signin', 'signup'] as const).map((tab) => (
               <button
                 key={tab}
