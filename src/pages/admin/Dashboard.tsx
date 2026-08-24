@@ -173,21 +173,11 @@ export default function Dashboard() {
   return (
     <AdminLayout>
       <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-muted-foreground">Overview of your restaurant operations</p>
-          </div>
-          <Button
-            onClick={handleGenerateTestData}
-            disabled={isGenerating}
-            className="gap-2"
-            variant="outline"
-          >
-            <Database className="w-4 h-4" />
-            {isGenerating ? 'Generating...' : 'Generate Test Data'}
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">Overview of your restaurant operations</p>
         </div>
+
 
         {/* Today's Quick Stats */}
         <div>
