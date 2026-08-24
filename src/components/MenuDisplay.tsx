@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { fetchMenuCategories, fetchBranchMenuItems } from '@/lib/menuPrefetch';
 import type { MenuItem as MenuItemType, MenuCategory } from '@/types';
 
 export const MenuDisplay = () => {
+  const { t } = useTranslation();
   const { branding } = useBranding();
   const { branch, loading: branchLoading } = useBranch();
   const { addItem, items: cartItems, updateQuantity, removeItem } = useCart();
@@ -321,7 +323,7 @@ export const MenuDisplay = () => {
                 ref={searchInputRef}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={t_searchPlaceholder}
+                placeholder={t('menu.searchPlaceholder')}
                 className="pl-9 rounded-full h-10"
                 autoFocus
                 enterKeyHint="search"
@@ -370,7 +372,7 @@ export const MenuDisplay = () => {
             </div>
             <button
               type="button"
-              aria-label={t_searchPlaceholder}
+              aria-label={t('menu.searchPlaceholder')}
               onClick={() => setSearchOpen(true)}
               className="h-9 w-9 flex-shrink-0 rounded-full border border-border flex items-center justify-center text-foreground hover:bg-muted transition-colors"
             >
@@ -385,10 +387,10 @@ export const MenuDisplay = () => {
         <div className="px-4 py-4">
           {searchResults.length === 0 ? (
             <Card className="p-10 text-center">
-              <h3 className="text-lg font-bold mb-2">{t_noResultsTitle}</h3>
-              <p className="text-muted-foreground text-sm mb-5">{t_noResultsDesc}</p>
+              <h3 className="text-lg font-bold mb-2">{t('menu.noResults')}</h3>
+              <p className="text-muted-foreground text-sm mb-5">{t('menu.noResultsDesc')}</p>
               <Button variant="outline" onClick={() => setSearchTerm('')}>
-                {t_clearSearch}
+                {t('menu.clearSearch')}
               </Button>
             </Card>
           ) : (
