@@ -1288,12 +1288,6 @@ const Checkout = () => {
             return;
           }
 
-          // --- Delivery out of range ---
-          if (orderType === 'delivery' && !canDeliver && !!selectedAddressId) {
-            toast.error('Your selected location is outside our delivery area. Please choose a different address or switch to Pickup.');
-            return;
-          }
-
           // Schedule validation
           if (deliveryTiming === 'schedule') {
             if (!scheduledDate || !scheduledTime) {
