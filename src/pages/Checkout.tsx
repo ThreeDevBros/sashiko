@@ -1363,7 +1363,7 @@ const Checkout = () => {
           const form = document.querySelector('form');
           if (form) form.requestSubmit();
           // The form's handleSubmit will manage its own guard
-        }} disabled={loading || (currentPaymentType === 'wallet' && !stripeReady)}
+        }} disabled={loading || (currentPaymentType === 'wallet' && !stripeReady) || (orderType === 'delivery' && !canDeliver && !!selectedAddressId)}
         className={`w-full mt-4 ${
           (!loading && (
             branchIsPaused ||
@@ -1378,7 +1378,7 @@ const Checkout = () => {
               {loading ? <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {buttonText.loading}
-                </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : buttonText.action}
+                </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ? 'Sorry, delivery not possible there' : buttonText.action}
             </Button>}
 
         </CheckoutSection>
