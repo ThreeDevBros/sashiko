@@ -927,13 +927,8 @@ const Auth = () => {
                     enterKeyHint="next"
                     className="h-9 rounded-lg bg-muted/50 border-border/30"
                   />
-                  {password.length > 0 ? (
-                    <PasswordChecklist value={password} />
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground">
-                      {t('auth.passwordRequirements')}
-                    </p>
-                  )}
+                  <PasswordChecklist value={password} />
+
                 </div>
                 <div
                   className="overflow-hidden transition-all duration-300 ease-in-out"
