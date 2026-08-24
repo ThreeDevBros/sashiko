@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
-import { Card } from "@/components/ui/card";
+import { CheckoutSection } from '@/components/checkout/CheckoutSection';
 import { ChevronLeft, Bike, ShoppingBag, Clock, Loader2, Navigation, Coins, CalendarIcon, AlertTriangle as AlertTriangleIcon, MapPin, MapPinned, Store, Info } from "lucide-react";
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import { format, addDays } from "date-fns";
@@ -524,7 +524,7 @@ const Checkout = () => {
     if (selectedAddressId === 'current-location' && deviceLocationData) {
       return (
         <div 
-          className="flex items-start gap-3 p-3 rounded-lg border border-border bg-accent/5 cursor-pointer hover:bg-accent/10 transition-colors"
+          className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
           onClick={() => setAddressDialogOpen(true)}
         >
           <Navigation className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
@@ -539,7 +539,7 @@ const Checkout = () => {
     if (selectedAddressId === 'selected-location' && selectedLocationData) {
       return (
         <div 
-          className="flex items-start gap-3 p-3 rounded-lg border border-border bg-accent/5 cursor-pointer hover:bg-accent/10 transition-colors"
+          className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
           onClick={() => setAddressDialogOpen(true)}
         >
           <MapPinned className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
@@ -557,7 +557,7 @@ const Checkout = () => {
         const SelectedAddressIcon = getAddressIcon(selectedAddress.label, false);
         return (
           <div 
-            className="flex items-start gap-3 p-3 rounded-lg border border-border bg-accent/5 cursor-pointer hover:bg-accent/10 transition-colors"
+            className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
             onClick={() => setAddressDialogOpen(true)}
           >
             <SelectedAddressIcon className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
@@ -587,79 +587,68 @@ const Checkout = () => {
     );
   };
 
-  return <div className="min-h-screen bg-background pb-32">
+  return <div className="min-h-screen bg-background pb-32 font-body">
       <FloatingBranchWidget />
       
       {/* Header */}
-      <div className="bg-background border-b sticky top-0 z-10 pt-safe">
+      <div className="bg-background/90 backdrop-blur border-b border-border/50 sticky top-0 z-10 pt-safe">
         <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
           <BackButton />
           <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold text-foreground">{branch?.name || branding?.tenant_name || 'Checkout'}</h1>
+            <h1 className="font-display text-lg font-semibold tracking-tight text-foreground">{branch?.name || branding?.tenant_name || 'Checkout'}</h1>
           </div>
         </div>
       </div>
 
-      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
-        {/* Map + Branch Strip merged container */}
+      <div className="container max-w-2xl mx-auto px-4 pt-6 divide-y-0">
+        {/* Map — framed only by a hairline, no card fill */}
         {(orderType === 'delivery' && hasDeliveryLocation || orderType === 'pickup' && branch?.latitude && branch?.longitude) && (
-          <div>
+          <div className="relative overflow-hidden rounded-2xl border border-border/60">
+            <button
+              onClick={() => setBranchInfoOpen(true)}
+              className="absolute top-3 right-3 z-[5] w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border/60 flex items-center justify-center hover:bg-accent/10 transition-colors"
+            >
+              <Info className="w-4 h-4 text-foreground" />
+            </button>
 
             {/* Delivery map */}
             {orderType === 'delivery' && hasDeliveryLocation && (
-              <Card className="p-4 relative">
-                <button
-                  onClick={() => setBranchInfoOpen(true)}
-                  className="absolute top-6 right-6 z-[5] w-8 h-8 rounded-full bg-card/90 backdrop-blur border border-border shadow-md flex items-center justify-center hover:bg-accent transition-colors"
-                >
-                  <Info className="w-4 h-4 text-foreground" />
-                </button>
-                <DeliveryMap 
-                  key={`delivery-${activeLocation?.latitude ?? 0},${activeLocation?.longitude ?? 0},${branch?.id ?? ''}`}
-                  selectedAddressId={selectedAddressId} 
-                  addresses={addresses} 
-                  restaurantLocation={branch && branch.latitude && branch.longitude ? {
-                    latitude: branch.latitude,
-                    longitude: branch.longitude,
-                    name: branch.name
-                  } : undefined} 
-                  deliveryRadiusKm={branch?.delivery_radius_km ?? undefined} 
-                  showRadiusRing={!canDeliver && hasDeliveryLocation} 
-                />
-              </Card>
+              <DeliveryMap 
+                key={`delivery-${activeLocation?.latitude ?? 0},${activeLocation?.longitude ?? 0},${branch?.id ?? ''}`}
+                selectedAddressId={selectedAddressId} 
+                addresses={addresses} 
+                restaurantLocation={branch && branch.latitude && branch.longitude ? {
+                  latitude: branch.latitude,
+                  longitude: branch.longitude,
+                  name: branch.name
+                } : undefined} 
+                deliveryRadiusKm={branch?.delivery_radius_km ?? undefined} 
+                showRadiusRing={!canDeliver && hasDeliveryLocation} 
+              />
             )}
 
             {/* Pickup map */}
             {orderType === 'pickup' && branch?.latitude && branch?.longitude && (
-              <Card className="p-4 rounded-b-none border-b-0 relative">
-                <button
-                  onClick={() => setBranchInfoOpen(true)}
-                  className="absolute top-6 right-6 z-[5] w-8 h-8 rounded-full bg-card/90 backdrop-blur border border-border shadow-md flex items-center justify-center hover:bg-accent transition-colors"
-                >
-                  <Info className="w-4 h-4 text-foreground" />
-                </button>
-                <DeliveryMap
-                  key={`pickup-${branch.id}-${branch.latitude}-${branch.longitude}`}
-                  selectedAddressId={null}
-                  addresses={[]}
-                  restaurantLocation={{
-                    latitude: branch.latitude,
-                    longitude: branch.longitude,
-                    name: branch.name
-                  }}
-                  pickupMode
-                />
-              </Card>
+              <DeliveryMap
+                key={`pickup-${branch.id}-${branch.latitude}-${branch.longitude}`}
+                selectedAddressId={null}
+                addresses={[]}
+                restaurantLocation={{
+                  latitude: branch.latitude,
+                  longitude: branch.longitude,
+                  name: branch.name
+                }}
+                pickupMode
+              />
             )}
-
           </div>
         )}
 
+
         {/* Order Type */}
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 1 · Order details</p>
-        <Card className="p-4" data-section="order-type">
-          <h2 className="font-semibold mb-4">{t('checkout.orderType')}</h2>
-          <div className="relative flex items-center bg-muted rounded-full p-1 h-12">
+        <CheckoutSection step="Step 1" title={t('checkout.orderType')} dataSection="order-type">
+          <div className="relative flex items-center border border-border rounded-full p-1 h-12">
+
             {/* Animated thumb */}
             <div
               className="absolute top-1 bottom-1 left-1 rounded-full bg-primary shadow-sm transition-transform duration-300 ease-out"
@@ -729,15 +718,16 @@ const Checkout = () => {
               </AlertDescription>
             </Alert>
           )}
-        </Card>
+        </CheckoutSection>
+
 
         {/* Delivery Address Display */}
         {orderType === 'delivery' && (
-          <Card className="p-4" data-section="delivery-address">
-            <h2 className="font-semibold mb-3">{t('checkout.deliveryAddress')}</h2>
+          <CheckoutSection title={t('checkout.deliveryAddress')} dataSection="delivery-address">
             {renderDeliveryAddressCard()}
-          </Card>
+          </CheckoutSection>
         )}
+
         
         {/* Address Selection Dialog */}
         <Dialog open={addressDialogOpen} onOpenChange={setAddressDialogOpen}>
@@ -886,28 +876,31 @@ const Checkout = () => {
         />
 
         {/* Order Instructions */}
-        <Card className="p-4">
-          <h2 className="font-semibold mb-3">{t('checkout.orderInstructions')} <span className="text-muted-foreground font-normal text-sm">({t('checkout.orderInstructionsOptional')})</span></h2>
+        <CheckoutSection
+          title={t('checkout.orderInstructions')}
+          note={`(${t('checkout.orderInstructionsOptional')})`}
+        >
           <textarea
             value={orderInstructions}
             onChange={(e) => setOrderInstructions(e.target.value.slice(0, 300))}
             placeholder="e.g. Gate code, floor, ring the bell, leave at the door, call when outside…"
             maxLength={300}
             rows={3}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 resize-none max-h-32 overflow-y-auto"
+            className="flex w-full border-0 border-b border-border/60 bg-transparent px-0 py-2 text-sm placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:border-primary transition-colors disabled:cursor-not-allowed disabled:opacity-50 resize-none max-h-32 overflow-y-auto"
           />
-          <p className="text-xs text-muted-foreground text-right mt-1">{orderInstructions.length}/300</p>
-        </Card>
+          <p className="text-[11px] text-muted-foreground/70 text-right mt-1.5">{orderInstructions.length}/300</p>
+        </CheckoutSection>
+
 
         {/* When */}
-        <Card className="p-4">
-          <h2 className="font-semibold mb-4">{t('checkout.when')}</h2>
+        <CheckoutSection title={t('checkout.when')}>
+
           <RadioGroup value={deliveryTiming} onValueChange={(value: any) => {
             setDeliveryTiming(value);
             if (value === 'standard') setScheduleError('');
           }}>
             <div className="space-y-3">
-              <Label htmlFor="standard" className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-colors ${deliveryTiming === 'standard' ? 'border-primary bg-primary/5' : 'border-border'}`}>
+              <Label htmlFor="standard" className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors ${deliveryTiming === 'standard' ? 'border-primary bg-primary/5' : 'border-border'}`}>
                 <div className="flex items-center gap-3">
                   <RadioGroupItem value="standard" id="standard" />
                   <Clock className="h-5 w-5" />
@@ -919,7 +912,7 @@ const Checkout = () => {
               </Label>
               
               <div>
-                <Label htmlFor="schedule" className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-colors ${deliveryTiming === 'schedule' ? 'border-primary bg-primary/5' : 'border-border'} ${deliveryTiming === 'schedule' ? 'rounded-b-none' : ''}`}>
+                <Label htmlFor="schedule" className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors ${deliveryTiming === 'schedule' ? 'border-primary bg-primary/5' : 'border-border'} ${deliveryTiming === 'schedule' ? 'rounded-b-none' : ''}`}>
                   <div className="flex items-center gap-3">
                     <RadioGroupItem value="schedule" id="schedule" />
                     <Clock className="h-5 w-5" />
@@ -930,7 +923,7 @@ const Checkout = () => {
 
                 <Collapsible open={deliveryTiming === 'schedule'}>
                   <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-up-2 data-[state=open]:slide-down-2">
-                    <div className="border-2 border-t-0 border-primary rounded-b-lg p-4 bg-primary/5 space-y-4">
+                    <div className="border border-t-0 border-primary/50 rounded-b-xl p-4 bg-transparent space-y-4">
                       <h3 className="text-base font-bold">
                         {orderType === 'delivery'
                           ? 'Pick Date & Time for Delivery'
@@ -986,7 +979,8 @@ const Checkout = () => {
               </div>
             </div>
           </RadioGroup>
-        </Card>
+        </CheckoutSection>
+
 
         {/* Guest Info Form */}
         {isGuest && (
@@ -998,9 +992,8 @@ const Checkout = () => {
         )}
 
         {/* Payment */}
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 2 · Payment</p>
-        <Card className="p-4">
-          <h2 className="font-semibold mb-4">{t('checkout.paymentMethod')}</h2>
+        <CheckoutSection step="Step 2" title={t('checkout.paymentMethod')}>
+
           
           {!authChecked ? (
             <div className="flex justify-center py-8">
@@ -1162,12 +1155,12 @@ const Checkout = () => {
               walletSystemReady={stripeReady}
             />
           )}
-        </Card>
+        </CheckoutSection>
+
 
         {/* Summary */}
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 3 · Review & pay</p>
-        <Card className="p-4">
-          <h2 className="font-semibold mb-4">{t('checkout.summary')}</h2>
+        <CheckoutSection step="Step 3" title={t('checkout.summary')} divider={false}>
+
 
           {/* Collapsible item list — see exactly what's being paid for */}
           <button
@@ -1397,7 +1390,8 @@ const Checkout = () => {
                 </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : buttonText.action}
             </Button>}
 
-        </Card>
+        </CheckoutSection>
+
       </div>
       <BranchInfoSheet branch={branch} open={branchInfoOpen} onOpenChange={setBranchInfoOpen} />
     </div>;

@@ -1,4 +1,3 @@
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import type { GuestValidationErrors } from "@/lib/guestValidation";
@@ -15,11 +14,12 @@ interface GuestCheckoutFormProps {
 
 export const GuestCheckoutForm = ({ guestInfo, onGuestInfoChange, errors }: GuestCheckoutFormProps) => {
   return (
-    <Card className="p-6 mb-6" data-section="guest-info">
-      <h2 className="text-lg font-semibold mb-4">Guest Information</h2>
-      <p className="text-sm text-muted-foreground mb-4">
+    <section className="py-6 border-b border-border/50" data-section="guest-info">
+      <h2 className="font-display text-lg font-semibold tracking-tight mb-1">Guest Information</h2>
+      <p className="text-sm text-muted-foreground mb-5">
         We need your contact information to process your order
       </p>
+
       <div className="space-y-4">
         <div data-field="guest-name">
           <Label htmlFor="guest-name">
@@ -73,6 +73,6 @@ export const GuestCheckoutForm = ({ guestInfo, onGuestInfoChange, errors }: Gues
           )}
         </div>
       </div>
-    </Card>
+    </section>
   );
 };
