@@ -521,10 +521,10 @@ const Checkout = () => {
     if (selectedAddressId === 'current-location' && deviceLocationData) {
       return (
         <div 
-          className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
+          className="flex items-center gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
           onClick={() => setAddressDialogOpen(true)}
         >
-          <Navigation className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+          <Navigation className="h-7 w-7 text-primary flex-shrink-0" />
           <div className="flex-1">
             <p className="font-medium text-foreground">Current Location</p>
             <p className="text-sm text-muted-foreground">{deviceLocationData.address}</p>
@@ -536,10 +536,10 @@ const Checkout = () => {
     if (selectedAddressId === 'selected-location' && selectedLocationData) {
       return (
         <div 
-          className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
+          className="flex items-center gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
           onClick={() => setAddressDialogOpen(true)}
         >
-          <MapPinned className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+          <MapPinned className="h-7 w-7 text-primary flex-shrink-0" />
           <div className="flex-1">
             <p className="font-medium text-foreground">Selected Location</p>
             <p className="text-sm text-muted-foreground">{selectedLocationData.address}</p>
@@ -554,10 +554,10 @@ const Checkout = () => {
         const SelectedAddressIcon = getAddressIcon(selectedAddress.label, false);
         return (
           <div 
-            className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
+            className="flex items-center gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
             onClick={() => setAddressDialogOpen(true)}
           >
-            <SelectedAddressIcon className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
+            <SelectedAddressIcon className="h-7 w-7 text-primary flex-shrink-0" />
             <div className="flex-1">
               <p className="font-medium text-foreground">{selectedAddress.label}</p>
               <p className="text-sm text-muted-foreground">
