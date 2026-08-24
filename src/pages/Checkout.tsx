@@ -264,16 +264,40 @@ const Checkout = () => {
 
   // Calculate totals with per-item tax
   const globalTaxRate = branding?.vat_rate ?? 10;
-  
+
+  // Cart lines may have been stored before the tax config was available, so the
+  // live menu configuration is the source of truth for the tax split.
+  const [taxConfig, setTaxConfig] = useState<Record<string, { rate: number | null; included: boolean }>>({});
+  useEffect(() => {
+    const ids = Array.from(new Set(items.map((i) => i.id)));
+    if (ids.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('menu_items')
+        .select('id, tax_rate, tax_included_in_price')
+        .in('id', ids);
+      if (cancelled || !data) return;
+      const map: Record<string, { rate: number | null; included: boolean }> = {};
+      data.forEach((row: any) => {
+        map[row.id] = { rate: row.tax_rate ?? null, included: !!row.tax_included_in_price };
+      });
+      setTaxConfig(map);
+    })();
+    return () => { cancelled = true; };
+  }, [items]);
+
   const { subtotal, tax } = useMemo(() => {
     let subtotalSum = 0;
     let taxSum = 0;
-    
+
     for (const item of items) {
-      const itemTaxRate = item.tax_rate ?? globalTaxRate;
+      const config = taxConfig[item.id];
+      const itemTaxRate = (config ? config.rate : item.tax_rate) ?? globalTaxRate;
+      const taxIncluded = config ? config.included : !!item.tax_included_in_price;
       const lineTotal = item.price * item.quantity;
-      
-      if (item.tax_included_in_price) {
+
+      if (taxIncluded) {
         // Price includes tax — extract tax from price
         const taxAmount = lineTotal - (lineTotal / (1 + itemTaxRate / 100));
         subtotalSum += lineTotal - taxAmount;
@@ -284,9 +308,10 @@ const Checkout = () => {
         taxSum += lineTotal * (itemTaxRate / 100);
       }
     }
-    
+
     return { subtotal: subtotalSum, tax: taxSum };
-  }, [items, globalTaxRate]);
+  }, [items, globalTaxRate, taxConfig]);
+
   
   const serviceFeeRate = (branding as any)?.service_fee_rate ?? 5;
   const serviceFee = subtotal * (serviceFeeRate / 100);
