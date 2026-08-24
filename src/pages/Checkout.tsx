@@ -998,9 +998,8 @@ const Checkout = () => {
         )}
 
         {/* Payment */}
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 2 · Payment</p>
-        <Card className="p-4">
-          <h2 className="font-semibold mb-4">{t('checkout.paymentMethod')}</h2>
+        <CheckoutSection step="Step 2" title={t('checkout.paymentMethod')}>
+
           
           {!authChecked ? (
             <div className="flex justify-center py-8">
