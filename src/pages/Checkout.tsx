@@ -1278,7 +1278,13 @@ const Checkout = () => {
             
             <div className="border-t pt-3 flex justify-between font-bold">
               <span>{t('checkout.grandTotal')}</span>
-              <span>{formatCurrency(grandTotal, currency)}</span>
+              <span>
+                {grandTotal <= 0 ? (
+                  <span className="font-medium text-primary">{t('checkout.free')}</span>
+                ) : (
+                  formatCurrency(grandTotal, currency)
+                )}
+              </span>
             </div>
           </div>
 
