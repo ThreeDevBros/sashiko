@@ -160,6 +160,16 @@ const Auth = () => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
   const [socialPending, setSocialPending] = useState<'google' | 'apple' | null>(null);
+  const [signupCooldown, setSignupCooldown] = useState(0);
+
+  // Tick the create-account cooldown down once per second.
+  useEffect(() => {
+    if (signupCooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setSignupCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [signupCooldown]);
 
   // Signup validation
   const isFullNameValid = fullName.trim().length >= 2;
@@ -168,7 +178,7 @@ const Auth = () => {
   const isPasswordValid = passwordSchema.safeParse(password).success;
   const showConfirmField = password.trim().length > 0;
   const passwordsMatch = signupConfirmPassword === password;
-  const canCreateAccount = isFullNameValid && email.trim().length > 0 && isPhoneValid && isPasswordValid && passwordsMatch && !loading;
+  const canCreateAccount = isFullNameValid && email.trim().length > 0 && isPhoneValid && isPasswordValid && passwordsMatch && !loading && signupCooldown === 0;
 
   // Lock html/body to viewport so the gradient background covers the entire screen
   // (prevents the dark strip from appearing below the fixed background layer)
@@ -304,6 +314,19 @@ const Auth = () => {
       toast.success("Verification email sent — check your inbox!");
     } catch (error: any) {
       console.error('[Auth] Sign up failed:', error);
+      // Detect Supabase rate-limit responses and convert them into a visible
+      // countdown on the button instead of a generic error toast.
+      const raw = String(error?.message || '').toLowerCase();
+      const secondsMatch = raw.match(/after\s+(\d+)\s*seconds?/);
+      const isRate =
+        error?.status === 429 ||
+        raw.includes('rate limit') ||
+        raw.includes('too many') ||
+        secondsMatch !== null;
+      if (isRate) {
+        const secs = secondsMatch ? parseInt(secondsMatch[1], 10) : 30;
+        setSignupCooldown(Math.max(5, Math.min(secs, 120)));
+      }
       showAuthError(error, t('auth.createFailed'));
     } finally {
       setLoading(false);
@@ -967,12 +990,25 @@ const Auth = () => {
 
                 <Button
                   type="submit"
-                  className="w-full h-9 rounded-lg text-sm font-semibold"
+                  className="relative w-full h-9 rounded-lg text-sm font-semibold overflow-hidden"
                   disabled={!canCreateAccount || socialPending !== null}
                   aria-busy={loading}
                 >
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {t('auth.createAccount')}
+                  {/* Cooldown fill: sweeps from 100% -> 0% while the button is
+                      locked, giving the user a visible sense of remaining time. */}
+                  {signupCooldown > 0 && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-0 bg-primary-foreground/15 transition-[width] duration-1000 ease-linear pointer-events-none"
+                      style={{ width: `${(signupCooldown / Math.max(signupCooldown, 30)) * 100}%` }}
+                    />
+                  )}
+                  <span className="relative flex items-center justify-center gap-2">
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {signupCooldown > 0
+                      ? `Try again in ${signupCooldown}s`
+                      : t('auth.createAccount')}
+                  </span>
                 </Button>
 
                 <div className="relative my-4">
