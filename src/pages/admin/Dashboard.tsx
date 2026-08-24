@@ -2,40 +2,14 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, ShoppingCart, UtensilsCrossed, Users, TrendingUp, Database } from 'lucide-react';
+import { DollarSign, ShoppingCart, UtensilsCrossed, Users, TrendingUp } from 'lucide-react';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { ResponsiveChartCard } from '@/components/admin/ResponsiveChartCard';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { useState } from 'react';
 
 export default function Dashboard() {
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleGenerateTestData = async () => {
-    setIsGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-test-data');
-      
-      if (error) throw error;
-      
-      toast.success('Test data generated successfully!', {
-        description: `Created ${data.stats.branches} branches, ${data.stats.categories} categories, and ${data.stats.menuItems} menu items`,
-      });
-      
-      // Refresh the page to show new data
-      window.location.reload();
-    } catch (error) {
-      console.error('Error generating test data:', error);
-      toast.error('Failed to generate test data', {
-        description: error.message,
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   // Today's quick stats
   const { data: todayStats } = useQuery({
