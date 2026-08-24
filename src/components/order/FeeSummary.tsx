@@ -13,6 +13,8 @@ interface FeeSummaryProps {
   isFreeDelivery?: boolean;
   /** Shown when the delivery fee is still an estimate (distance unknown). */
   deliveryNote?: string;
+  /** Hide the total row when the caller renders its own (e.g. after cashback). */
+  showTotal?: boolean;
   className?: string;
 }
 
@@ -29,6 +31,7 @@ export const FeeSummary = ({
   total,
   isFreeDelivery = false,
   deliveryNote,
+  showTotal = true,
   className = '',
 }: FeeSummaryProps) => {
   const { t } = useTranslation();
@@ -60,10 +63,12 @@ export const FeeSummary = ({
         <span className="text-muted-foreground">{t('checkout.tax')}</span>
         <span>{formatCurrency(tax, currency)}</span>
       </div>
-      <div className="flex justify-between border-t border-border pt-2 font-bold">
-        <span>{t('checkout.grandTotal')}</span>
-        <span>{formatCurrency(total, currency)}</span>
-      </div>
+      {showTotal && (
+        <div className="flex justify-between border-t border-border pt-2 font-bold">
+          <span>{t('checkout.grandTotal')}</span>
+          <span>{formatCurrency(total, currency)}</span>
+        </div>
+      )}
     </div>
   );
 };
