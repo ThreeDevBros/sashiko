@@ -1230,7 +1230,7 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* Explain what's blocking the order instead of a silently dead button */}
+          {/* Explain what's blocking the order for non-address reasons */}
           {(() => {
             const blockReason = branchIsPaused
               ? 'This branch is busy and not accepting orders right now.'
@@ -1238,11 +1238,9 @@ const Checkout = () => {
                 ? 'This branch is closed — schedule your order for later.'
                 : (orderType === 'delivery' && !selectedAddressId)
                   ? 'Add a delivery address to continue.'
-                  : (orderType === 'delivery' && !canDeliver && !!selectedAddressId)
-                    ? 'This address is outside the delivery area — switch to pickup or pick another address.'
-                    : (currentPaymentType === 'wallet' && !stripeReady)
-                      ? 'Preparing your wallet payment…'
-                      : null;
+                  : (currentPaymentType === 'wallet' && !stripeReady)
+                    ? 'Preparing your wallet payment…'
+                    : null;
             if (!blockReason) return null;
             return (
               <p className="mt-4 text-xs text-muted-foreground flex items-start gap-1.5">
