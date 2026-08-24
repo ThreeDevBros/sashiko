@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
 import { CheckoutSection } from '@/components/checkout/CheckoutSection';
+import { FloatingLabelTextarea } from '@/components/checkout/FloatingLabelField';
 import { ChevronLeft, Bike, ShoppingBag, Clock, Loader2, Navigation, Coins, CalendarIcon, AlertTriangle as AlertTriangleIcon, MapPin, MapPinned, Store, Info } from "lucide-react";
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import { format, addDays } from "date-fns";
@@ -646,7 +647,7 @@ const Checkout = () => {
 
 
         {/* Order Type */}
-        <CheckoutSection step="Step 1" title={t('checkout.orderType')} dataSection="order-type">
+        <CheckoutSection title={t('checkout.orderType')} dataSection="order-type">
           <div className="relative flex items-center border border-border rounded-full p-1 h-12">
 
             {/* Animated thumb */}
@@ -993,7 +994,7 @@ const Checkout = () => {
         )}
 
         {/* Payment */}
-        <CheckoutSection step="Step 2" title={t('checkout.paymentMethod')}>
+        <CheckoutSection title={t('checkout.paymentMethod')}>
 
           
           {!authChecked ? (
@@ -1160,7 +1161,7 @@ const Checkout = () => {
 
 
         {/* Summary */}
-        <CheckoutSection step="Step 3" title={t('checkout.summary')} divider={false}>
+        <CheckoutSection title={t('checkout.summary')} divider={false}>
 
 
           {/* Collapsible item list — see exactly what's being paid for */}
