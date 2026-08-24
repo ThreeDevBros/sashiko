@@ -1432,23 +1432,8 @@ const Checkout = () => {
           const form = document.querySelector('form');
           if (form) form.requestSubmit();
           // The form's handleSubmit will manage its own guard
-        }} disabled={loading || (currentPaymentType === 'wallet' && !stripeReady) || (orderType === 'delivery' && !canDeliver && !!selectedAddressId)}
-        className={`w-full mt-4 ${
-          (!loading && (
-            branchIsPaused ||
-            (deliveryTiming === 'standard' && !branchIsOpen) ||
-            (orderType === 'delivery' && !selectedAddressId) ||
-            (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ||
-            (isGuest && currentPaymentType === 'card' && !guestCardValid) ||
-            (currentPaymentType === 'wallet' && !stripeReady) ||
-            (isGuest && (!guestInfo.name.trim() || guestInfo.name.trim().length < 2 || !guestInfo.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestInfo.email.trim()) || !guestInfo.phone.trim()))
-          )) ? 'opacity-50' : ''
-        }`}>
-              {loading ? <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {buttonText.loading}
-                </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ? t('checkout.deliveryNotPossible') : buttonText.action}
-            </Button>}
+        }} />}
+
 
         </CheckoutSection>
 
