@@ -646,7 +646,7 @@ const Checkout = () => {
         </div>
       </div>
 
-      <div className="container max-w-2xl mx-auto px-4 pt-6 divide-y-0">
+      <div className="container max-w-2xl mx-auto px-4 pt-3 divide-y-0">
         {/* Map — framed only by a hairline, no card fill */}
         {(orderType === 'delivery' && hasDeliveryLocation || orderType === 'pickup' && branch?.latitude && branch?.longitude) && (
           <div
@@ -783,12 +783,12 @@ const Checkout = () => {
 
         
         {/* Address Selection Drawer */}
-        <Drawer open={addressDialogOpen && !pinMapOpen} onOpenChange={setAddressDialogOpen} shouldScaleBackground={false}>
-          <DrawerContent className="max-h-[85vh]">
+        <Drawer open={addressDialogOpen && !pinMapOpen} onOpenChange={setAddressDialogOpen} shouldScaleBackground={false} noBodyStyles repositionInputs={false}>
+          <DrawerContent className="max-h-[min(85dvh,720px)]">
             <DrawerHeader className="text-left pb-2">
               <DrawerTitle>{t('checkout.selectDeliveryAddress')}</DrawerTitle>
             </DrawerHeader>
-            <div className="px-4 pb-6 space-y-3 overflow-y-auto">
+            <div className="min-h-0 px-4 pb-6 space-y-3 overflow-y-auto overscroll-contain">
 
 
             {/* Google Places Search (includes pin-on-map button) */}
@@ -1055,7 +1055,7 @@ const Checkout = () => {
 
           
           {!authChecked ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-5">
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                 <p className="text-sm text-muted-foreground">Loading...</p>
@@ -1319,7 +1319,7 @@ const Checkout = () => {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Checking delivery zone...
             </Button> : <PlaceOrderButton
-          className="mt-4"
+          className="mt-3"
           variant={currentPaymentType === 'wallet' ? (currentWalletType === 'googlePay' ? 'googlePay' : 'applePay') : currentPaymentType === 'card' ? 'card' : 'cash'}
           loading={loading}
           loadingLabel={buttonText.loading}

@@ -23,7 +23,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 interface AdminLayoutProps {
@@ -45,6 +45,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { signOutWithTransition } = useAuth();
   
   // Use admin status from either hook (belt and suspenders approach)
   const userIsAdmin = isAdmin || permissionsIsAdmin;
@@ -181,7 +182,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
               <button
                 onClick={async () => {
                   setSidebarOpen(false);
-                  await supabase.auth.signOut();
+                  await signOutWithTransition();
                   navigate('/auth');
                 }}
                 className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors hover:bg-muted text-muted-foreground w-full text-left"

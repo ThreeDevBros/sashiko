@@ -1,9 +1,10 @@
 import { MapPin, Timer, Bike, Clock, DollarSign, ChevronDown, AlertCircle, ShoppingBag } from 'lucide-react';
 import { useBranch } from '@/hooks/useBranch';
 import { useDynamicDeliveryInfo } from '@/hooks/useDynamicDeliveryInfo';
+import { useActiveBranchCount } from '@/hooks/useActiveBranchCount';
 
 interface BranchInfoPillProps {
-  onClick: () => void;
+  onClick?: () => void;
   className?: string;
   /** Visual variant — 'hero' uses Timer+Bike icons, 'header' uses Clock+DollarSign */
   variant?: 'hero' | 'header';
@@ -12,10 +13,12 @@ interface BranchInfoPillProps {
 export function BranchInfoPill({ onClick, className = '', variant = 'header' }: BranchInfoPillProps) {
   const { branch } = useBranch();
   const { timeLabel, feeLabel, isOutOfRadius } = useDynamicDeliveryInfo();
+  const { data: activeBranchCount } = useActiveBranchCount();
 
   const TimeIcon = variant === 'hero' ? Timer : Clock;
   const FeeIcon = variant === 'hero' ? Bike : DollarSign;
   const isPaused = branch?.is_paused === true;
+  const canChooseBranch = (activeBranchCount ?? 0) > 1;
 
   const borderClass = isPaused
     ? 'border-destructive/50 bg-destructive/5'
@@ -25,8 +28,13 @@ export function BranchInfoPill({ onClick, className = '', variant = 'header' }: 
 
   return (
     <div
-      onClick={onClick}
-      className={`bg-card rounded-2xl p-3 shadow-lg cursor-pointer hover:shadow-xl transition-all border ${borderClass} ${className}`}
+      onClick={canChooseBranch ? onClick : undefined}
+      role={canChooseBranch ? 'button' : undefined}
+      tabIndex={canChooseBranch ? 0 : undefined}
+      onKeyDown={canChooseBranch ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') onClick?.();
+      } : undefined}
+      className={`bg-card rounded-2xl p-3 shadow-lg transition-all border ${canChooseBranch ? 'cursor-pointer hover:shadow-xl' : 'cursor-default'} ${borderClass} ${className}`}
     >
       <div className="flex items-center gap-2 mb-1.5">
         {isPaused ? (
@@ -38,12 +46,12 @@ export function BranchInfoPill({ onClick, className = '', variant = 'header' }: 
         )}
         <span className={`font-semibold text-sm ${isPaused ? 'text-destructive' : isOutOfRadius ? 'text-orange-600 dark:text-orange-400' : 'text-foreground'}`}>
           {isPaused
-            ? `${branch?.name || 'Branch'} • Busy — Not Accepting Orders`
+            ? `${branch?.name || 'Branch'} — Busy — Not Accepting Orders`
             : isOutOfRadius
-              ? `${branch?.name || 'Branch'} • Pickup Only`
-              : `Delivering from • ${branch?.name || 'Nearest Branch'}`}
+              ? `${branch?.name || 'Branch'} — Pickup Only`
+              : `Delivering from ${branch?.name || 'Nearest Branch'}`}
         </span>
-        <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto" />
+        {canChooseBranch && <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto" />}
       </div>
       {!isPaused && (
         <div className="flex items-center gap-4 text-xs text-muted-foreground">

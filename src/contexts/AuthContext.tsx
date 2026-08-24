@@ -12,6 +12,10 @@ interface AuthContextType {
   refreshSession: () => Promise<Session | null>;
   /** Increments after initial restore and after every successful resume refresh. Use as a React key to force remount. */
   authVersion: number;
+  authTransition: 'signing-in' | 'signing-out' | null;
+  beginAuthTransition: (transition: 'signing-in' | 'signing-out') => void;
+  endAuthTransition: () => void;
+  signOutWithTransition: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -21,6 +25,10 @@ const AuthContext = createContext<AuthContextType>({
   isAuthRecovering: false,
   refreshSession: async () => null,
   authVersion: 0,
+  authTransition: null,
+  beginAuthTransition: () => undefined,
+  endAuthTransition: () => undefined,
+  signOutWithTransition: async () => undefined,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -63,10 +71,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isAuthRecovering, setIsAuthRecovering] = useState(false);
   const [authVersion, setAuthVersion] = useState(0);
+  const [authTransition, setAuthTransition] = useState<'signing-in' | 'signing-out' | null>(null);
   const initialized = useRef(false);
 
   // Single-flight guard for refreshSession
   const refreshPromise = useRef<Promise<Session | null> | null>(null);
+
+  const beginAuthTransition = useCallback((transition: 'signing-in' | 'signing-out') => {
+    setAuthTransition(transition);
+  }, []);
+
+  const endAuthTransition = useCallback(() => setAuthTransition(null), []);
+
+  const signOutWithTransition = useCallback(async () => {
+    setAuthTransition('signing-out');
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setAuthTransition(null);
+      throw error;
+    }
+    window.setTimeout(() => setAuthTransition(null), 700);
+  }, []);
 
   const refreshSession = useCallback(async (): Promise<Session | null> => {
     // Deduplicate concurrent calls (e.g. multiple resume events firing)
@@ -132,6 +157,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('[Auth] onAuthStateChange:', _event, newSession ? 'has session' : 'no session');
         setSession(newSession);
         setUser(newSession?.user ?? null);
+        if (_event === 'SIGNED_IN') {
+          window.setTimeout(() => setAuthTransition(null), 700);
+        }
         // Mirror to native on every change (fire-and-forget)
         saveSessionToNative(newSession);
       }
@@ -190,7 +218,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, isAuthReady, isAuthRecovering, refreshSession, authVersion }}>
+    <AuthContext.Provider value={{ user, session, isAuthReady, isAuthRecovering, refreshSession, authVersion, authTransition, beginAuthTransition, endAuthTransition, signOutWithTransition }}>
       {children}
     </AuthContext.Provider>
   );

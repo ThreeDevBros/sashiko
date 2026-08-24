@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
 import { useBranding } from '@/hooks/useBranding';
 import { formatCurrency } from '@/lib/currency';
 import { usePermissions } from '@/hooks/usePermissions';
 import sashikoLogo from '@/assets/sashiko-logo.png';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const Sidebar = () => {
   const navigate = useNavigate();
@@ -17,9 +17,10 @@ export const Sidebar = () => {
   const { itemCount, total } = useCart();
   const { branding } = useBranding();
   const { hasStaffRole, userRoles, loading } = usePermissions();
+  const { signOutWithTransition } = useAuth();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOutWithTransition();
     navigate('/auth');
   };
 

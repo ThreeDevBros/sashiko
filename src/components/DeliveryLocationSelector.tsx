@@ -189,13 +189,13 @@ export const DeliveryLocationSelector = ({
 
   return (
     <>
-      <Drawer open={open && !pinMapOpen} onOpenChange={onOpenChange} shouldScaleBackground={false}>
-        <DrawerContent className="max-h-[85vh]">
+      <Drawer open={open && !pinMapOpen} onOpenChange={onOpenChange} shouldScaleBackground={false} noBodyStyles repositionInputs={false}>
+        <DrawerContent className="max-h-[min(85dvh,720px)]">
           <DrawerHeader className="text-left pb-2">
             <DrawerTitle>Delivery Location</DrawerTitle>
           </DrawerHeader>
 
-          <div className="px-4 pb-6 space-y-2 overflow-y-auto">
+          <div className="min-h-0 px-4 pb-6 space-y-2 overflow-y-auto overscroll-contain">
             {/* Address Search */}
             <LocationAutocompleteInput
               onSelect={(place: PlaceResult) => {

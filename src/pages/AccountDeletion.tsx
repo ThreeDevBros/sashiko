@@ -20,7 +20,7 @@ import {
 export default function AccountDeletion() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, signOutWithTransition } = useAuth();
 
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -115,7 +115,7 @@ export default function AccountDeletion() {
         throw new Error(err.error || 'Failed to delete account');
       }
 
-      await supabase.auth.signOut();
+      await signOutWithTransition();
       toast({ title: 'Account deleted', description: 'Your account and all data have been permanently removed.' });
       navigate('/auth', { replace: true });
     } catch (error: any) {
