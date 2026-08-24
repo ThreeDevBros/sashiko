@@ -731,7 +731,10 @@ const Auth = () => {
               </div>
             )}
 
-            <TabsContent value="signin">
+            <TabsContent
+              value="signin"
+              className="data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-left-6 data-[state=active]:duration-300 data-[state=active]:ease-out"
+            >
               <form onSubmit={handleSignIn} className="space-y-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="signin-email" className="sr-only">{t('auth.email')}</Label>
@@ -865,7 +868,10 @@ const Auth = () => {
               </form>
             </TabsContent>
 
-            <TabsContent value="signup">
+            <TabsContent
+              value="signup"
+              className="data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-right-6 data-[state=active]:duration-300 data-[state=active]:ease-out"
+            >
               <form onSubmit={handleSignUp} className="space-y-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="signup-name" className="sr-only">{t('auth.fullName')}</Label>
@@ -927,13 +933,8 @@ const Auth = () => {
                     enterKeyHint="next"
                     className="h-9 rounded-lg bg-muted/50 border-border/30"
                   />
-                  {password.length > 0 ? (
-                    <PasswordChecklist value={password} />
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground">
-                      {t('auth.passwordRequirements')}
-                    </p>
-                  )}
+                  <PasswordChecklist value={password} />
+
                 </div>
                 <div
                   className="overflow-hidden transition-all duration-300 ease-in-out"
