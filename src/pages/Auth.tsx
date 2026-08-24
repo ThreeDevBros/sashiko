@@ -288,7 +288,12 @@ const Auth = () => {
             full_name: fullName,
             phone: phone.trim(),
           },
-          emailRedirectTo: `${window.location.origin}/`,
+          // The email's "Verify Email" button lands here. On native we send the
+          // user to the public site (custom schemes aren't email-safe) with a
+          // flag so the page offers a deep link back into the app.
+          emailRedirectTo: Capacitor.isNativePlatform()
+            ? "https://sashikoasianfusion.com/auth/confirmed?src=app"
+            : `${window.location.origin}/auth/confirmed?src=web`,
         },
       });
 
