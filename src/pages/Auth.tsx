@@ -31,6 +31,8 @@ import EmailSentNotice from "@/components/auth/EmailSentNotice";
 import { authRedirectUrl, siteUrl } from "@/config/site";
 import { PasswordField } from "@/components/auth/PasswordField";
 import { PasswordChecklist } from "@/components/auth/PasswordChecklist";
+import { AuthField } from "@/components/auth/AuthField";
+
 import { useHaptics } from "@/hooks/useHaptics";
 import { useIsMobile } from "@/hooks/use-mobile";
 
