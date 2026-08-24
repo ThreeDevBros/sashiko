@@ -164,6 +164,18 @@ const Checkout = () => {
   // Delivery stays selectable even when out of range, so the user can fix the address
   const isOutOfRange = hasDeliveryLocation && !isWithinRadius;
 
+  // Arriving from the cart with an out-of-range address: start on pickup so the
+  // user lands on a fulfilment option that actually works.
+  const autoPickupApplied = useRef(false);
+  useEffect(() => {
+    if (autoPickupApplied.current) return;
+    if (!hasDeliveryLocation || deliveryDistance === null) return;
+    autoPickupApplied.current = true;
+    if (!isWithinRadius) setOrderType('pickup');
+  }, [hasDeliveryLocation, deliveryDistance, isWithinRadius]);
+
+
+
 
   const branchIsOpen = branch ? isBranchOpen(branch.opens_at, branch.closes_at) : true;
   const branchIsPaused = branch?.is_paused === true;
