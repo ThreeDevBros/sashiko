@@ -29,7 +29,7 @@ export default function Profile() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user: authUser, isAuthReady } = useAuth();
+  const { user: authUser, isAuthReady, signOutWithTransition } = useAuth();
   const { isAdmin } = useAdmin();
   const { hasStaffRole, userRoles } = usePermissions();
   const { branding } = useBranding();
@@ -169,8 +169,7 @@ export default function Profile() {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await signOutWithTransition();
       toast({ title: 'Logged out' });
       navigate('/auth');
     } catch (error: any) { toast({ title: 'Logout failed', variant: 'destructive' }); }

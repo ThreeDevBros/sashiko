@@ -21,6 +21,7 @@ import { NewReservationPopup } from '@/components/staff/NewReservationPopup';
 import { StaffBranchProvider, useStaffBranch } from '@/contexts/StaffBranchContext';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const BranchBanner = () => {
   const { selectedBranchName, isLoading } = useStaffBranch();
@@ -47,6 +48,7 @@ const StaffLayoutInner = ({ children }: StaffLayoutProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { signOutWithTransition } = useAuth();
 
   const { selectedBranchId } = useStaffBranch();
 
@@ -80,7 +82,7 @@ const StaffLayoutInner = ({ children }: StaffLayoutProps) => {
 
   const handleBackToApp = async () => {
     if (isStaffOnly) {
-      await supabase.auth.signOut();
+      await signOutWithTransition();
       navigate('/auth');
     } else {
       navigate('/');

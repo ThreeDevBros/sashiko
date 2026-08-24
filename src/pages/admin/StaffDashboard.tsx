@@ -12,6 +12,7 @@ import { Check, X, Clock, Package, Calendar, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useOrderAlerts } from '@/hooks/useOrderAlerts';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ACTIVE_ORDER_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'] as const;
 const COMPLETED_ORDER_STATUSES = ['delivered', 'cancelled'] as const;
@@ -20,9 +21,10 @@ export default function StaffDashboard() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('orders');
+  const { signOutWithTransition } = useAuth();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOutWithTransition();
     toast.success('Logged out successfully');
     navigate('/auth');
   };

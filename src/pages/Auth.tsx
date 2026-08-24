@@ -40,6 +40,7 @@ import { useBranding } from "@/hooks/useBranding";
 import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
 import { nativeGoogleSignIn } from "@/lib/nativeGoogleSignIn";
 import { Capacitor } from "@capacitor/core";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Show Apple Sign In on:
 //  - iOS native app (Capacitor) — uses native plugin
@@ -164,6 +165,7 @@ const Auth = () => {
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
   const [socialPending, setSocialPending] = useState<'google' | 'apple' | null>(null);
   const [signupCooldown, setSignupCooldown] = useState(0);
+  const { beginAuthTransition, endAuthTransition } = useAuth();
 
   // Tick the create-account cooldown down once per second.
   useEffect(() => {
@@ -341,6 +343,7 @@ const Auth = () => {
     e.preventDefault();
     setAuthError(null);
     setLoading(true);
+    beginAuthTransition('signing-in');
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -351,6 +354,7 @@ const Auth = () => {
       if (error) throw error;
       haptics.success();
       toast.success(t('auth.welcomeBack'));
+      window.setTimeout(endAuthTransition, 700);
     } catch (error: any) {
       console.error('[Auth] Sign in failed:', error);
       const mapped = getAuthErrorMessage(error);
@@ -360,6 +364,7 @@ const Auth = () => {
       const finalMsg = isCredErr ? t('auth.invalidCredentials') : mapped;
       setAuthError(finalMsg);
       haptics.error();
+      endAuthTransition();
     } finally {
       setLoading(false);
     }
@@ -369,6 +374,7 @@ const Auth = () => {
     console.log('[Auth] Google sign-in tapped');
     setAuthError(null);
     setSocialPending('google');
+    beginAuthTransition('signing-in');
     haptics.light();
     try {
       const { error } = await nativeGoogleSignIn();
@@ -385,6 +391,7 @@ const Auth = () => {
         `[Auth] Google sign-in failed: code=${error?.code ?? 'n/a'} message=${error?.message ?? String(error)}`
       );
       showAuthError(error, 'Google sign-in failed. Please try again.');
+      endAuthTransition();
     } finally {
       setSocialPending(null);
     }
@@ -393,6 +400,7 @@ const Auth = () => {
   const handleAppleSignIn = async () => {
     setAuthError(null);
     setSocialPending('apple');
+    beginAuthTransition('signing-in');
     haptics.light();
     try {
       console.log('[Auth] Apple sign-in starting');
@@ -410,6 +418,7 @@ const Auth = () => {
     } catch (error: any) {
       console.error('[Auth] Apple sign-in failed:', error);
       showAuthError(error, 'Apple sign-in failed. Please try again.');
+      endAuthTransition();
     } finally {
       setSocialPending(null);
     }

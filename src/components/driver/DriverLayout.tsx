@@ -7,6 +7,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DriverLayoutProps {
   children: ReactNode;
@@ -18,6 +19,7 @@ export const DriverLayout = ({ children }: DriverLayoutProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { signOutWithTransition } = useAuth();
 
   const hasDriverRole = userRoles.includes('delivery') || userRoles.includes('admin');
 
@@ -62,7 +64,7 @@ export const DriverLayout = ({ children }: DriverLayoutProps) => {
 
   const handleBackToApp = async () => {
     if (isDriverOnly) {
-      await supabase.auth.signOut();
+      await signOutWithTransition();
       navigate('/auth');
     } else {
       navigate('/');
