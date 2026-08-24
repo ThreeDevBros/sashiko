@@ -733,11 +733,11 @@ const Checkout = () => {
 
         {/* Delivery Address Display */}
         {orderType === 'delivery' && (
-          <Card className="p-4" data-section="delivery-address">
-            <h2 className="font-semibold mb-3">{t('checkout.deliveryAddress')}</h2>
+          <CheckoutSection title={t('checkout.deliveryAddress')} dataSection="delivery-address">
             {renderDeliveryAddressCard()}
-          </Card>
+          </CheckoutSection>
         )}
+
         
         {/* Address Selection Dialog */}
         <Dialog open={addressDialogOpen} onOpenChange={setAddressDialogOpen}>
