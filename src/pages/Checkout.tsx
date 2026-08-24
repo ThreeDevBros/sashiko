@@ -187,6 +187,7 @@ const Checkout = () => {
   const handlePaymentTypeChange = useCallback((type: 'card' | 'wallet' | 'cash', walletType?: 'applePay' | 'googlePay') => {
     paymentTypeRef.current = type;
     setCurrentPaymentType(type);
+    setCurrentWalletType(walletType ?? null);
 
     if (type === 'cash') {
       setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
@@ -201,6 +202,7 @@ const Checkout = () => {
 
     setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
   }, []);
+
 
   useEffect(() => {
     const loadSettings = async () => {
