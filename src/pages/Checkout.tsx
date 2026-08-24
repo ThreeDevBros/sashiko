@@ -1309,7 +1309,6 @@ const Checkout = () => {
             </Button> : <PlaceOrderButton
           className="mt-4"
           variant={currentPaymentType === 'wallet' ? (currentWalletType === 'googlePay' ? 'googlePay' : 'applePay') : currentPaymentType === 'card' ? 'card' : 'cash'}
-          amountLabel={formatCurrency(grandTotal, currency)}
           loading={loading}
           loadingLabel={buttonText.loading}
           actionLabel={buttonText.action}
