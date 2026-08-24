@@ -24,7 +24,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Elements } from '@stripe/react-stripe-js';
 import { getStripePromise, initStripeOnce, isNativeStripeReady } from '@/lib/stripeBootstrap';
 import { CheckoutForm, StripeCheckoutForm } from '@/components/checkout/CheckoutForm';
@@ -637,7 +637,12 @@ const Checkout = () => {
       <div className="container max-w-2xl mx-auto px-4 pt-6 divide-y-0">
         {/* Map — framed only by a hairline, no card fill */}
         {(orderType === 'delivery' && hasDeliveryLocation || orderType === 'pickup' && branch?.latitude && branch?.longitude) && (
-          <div className="relative overflow-hidden rounded-2xl border border-border/60">
+          <div
+            key={`map-${orderType}`}
+            className={`relative overflow-hidden rounded-2xl border border-border/60 animate-in fade-in duration-300 ${
+              orderType === 'delivery' ? 'slide-in-from-left-4' : 'slide-in-from-right-4'
+            }`}
+          >
             <button
               onClick={() => setBranchInfoOpen(true)}
               className="absolute top-3 right-3 z-[5] w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border/60 flex items-center justify-center hover:bg-accent/10 transition-colors"
@@ -755,20 +760,24 @@ const Checkout = () => {
 
         {/* Delivery Address Display */}
         {orderType === 'delivery' && (
-          <CheckoutSection dataSection="delivery-address">
-            <div className={isOutOfRange ? 'rounded-xl ring-1 ring-yellow-500/50' : undefined}>
-              {renderDeliveryAddressCard()}
-            </div>
-          </CheckoutSection>
+          <div key="delivery-address-anim" className="animate-in fade-in slide-in-from-left-4 duration-300">
+            <CheckoutSection dataSection="delivery-address">
+              <div className={isOutOfRange ? 'rounded-xl ring-1 ring-yellow-500/50' : undefined}>
+                {renderDeliveryAddressCard()}
+              </div>
+            </CheckoutSection>
+          </div>
         )}
 
         
-        {/* Address Selection Dialog */}
-        <Dialog open={addressDialogOpen} onOpenChange={setAddressDialogOpen}>
-          <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{t('checkout.selectDeliveryAddress')}</DialogTitle>
-            </DialogHeader>
+        {/* Address Selection Drawer */}
+        <Drawer open={addressDialogOpen && !pinMapOpen} onOpenChange={setAddressDialogOpen} shouldScaleBackground={false}>
+          <DrawerContent className="max-h-[85vh]">
+            <DrawerHeader className="text-left pb-2">
+              <DrawerTitle>{t('checkout.selectDeliveryAddress')}</DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 pb-6 space-y-3 overflow-y-auto">
+
 
             {/* Google Places Search (includes pin-on-map button) */}
             <AddressSearchInput
@@ -895,8 +904,9 @@ const Checkout = () => {
                 Manage Addresses
               </Button>
             )}
-          </DialogContent>
-        </Dialog>
+            </div>
+          </DrawerContent>
+        </Drawer>
 
         {/* Pin Drop Map Overlay */}
         <PinDropMapOverlay
@@ -911,19 +921,21 @@ const Checkout = () => {
 
         {/* Instructions for courier (delivery only) */}
         {orderType === 'delivery' && (
-          <CheckoutSection>
-            <FloatingLabelTextarea
-              label={t('checkout.courierInstructions')}
-              requiredHint="Optional"
-              value={orderInstructions}
-              onChange={(e) => setOrderInstructions(e.target.value.slice(0, 300))}
-              placeholder={t('checkout.orderInstructionsPlaceholder')}
-              maxLength={300}
-              rows={3}
-              className="max-h-32 overflow-y-auto"
-            />
-            <p className="text-[11px] text-muted-foreground/70 text-right mt-1.5">{orderInstructions.length}/300</p>
-          </CheckoutSection>
+          <div key="courier-instructions-anim" className="animate-in fade-in slide-in-from-left-4 duration-300">
+            <CheckoutSection>
+              <FloatingLabelTextarea
+                label={t('checkout.courierInstructions')}
+                requiredHint="Optional"
+                value={orderInstructions}
+                onChange={(e) => setOrderInstructions(e.target.value.slice(0, 300))}
+                placeholder={t('checkout.orderInstructionsPlaceholder')}
+                maxLength={300}
+                rows={3}
+                className="max-h-32 overflow-y-auto"
+              />
+              <p className="text-[11px] text-muted-foreground/70 text-right mt-1.5">{orderInstructions.length}/300</p>
+            </CheckoutSection>
+          </div>
         )}
 
 
@@ -1376,13 +1388,17 @@ const Checkout = () => {
                 : result.errors.phone ? 'guest-phone' 
                 : null;
               if (firstField) {
+                const section = document.querySelector('[data-section="guest-info"]');
+                if (section) {
+                  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
                 setTimeout(() => {
                   const el = document.getElementById(firstField);
                   if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    el.focus();
+                    if (!section) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.focus({ preventScroll: true });
                   }
-                }, 50);
+                }, 450);
               }
               return;
             }

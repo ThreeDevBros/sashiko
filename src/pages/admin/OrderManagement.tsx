@@ -372,7 +372,14 @@ export default function OrderManagement() {
                         </TableCell>
                         <TableCell>{order.user_id ? (order.profiles?.full_name || order.guest_name || order.guest_email || 'Registered customer') : (order.guest_name || order.guest_email || 'Guest')}</TableCell>
                         <TableCell>{order.branches?.name}</TableCell>
-                        <TableCell className="capitalize">{order.order_type?.replace('_', ' ')}</TableCell>
+                        <TableCell className="capitalize">
+                          {order.order_type?.replace('_', ' ')}
+                          {order.estimated_delivery_time && (
+                            <span className="block text-[10px] normal-case text-blue-500">
+                              ⏰ {format(new Date(order.estimated_delivery_time), 'MMM dd, HH:mm')}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell>{order.order_items?.length || 0}</TableCell>
                         <TableCell>€{Number(order.total).toFixed(2)}</TableCell>
                         <TableCell>

@@ -448,7 +448,14 @@ function StaffOrdersContent() {
                       <TableCell className="text-xs py-2.5">{order.user_id ? (order.profiles?.full_name || order.guest_name || order.guest_email || 'Registered customer') : (order.guest_name || order.guest_email || 'Guest')}</TableCell>
                       <TableCell className="text-xs py-2.5 text-muted-foreground">{formatOrderTime(order.created_at)}</TableCell>
                       <TableCell className="py-2.5">
-                        <Badge variant="outline" className="text-[10px] capitalize px-1.5 py-0">{order.order_type.replace('_', ' ')}</Badge>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Badge variant="outline" className="text-[10px] capitalize px-1.5 py-0">{order.order_type.replace('_', ' ')}</Badge>
+                          {order.estimated_delivery_time && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-500">
+                              ⏰ {format(new Date(order.estimated_delivery_time), 'MMM dd, HH:mm')}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="py-2.5">
                         <Badge className={cn("text-[10px] px-1.5 py-0 border", badgeGroupStyles[group])}>
@@ -554,6 +561,12 @@ function StaffOrdersContent() {
                     <p className="capitalize"><span className="text-muted-foreground">Type:</span> {newOrderPopup.order_type?.replace('_', ' ')}</p>
                     <p><span className="text-muted-foreground">Payment:</span> {(newOrderPopup.payment_method || (newOrderPopup.stripe_payment_intent_id ? 'card' : 'cash')) === 'card' ? '💳 Card' : '💵 Cash'}</p>
                     <p><span className="text-muted-foreground">Time:</span> {format(new Date(newOrderPopup.created_at), 'MMM dd, HH:mm')}</p>
+                    {newOrderPopup.estimated_delivery_time && (
+                      <p className="font-medium text-blue-500">
+                        <span className="text-muted-foreground font-normal">Scheduled for:</span>{' '}
+                        {format(new Date(newOrderPopup.estimated_delivery_time), 'MMM dd, HH:mm')}
+                      </p>
+                    )}
                     {newOrderPopup.branches?.name && (
                       <p><span className="text-muted-foreground">Branch:</span> {newOrderPopup.branches.name}</p>
                     )}
