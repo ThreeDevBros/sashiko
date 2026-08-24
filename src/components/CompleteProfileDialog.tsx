@@ -192,7 +192,7 @@ export function CompleteProfileDialog() {
                 </span>
               )}
             </div>
-            {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
+            {errors.fullName && <p className="text-xs text-destructive" aria-live="polite">{errors.fullName}</p>}
             <Input
               id="cp-name"
               value={fullName}
@@ -200,6 +200,9 @@ export function CompleteProfileDialog() {
               readOnly={providerHas.fullName}
               className={`${providerHas.fullName ? 'opacity-80' : ''} ${errors.fullName ? 'border-destructive' : ''}`}
               placeholder={t('profile.fullName', 'Full Name')}
+              autoComplete="name"
+              autoCapitalize="words"
+              enterKeyHint="next"
               autoFocus={!providerHas.fullName}
             />
           </div>
@@ -217,7 +220,7 @@ export function CompleteProfileDialog() {
                 </span>
               )}
             </div>
-            {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+            {errors.phone && <p className="text-xs text-destructive" aria-live="polite">{errors.phone}</p>}
             <Input
               id="cp-phone"
               type="tel"
@@ -226,6 +229,9 @@ export function CompleteProfileDialog() {
               readOnly={providerHas.phone}
               className={`${providerHas.phone ? 'opacity-80' : ''} ${errors.phone ? 'border-destructive' : ''}`}
               placeholder="+30 123 456 7890"
+              autoComplete="tel"
+              inputMode="tel"
+              enterKeyHint="next"
               autoFocus={!providerHas.fullName ? false : !providerHas.phone}
             />
           </div>
@@ -243,7 +249,7 @@ export function CompleteProfileDialog() {
                 </span>
               )}
             </div>
-            {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+            {errors.email && <p className="text-xs text-destructive" aria-live="polite">{errors.email}</p>}
             <Input
               id="cp-email"
               type="email"
@@ -252,10 +258,15 @@ export function CompleteProfileDialog() {
               readOnly={providerHas.email}
               className={`${providerHas.email ? 'opacity-80' : ''} ${errors.email ? 'border-destructive' : ''}`}
               placeholder="you@example.com"
+              autoComplete="email"
+              inputMode="email"
+              enterKeyHint="go"
+              autoCapitalize="none"
+              spellCheck={false}
             />
           </div>
 
-          <Button onClick={handleSave} disabled={saving} className="w-full">
+          <Button onClick={handleSave} disabled={saving} aria-busy={saving} className="w-full">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {t('auth.continue', 'Continue')}
           </Button>

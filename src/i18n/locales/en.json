@@ -296,7 +296,11 @@
     "welcomeBack": "Welcome back!",
     "invalidCredentials": "Invalid email or password",
     "alreadyRegistered": "An account with this email already exists",
-    "createFailed": "Failed to create account. Please try again."
+    "createFailed": "Failed to create account. Please try again.",
+    "welcomeBackTitle": "Welcome back",
+    "createAccountTitle": "Create your account",
+    "signInSubtitle": "Sign in to order and track your food",
+    "signUpSubtitle": "It only takes a minute to get started"
   },
   "settings": {
     "title": "Settings",
