@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useHaptics } from "@/hooks/useHaptics";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,13 @@ const OtpVerification = ({ email, onVerified, onBack }: OtpVerificationProps) =>
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [shake, setShake] = useState(false);
+  const haptics = useHaptics();
+  const otpWrapperRef = useRef<HTMLDivElement>(null);
+
+  const focusOtp = () => {
+    otpWrapperRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+  };
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -39,11 +47,16 @@ const OtpVerification = ({ email, onVerified, onBack }: OtpVerificationProps) =>
       });
 
       if (error) throw error;
+      haptics.success();
       toast.success("Email verified successfully!");
       onVerified();
     } catch (error: any) {
+      haptics.error();
       toast.error(error.message || "Invalid or expired code. Please try again.");
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
       setOtp("");
+      setTimeout(focusOtp, 0);
     } finally {
       setLoading(false);
     }
@@ -88,12 +101,19 @@ const OtpVerification = ({ email, onVerified, onBack }: OtpVerificationProps) =>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex justify-center">
+        <div
+          ref={otpWrapperRef}
+          className={`flex justify-center ${shake ? "animate-otp-shake" : ""}`}
+        >
           <InputOTP
             maxLength={6}
             value={otp}
             onChange={setOtp}
             disabled={loading}
+            autoFocus
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            aria-label="6-digit verification code"
           >
             <InputOTPGroup>
               <InputOTPSlot index={0} />
@@ -140,7 +160,7 @@ const OtpVerification = ({ email, onVerified, onBack }: OtpVerificationProps) =>
           className="w-full text-xs text-muted-foreground"
         >
           <ArrowLeft className="mr-1 h-3 w-3" />
-          Back to sign up
+          Wrong email? Change it
         </Button>
       </CardContent>
     </Card>
