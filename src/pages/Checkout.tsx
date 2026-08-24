@@ -524,7 +524,7 @@ const Checkout = () => {
     if (selectedAddressId === 'current-location' && deviceLocationData) {
       return (
         <div 
-          className="flex items-start gap-3 p-3 rounded-lg border border-border bg-accent/5 cursor-pointer hover:bg-accent/10 transition-colors"
+          className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
           onClick={() => setAddressDialogOpen(true)}
         >
           <Navigation className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
@@ -539,7 +539,7 @@ const Checkout = () => {
     if (selectedAddressId === 'selected-location' && selectedLocationData) {
       return (
         <div 
-          className="flex items-start gap-3 p-3 rounded-lg border border-border bg-accent/5 cursor-pointer hover:bg-accent/10 transition-colors"
+          className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
           onClick={() => setAddressDialogOpen(true)}
         >
           <MapPinned className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
@@ -557,7 +557,7 @@ const Checkout = () => {
         const SelectedAddressIcon = getAddressIcon(selectedAddress.label, false);
         return (
           <div 
-            className="flex items-start gap-3 p-3 rounded-lg border border-border bg-accent/5 cursor-pointer hover:bg-accent/10 transition-colors"
+            className="flex items-start gap-3 p-3 rounded-xl border border-border bg-transparent cursor-pointer hover:bg-accent/5 transition-colors"
             onClick={() => setAddressDialogOpen(true)}
           >
             <SelectedAddressIcon className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
@@ -900,7 +900,7 @@ const Checkout = () => {
             if (value === 'standard') setScheduleError('');
           }}>
             <div className="space-y-3">
-              <Label htmlFor="standard" className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-colors ${deliveryTiming === 'standard' ? 'border-primary bg-primary/5' : 'border-border'}`}>
+              <Label htmlFor="standard" className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors ${deliveryTiming === 'standard' ? 'border-primary bg-primary/5' : 'border-border'}`}>
                 <div className="flex items-center gap-3">
                   <RadioGroupItem value="standard" id="standard" />
                   <Clock className="h-5 w-5" />
@@ -912,7 +912,7 @@ const Checkout = () => {
               </Label>
               
               <div>
-                <Label htmlFor="schedule" className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-colors ${deliveryTiming === 'schedule' ? 'border-primary bg-primary/5' : 'border-border'} ${deliveryTiming === 'schedule' ? 'rounded-b-none' : ''}`}>
+                <Label htmlFor="schedule" className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors ${deliveryTiming === 'schedule' ? 'border-primary bg-primary/5' : 'border-border'} ${deliveryTiming === 'schedule' ? 'rounded-b-none' : ''}`}>
                   <div className="flex items-center gap-3">
                     <RadioGroupItem value="schedule" id="schedule" />
                     <Clock className="h-5 w-5" />
@@ -923,7 +923,7 @@ const Checkout = () => {
 
                 <Collapsible open={deliveryTiming === 'schedule'}>
                   <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-up-2 data-[state=open]:slide-down-2">
-                    <div className="border-2 border-t-0 border-primary rounded-b-lg p-4 bg-primary/5 space-y-4">
+                    <div className="border border-t-0 border-primary/50 rounded-b-xl p-4 bg-transparent space-y-4">
                       <h3 className="text-base font-bold">
                         {orderType === 'delivery'
                           ? 'Pick Date & Time for Delivery'
