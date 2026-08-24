@@ -721,17 +721,10 @@ const Checkout = () => {
 
         {/* Delivery Address Display */}
         {orderType === 'delivery' && (
-          <CheckoutSection title={t('checkout.deliveryAddress')} dataSection="delivery-address">
-            {isOutOfRange && (
-              <p className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-yellow-500/50 px-2.5 py-1 text-[11px] font-medium text-yellow-700 dark:text-yellow-400">
-                <AlertTriangle className="h-3 w-3" />
-                Out of range
-              </p>
-            )}
+          <CheckoutSection dataSection="delivery-address">
             <div className={isOutOfRange ? 'rounded-xl ring-1 ring-yellow-500/50' : undefined}>
               {renderDeliveryAddressCard()}
             </div>
-
           </CheckoutSection>
         )}
 
