@@ -1162,7 +1162,8 @@ const Checkout = () => {
               walletSystemReady={stripeReady}
             />
           )}
-        </Card>
+        </CheckoutSection>
+
 
         {/* Summary */}
         <CheckoutSection step="Step 3" title={t('checkout.summary')} divider={false}>
