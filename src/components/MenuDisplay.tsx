@@ -280,77 +280,157 @@ export const MenuDisplay = () => {
     );
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const isSearching = normalizedSearch.length > 0;
+  const searchResults = isSearching
+    ? menuItems.filter(
+        (item) =>
+          item.name?.toLowerCase().includes(normalizedSearch) ||
+          item.description?.toLowerCase().includes(normalizedSearch),
+      )
+    : [];
+
+  const renderMenuItem = (item: MenuItemType, itemIndex: number) => {
+    const hasOptions = itemsWithOptions?.has(item.id) ?? false;
+    return (
+      <MenuItem
+        key={item.id}
+        item={item}
+        branding={branding}
+        onItemClick={handleItemClick}
+        index={itemIndex}
+        cartQuantity={cartQuantities.get(item.id) || 0}
+        onQuickAdd={hasOptions ? undefined : quickAdd}
+        onQuickRemove={hasOptions ? undefined : quickRemove}
+      />
+    );
+  };
+
   return (
     <div className="relative">
-      {/* Fixed Category Bar */}
+      {/* Sticky Category Bar + Search */}
       <div
         className="sticky top-0 md:top-14 z-40 bg-background border-b border-border shadow-sm"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div 
-          ref={categoryScrollRef} 
-          className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide"
-        >
-      {categories.map((category, index) => {
+        {searchOpen ? (
+          <div className="flex items-center gap-2 px-4 py-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={t_searchPlaceholder}
+                className="pl-9 rounded-full h-10"
+                autoFocus
+                enterKeyHint="search"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setSearchOpen(false);
+              }}
+              className="h-10 px-3 rounded-full text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pr-3">
+            <div
+              ref={categoryScrollRef}
+              className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide flex-1"
+            >
+              {categories.map((category, index) => {
+                const categoryItems = menuItems.filter(item => item.category_id === category.id);
+                if (categoryItems.length === 0) return null;
+                const isActive = selectedCategory === category.id;
+
+                return (
+                  <button
+                    key={category.id}
+                    data-category-id={category.id}
+                    className={`whitespace-nowrap flex-shrink-0 transition-all duration-200 px-4 py-2 rounded-full text-sm font-medium border ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground border-primary shadow-md font-semibold'
+                        : 'bg-transparent text-foreground border-border hover:bg-muted'
+                    }`}
+                    onClick={() => {
+                      scrollToCategory(category.id);
+                    }}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              aria-label={t_searchPlaceholder}
+              onClick={() => setSearchOpen(true)}
+              className="h-9 w-9 flex-shrink-0 rounded-full border border-border flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Search results */}
+      {isSearching ? (
+        <div className="px-4 py-4">
+          {searchResults.length === 0 ? (
+            <Card className="p-10 text-center">
+              <h3 className="text-lg font-bold mb-2">{t_noResultsTitle}</h3>
+              <p className="text-muted-foreground text-sm mb-5">{t_noResultsDesc}</p>
+              <Button variant="outline" onClick={() => setSearchTerm('')}>
+                {t_clearSearch}
+              </Button>
+            </Card>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground mb-3">
+                {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}
+              </p>
+              <div className="space-y-3">
+                {searchResults.map((item, itemIndex) => renderMenuItem(item, itemIndex))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        /* Menu Items */
+        <div className="px-4 py-4 space-y-10">
+          {categories.map((category) => {
             const categoryItems = menuItems.filter(item => item.category_id === category.id);
             if (categoryItems.length === 0) return null;
-            const isActive = selectedCategory === category.id;
 
             return (
-              <button
+              <section
                 key={category.id}
-                data-category-id={category.id}
-                className={`whitespace-nowrap flex-shrink-0 transition-all duration-200 px-4 py-2 rounded-full text-sm font-medium border ${
-                  isActive
-                    ? 'bg-yellow-500 text-black border-yellow-500 shadow-md font-semibold'
-                    : 'bg-transparent text-foreground border-border hover:bg-muted'
-                }`}
-                onClick={() => {
-                  scrollToCategory(category.id);
-                }}
-                style={{ animationDelay: `${index * 50}ms` }}
+                id={`category-${category.id}`}
+                className="scroll-mt-[calc(env(safe-area-inset-top)+64px)] md:scroll-mt-[68px]"
               >
-                {category.name}
-              </button>
+                <h2
+                  className="text-2xl font-bold mb-4 text-foreground"
+                  style={{ fontFamily: branding?.font_family || 'inherit' }}
+                >
+                  {category.name}
+                </h2>
+
+                <div className="space-y-3">
+                  {categoryItems.map((item, itemIndex) => renderMenuItem(item, itemIndex))}
+                </div>
+              </section>
             );
           })}
         </div>
-      </div>
+      )}
 
-      {/* Menu Items */}
-      <div className="px-4 py-4 space-y-10">
-        {categories.map((category) => {
-          const categoryItems = menuItems.filter(item => item.category_id === category.id);
-          if (categoryItems.length === 0) return null;
-
-          return (
-            <section 
-              key={category.id} 
-              id={`category-${category.id}`} 
-              className="scroll-mt-[calc(env(safe-area-inset-top)+64px)] md:scroll-mt-[68px]"
-            >
-              <h2 
-                className="text-2xl font-bold mb-4 text-foreground"
-                style={{ fontFamily: branding?.font_family || 'inherit' }}
-              >
-                {category.name}
-              </h2>
-
-              <div className="space-y-3">
-                {categoryItems.map((item, itemIndex) => (
-                  <MenuItem
-                    key={item.id}
-                    item={item}
-                    branding={branding}
-                    onItemClick={handleItemClick}
-                    index={itemIndex}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
 
       {/* Item Detail Sheet */}
       <MenuItemDetailSheet
