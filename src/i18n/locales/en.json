@@ -410,5 +410,14 @@
     "rejectedReason": "Reason:",
     "noReason": "No reason was provided.",
     "okGotIt": "OK, Got it"
+  },
+  "payment": {
+    "processingTitle": "Processing payment",
+    "processingSubtitle": "Please do not close this page",
+    "successTitle": "Payment successful",
+    "successSubtitle": "Taking you to your order",
+    "failedTitle": "Payment failed",
+    "failedSubtitle": "Something went wrong. Please try again.",
+    "tryAgain": "Try again"
   }
 }

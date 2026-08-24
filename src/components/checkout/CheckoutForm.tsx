@@ -18,6 +18,7 @@ import { AddCardForm } from './AddCardForm';
 import { GuestCardPayment } from './GuestCardPayment';
 import { useSavedCards } from '@/hooks/useSavedCards';
 import { useBranding } from '@/hooks/useBranding';
+import { PaymentProcessingOverlay, type PaymentStatus } from './PaymentProcessingOverlay';
 
 interface Branch {
   id: string;
@@ -100,6 +101,8 @@ export const CheckoutForm = ({
     items
   } = useCart();
   const [loading, setLoading] = useState(false);
+  const [payStatus, setPayStatus] = useState<PaymentStatus>('idle');
+  const [payError, setPayError] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -354,6 +357,20 @@ export const CheckoutForm = ({
     };
     loadAddress();
   }, [selectedAddressId, orderType, branch, currentLocationData]);
+  // Success: show the tick briefly, then navigate
+  const finishSuccess = async (path: string) => {
+    setPayStatus('success');
+    await new Promise(resolve => setTimeout(resolve, 1400));
+    navigate(path, { replace: true });
+  };
+
+  // Failure: show the X with the reason (also keeps the inline alert)
+  const failPayment = (msg: string | null) => {
+    setError(msg);
+    setPayError(msg);
+    setPayStatus('error');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -395,6 +412,8 @@ export const CheckoutForm = ({
       return;
     }
     setLoading(true);
+    setPayError(null);
+    setPayStatus('processing');
     try {
       if (paymentType === 'cash') {
         // Cash on delivery - create order directly without payment
@@ -479,9 +498,9 @@ export const CheckoutForm = ({
         }
         onBeforeNavigate?.();
         if (data?.order_id) {
-          navigate(`/order-tracking/${data.order_id}`, { replace: true });
+          await finishSuccess(`/order-tracking/${data.order_id}`);
         } else {
-          navigate('/order-history', { replace: true });
+          await finishSuccess('/order-history');
         }
         clearCart();
       } else if (paymentType === 'wallet') {
@@ -519,13 +538,14 @@ export const CheckoutForm = ({
 
           if (result.cancelled) {
             // User dismissed the wallet sheet — not an error, reset state
+            setPayStatus('idle');
             setLoading(false);
             isSubmittingRef.current = false;
             return;
           }
 
           if (!result.success) {
-            setError(result.error || 'Payment failed. Please try again.');
+            failPayment(result.error || 'Payment failed. Please try again.');
             return;
           }
 
@@ -543,15 +563,15 @@ export const CheckoutForm = ({
           toast({ title: 'Payment successful!', description: 'Your order has been placed.' });
           onBeforeNavigate?.();
           if (result.orderId) {
-            navigate(`/order-tracking/${result.orderId}`, { replace: true });
+            await finishSuccess(`/order-tracking/${result.orderId}`);
           } else {
-            navigate('/order-history', { replace: true });
+            await finishSuccess('/order-history');
           }
           clearCart();
         } else {
           // === WEB PATH: Use Stripe Payment Request API ===
           if (!stripe) {
-            setError('Payment system is not ready. Please wait a moment and try again.');
+            failPayment('Payment system is not ready. Please wait a moment and try again.');
             return;
           }
 
@@ -588,7 +608,7 @@ export const CheckoutForm = ({
 
           const canMakePayment = await paymentRequest.canMakePayment();
           if (!canMakePayment) {
-            setError('Wallet payment is not available. Please try card payment instead.');
+            failPayment('Wallet payment is not available. Please try card payment instead.');
             return;
           }
 
@@ -602,7 +622,7 @@ export const CheckoutForm = ({
 
               if (confirmError) {
                 ev.complete('fail');
-                setError(confirmError.message || 'Payment failed');
+                failPayment(confirmError.message || 'Payment failed');
                 return;
               }
 
@@ -633,15 +653,15 @@ export const CheckoutForm = ({
                 toast({ title: 'Payment successful!', description: 'Your order has been placed.' });
                 onBeforeNavigate?.();
                 if (orderData?.order_id) {
-                  navigate(`/order-tracking/${orderData.order_id}`, { replace: true });
+                  await finishSuccess(`/order-tracking/${orderData.order_id}`);
                 } else {
-                  navigate('/order-history', { replace: true });
+                  await finishSuccess('/order-history');
                 }
                 clearCart();
               }
             } catch (err: any) {
               ev.complete('fail');
-              setError(err.message || 'Payment failed');
+              failPayment(err.message || 'Payment failed');
             }
           });
 
@@ -650,7 +670,7 @@ export const CheckoutForm = ({
       } else {
         // Online payment via Stripe (card)
         if (!stripe) {
-          setError('Payment system is not ready. Please wait a moment and try again.');
+          failPayment('Payment system is not ready. Please wait a moment and try again.');
           return;
         }
         
@@ -662,7 +682,7 @@ export const CheckoutForm = ({
         if (selectedCard && !isAddingNewCard) {
           // Use saved card with confirmCardPayment
           if (!clientSecret) {
-            setError('Payment not initialized. Please refresh and try again.');
+            failPayment('Payment not initialized. Please refresh and try again.');
             return;
           }
           console.log('Paying with saved card:', selectedCard);
@@ -672,7 +692,7 @@ export const CheckoutForm = ({
         } else {
           // Use PaymentElement with confirmPayment
           if (!elements) {
-            setError('Payment form is not ready. Please wait a moment and try again.');
+            failPayment('Payment form is not ready. Please wait a moment and try again.');
             return;
           }
           paymentResult = await stripe.confirmPayment({
@@ -691,12 +711,13 @@ export const CheckoutForm = ({
           if (stripeError.code === 'payment_intent_authentication_failure' ||
               msg.includes('cancel') || msg.includes('abort')) {
             // User cancelled — silently reset, allow retry
+            setPayStatus('idle');
             setLoading(false);
             isSubmittingRef.current = false;
             return;
           }
           console.error('Stripe error:', stripeError);
-          setError(stripeError.message || 'Payment failed');
+          failPayment(stripeError.message || 'Payment failed');
           throw new Error(stripeError.message);
         }
         if (paymentIntent && paymentIntent.status === 'succeeded') {
@@ -755,9 +776,9 @@ export const CheckoutForm = ({
           }
           onBeforeNavigate?.();
           if (data?.order_id) {
-            navigate(`/order-tracking/${data.order_id}`, { replace: true });
+            await finishSuccess(`/order-tracking/${data.order_id}`);
           } else {
-            navigate('/order-history', { replace: true });
+            await finishSuccess('/order-history');
           }
           clearCart();
         }
@@ -774,6 +795,7 @@ export const CheckoutForm = ({
         error?.type === 'canceled';
       if (isCancellation) {
         console.log('Payment cancelled by user');
+        setPayStatus('idle');
         return; // Silently reset — let user retry
       }
       // Extract a user-friendly message
@@ -781,7 +803,7 @@ export const CheckoutForm = ({
       if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function') && !error.message.includes('FunctionsFetchError')) {
         errorMessage = error.message;
       }
-      setError(errorMessage);
+      failPayment(errorMessage);
       toast({
         title: 'Payment failed',
         description: errorMessage,
@@ -793,6 +815,11 @@ export const CheckoutForm = ({
     }
   };
   return <form onSubmit={handleSubmit} className="space-y-6">
+      <PaymentProcessingOverlay
+        status={payStatus}
+        message={payError}
+        onDismiss={() => { setPayStatus('idle'); setPayError(null); }}
+      />
       {error && <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>}
@@ -1027,7 +1054,7 @@ export const CheckoutForm = ({
               branchId={branch?.id}
               onSuccess={(orderId) => {
                 onBeforeNavigate?.();
-                navigate(`/order-tracking/${orderId}`, { replace: true });
+                void finishSuccess(`/order-tracking/${orderId}`);
               }}
               onValidityChange={onGuestCardValidityChange}
               submitRef={guestCardSubmitRef}
