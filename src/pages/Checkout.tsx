@@ -159,15 +159,9 @@ const Checkout = () => {
   const canDeliver = orderType !== 'delivery' ? true :
     (!hasDeliveryLocation ? false : isWithinRadius);
 
-  // Delivery option is unavailable when an address is set but out of range
-  const deliveryAvailable = hasDeliveryLocation ? isWithinRadius : true;
+  // Delivery stays selectable even when out of range, so the user can fix the address
+  const isOutOfRange = hasDeliveryLocation && !isWithinRadius;
 
-  // Auto-switch to pickup when delivery becomes unavailable
-  useEffect(() => {
-    if (!deliveryAvailable && orderType === 'delivery') {
-      setOrderType('pickup');
-    }
-  }, [deliveryAvailable, orderType]);
 
   const branchIsOpen = branch ? isBranchOpen(branch.opens_at, branch.closes_at) : true;
   const branchIsPaused = branch?.is_paused === true;
