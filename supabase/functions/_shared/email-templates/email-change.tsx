@@ -34,7 +34,7 @@ export const EmailChangeEmail = ({
     <Body style={main}>
       <Container style={container}>
         <Img
-          src="https://rfwqbzeutrfccaazvibc.supabase.co/storage/v1/object/public/restaurant-images/email/sashiko-logo.png"
+          src="https://cqzprtgcptqusmospdys.supabase.co/storage/v1/object/public/restaurant-images/email/sashiko-logo.png"
           width="120"
           height="auto"
           alt="Sashiko Asian Fusion"
