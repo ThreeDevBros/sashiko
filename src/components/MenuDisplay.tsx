@@ -1,11 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Search, X } from 'lucide-react';
 import { useBranding } from '@/hooks/useBranding';
 import { useBranch } from '@/hooks/useBranch';
 import { useCart } from '@/contexts/CartContext';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MenuItem } from '@/components/menu/MenuItem';
@@ -15,15 +19,20 @@ import { fetchMenuCategories, fetchBranchMenuItems } from '@/lib/menuPrefetch';
 import type { MenuItem as MenuItemType, MenuCategory } from '@/types';
 
 export const MenuDisplay = () => {
+  const { t } = useTranslation();
   const { branding } = useBranding();
   const { branch, loading: branchLoading } = useBranch();
-  const { addItem } = useCart();
+  const { addItem, items: cartItems, updateQuantity, removeItem } = useCart();
+  const haptics = useHaptics();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItemType | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const observerRef = useRef<IntersectionObserver | null>(null);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
 
@@ -46,6 +55,58 @@ export const MenuDisplay = () => {
       });
     }
   };
+
+  /** Items that have modifier groups must go through the detail sheet. */
+  const { data: itemsWithOptions } = useQuery<Set<string>>({
+    queryKey: ['menu-items-with-options'],
+    queryFn: async () => {
+      const { data } = await supabase.from('menu_item_modifiers').select('menu_item_id');
+      return new Set((data || []).map((row: any) => row.menu_item_id as string));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  /** Quantity currently in the cart, keyed by menu item id (all variations). */
+  const cartQuantities = useMemo(() => {
+    const map = new Map<string, number>();
+    cartItems.forEach((line) => {
+      map.set(line.id, (map.get(line.id) || 0) + line.quantity);
+    });
+    return map;
+  }, [cartItems]);
+
+  const quickAdd = useCallback(
+    (item: MenuItemType) => {
+      haptics.light();
+      addItem({
+        id: item.id,
+        name: item.name,
+        price: Number(item.price),
+        image_url: item.image_url,
+        tax_rate: (item as any).tax_rate ?? null,
+        tax_included_in_price: (item as any).tax_included_in_price ?? false,
+      });
+    },
+    [addItem, haptics],
+  );
+
+  /** Decrement the plain (no options, no note) line for this item. */
+  const quickRemove = useCallback(
+    (item: MenuItemType) => {
+      const plainLine = cartItems.find(
+        (line) => line.id === item.id && !line.selectedModifiers?.length && !line.special_instructions,
+      );
+      if (!plainLine) return;
+      haptics.light();
+      if (plainLine.quantity <= 1) {
+        removeItem(plainLine.cartKey);
+      } else {
+        updateQuantity(plainLine.cartKey, plainLine.quantity - 1);
+      }
+    },
+    [cartItems, haptics, removeItem, updateQuantity],
+  );
+
 
   const { data: categories, isLoading: categoriesLoading, refetch: refetchCategories } = useQuery<MenuCategory[]>({
     queryKey: [QUERY_KEYS.MENU_CATEGORIES, branch?.id],
@@ -221,77 +282,157 @@ export const MenuDisplay = () => {
     );
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const isSearching = normalizedSearch.length > 0;
+  const searchResults = isSearching
+    ? menuItems.filter(
+        (item) =>
+          item.name?.toLowerCase().includes(normalizedSearch) ||
+          item.description?.toLowerCase().includes(normalizedSearch),
+      )
+    : [];
+
+  const renderMenuItem = (item: MenuItemType, itemIndex: number) => {
+    const hasOptions = itemsWithOptions?.has(item.id) ?? false;
+    return (
+      <MenuItem
+        key={item.id}
+        item={item}
+        branding={branding}
+        onItemClick={handleItemClick}
+        index={itemIndex}
+        cartQuantity={cartQuantities.get(item.id) || 0}
+        onQuickAdd={hasOptions ? undefined : quickAdd}
+        onQuickRemove={hasOptions ? undefined : quickRemove}
+      />
+    );
+  };
+
   return (
     <div className="relative">
-      {/* Fixed Category Bar */}
+      {/* Sticky Category Bar + Search */}
       <div
         className="sticky top-0 md:top-14 z-40 bg-background border-b border-border shadow-sm"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div 
-          ref={categoryScrollRef} 
-          className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide"
-        >
-      {categories.map((category, index) => {
+        {searchOpen ? (
+          <div className="flex items-center gap-2 px-4 py-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={t('menu.searchPlaceholder')}
+                className="pl-9 rounded-full h-10"
+                autoFocus
+                enterKeyHint="search"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setSearchOpen(false);
+              }}
+              className="h-10 px-3 rounded-full text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pr-3">
+            <div
+              ref={categoryScrollRef}
+              className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide flex-1"
+            >
+              {categories.map((category, index) => {
+                const categoryItems = menuItems.filter(item => item.category_id === category.id);
+                if (categoryItems.length === 0) return null;
+                const isActive = selectedCategory === category.id;
+
+                return (
+                  <button
+                    key={category.id}
+                    data-category-id={category.id}
+                    className={`whitespace-nowrap flex-shrink-0 transition-all duration-200 px-4 py-2 rounded-full text-sm font-medium border ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground border-primary shadow-md font-semibold'
+                        : 'bg-transparent text-foreground border-border hover:bg-muted'
+                    }`}
+                    onClick={() => {
+                      scrollToCategory(category.id);
+                    }}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              aria-label={t('menu.searchPlaceholder')}
+              onClick={() => setSearchOpen(true)}
+              className="h-9 w-9 flex-shrink-0 rounded-full border border-border flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Search results */}
+      {isSearching ? (
+        <div className="px-4 py-4">
+          {searchResults.length === 0 ? (
+            <Card className="p-10 text-center">
+              <h3 className="text-lg font-bold mb-2">{t('menu.noResults')}</h3>
+              <p className="text-muted-foreground text-sm mb-5">{t('menu.noResultsDesc')}</p>
+              <Button variant="outline" onClick={() => setSearchTerm('')}>
+                {t('menu.clearSearch')}
+              </Button>
+            </Card>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground mb-3">
+                {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}
+              </p>
+              <div className="space-y-3">
+                {searchResults.map((item, itemIndex) => renderMenuItem(item, itemIndex))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        /* Menu Items */
+        <div className="px-4 py-4 space-y-10">
+          {categories.map((category) => {
             const categoryItems = menuItems.filter(item => item.category_id === category.id);
             if (categoryItems.length === 0) return null;
-            const isActive = selectedCategory === category.id;
 
             return (
-              <button
+              <section
                 key={category.id}
-                data-category-id={category.id}
-                className={`whitespace-nowrap flex-shrink-0 transition-all duration-200 px-4 py-2 rounded-full text-sm font-medium border ${
-                  isActive
-                    ? 'bg-yellow-500 text-black border-yellow-500 shadow-md font-semibold'
-                    : 'bg-transparent text-foreground border-border hover:bg-muted'
-                }`}
-                onClick={() => {
-                  scrollToCategory(category.id);
-                }}
-                style={{ animationDelay: `${index * 50}ms` }}
+                id={`category-${category.id}`}
+                className="scroll-mt-[calc(env(safe-area-inset-top)+64px)] md:scroll-mt-[68px]"
               >
-                {category.name}
-              </button>
+                <h2
+                  className="text-2xl font-bold mb-4 text-foreground"
+                  style={{ fontFamily: branding?.font_family || 'inherit' }}
+                >
+                  {category.name}
+                </h2>
+
+                <div className="space-y-3">
+                  {categoryItems.map((item, itemIndex) => renderMenuItem(item, itemIndex))}
+                </div>
+              </section>
             );
           })}
         </div>
-      </div>
+      )}
 
-      {/* Menu Items */}
-      <div className="px-4 py-4 space-y-10">
-        {categories.map((category) => {
-          const categoryItems = menuItems.filter(item => item.category_id === category.id);
-          if (categoryItems.length === 0) return null;
-
-          return (
-            <section 
-              key={category.id} 
-              id={`category-${category.id}`} 
-              className="scroll-mt-[calc(env(safe-area-inset-top)+64px)] md:scroll-mt-[68px]"
-            >
-              <h2 
-                className="text-2xl font-bold mb-4 text-foreground"
-                style={{ fontFamily: branding?.font_family || 'inherit' }}
-              >
-                {category.name}
-              </h2>
-
-              <div className="space-y-3">
-                {categoryItems.map((item, itemIndex) => (
-                  <MenuItem
-                    key={item.id}
-                    item={item}
-                    branding={branding}
-                    onItemClick={handleItemClick}
-                    index={itemIndex}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
 
       {/* Item Detail Sheet */}
       <MenuItemDetailSheet

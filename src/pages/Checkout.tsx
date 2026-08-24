@@ -30,7 +30,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useDeliveryValidation } from '@/hooks/useDeliveryValidation';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, AlertTriangle, Check, ExternalLink } from "lucide-react";
+import { AlertCircle, AlertTriangle, Check, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { FeeSummary } from "@/components/order/FeeSummary";
 import { BackButton } from '@/components/BackButton';
 import { GuestCheckoutForm } from '@/components/checkout/GuestCheckoutForm';
 import { Switch } from "@/components/ui/switch";
@@ -96,6 +97,7 @@ const Checkout = () => {
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [pinMapOpen, setPinMapOpen] = useState(false);
   const [branchInfoOpen, setBranchInfoOpen] = useState(false);
+  const [itemsOpen, setItemsOpen] = useState(false);
   const [stripePromise, setStripePromise] = useState(() => getStripePromise());
   const [stripeReady, setStripeReady] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
@@ -654,6 +656,7 @@ const Checkout = () => {
         )}
 
         {/* Order Type */}
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 1 · Order details</p>
         <Card className="p-4" data-section="order-type">
           <h2 className="font-semibold mb-4">{t('checkout.orderType')}</h2>
           <div className="relative flex items-center bg-muted rounded-full p-1 h-12">
@@ -995,6 +998,7 @@ const Checkout = () => {
         )}
 
         {/* Payment */}
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 2 · Payment</p>
         <Card className="p-4">
           <h2 className="font-semibold mb-4">{t('checkout.paymentMethod')}</h2>
           
@@ -1161,27 +1165,48 @@ const Checkout = () => {
         </Card>
 
         {/* Summary */}
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 3 · Review & pay</p>
         <Card className="p-4">
           <h2 className="font-semibold mb-4">{t('checkout.summary')}</h2>
+
+          {/* Collapsible item list — see exactly what's being paid for */}
+          <button
+            type="button"
+            onClick={() => setItemsOpen(v => !v)}
+            className="w-full flex items-center justify-between text-sm font-medium mb-3"
+          >
+            <span>
+              {t('checkout.yourItems')} · {items.reduce((s, i) => s + i.quantity, 0)}
+            </span>
+            {itemsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {itemsOpen && (
+            <div className="space-y-2 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+              {items.map(item => (
+                <div key={item.cartKey} className="flex justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground truncate">
+                    {item.quantity}× {item.name}
+                  </span>
+                  <span className="flex-shrink-0">
+                    {formatCurrency(item.price * item.quantity, currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('checkout.subtotal')}</span>
-              <span>{formatCurrency(subtotal, currency)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('checkout.serviceFee')}</span>
-              <span>{formatCurrency(serviceFee, currency)}</span>
-            </div>
-            {orderType === 'delivery' && <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{t('checkout.deliveryFee')}</span>
-                <span className={deliveryFee === 0 && deliveryFeeConfig?.free_delivery_threshold ? 'text-green-600 dark:text-green-400 font-medium' : ''}>
-                  {deliveryFee === 0 && deliveryFeeConfig?.free_delivery_threshold ? t('checkout.freeDelivery') : formatCurrency(deliveryFee, currency)}
-                </span>
-              </div>}
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('checkout.tax')}</span>
-              <span>{formatCurrency(tax, currency)}</span>
-            </div>
+            <FeeSummary
+              currency={currency}
+              subtotal={subtotal}
+              serviceFee={serviceFee}
+              deliveryFee={orderType === 'delivery' ? deliveryFee : null}
+              tax={tax}
+              total={grandTotal}
+              isFreeDelivery={deliveryFee === 0 && !!deliveryFeeConfig?.free_delivery_threshold}
+              showTotal={false}
+            />
+
             
             {/* Cashback Redemption */}
             {!isGuest && cashbackBalance > 0 && (
@@ -1210,8 +1235,33 @@ const Checkout = () => {
               <span>{formatCurrency(grandTotal, currency)}</span>
             </div>
           </div>
-          
+
+          {/* Explain what's blocking the order instead of a silently dead button */}
+          {(() => {
+            const blockReason = branchIsPaused
+              ? 'This branch is busy and not accepting orders right now.'
+              : (deliveryTiming === 'standard' && !branchIsOpen)
+                ? 'This branch is closed — schedule your order for later.'
+                : (orderType === 'delivery' && !selectedAddressId)
+                  ? 'Add a delivery address to continue.'
+                  : (orderType === 'delivery' && !canDeliver && !!selectedAddressId)
+                    ? 'This address is outside the delivery area — switch to pickup or pick another address.'
+                    : (isGuest && (!guestInfo.name.trim() || !guestInfo.email.trim() || !guestInfo.phone.trim()))
+                      ? 'Fill in your name, email and phone to continue.'
+                      : (currentPaymentType === 'wallet' && !stripeReady)
+                        ? 'Preparing your wallet payment…'
+                        : null;
+            if (!blockReason) return null;
+            return (
+              <p className="mt-4 text-xs text-muted-foreground flex items-start gap-1.5">
+                <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                {blockReason}
+              </p>
+            );
+          })()}
+
           {validationLoading && orderType === 'delivery' ? <Button className="w-full mt-4" size="lg" disabled>
+
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Checking delivery zone...
             </Button> : <Button size="lg" onClick={() => {

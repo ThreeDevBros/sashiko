@@ -38,7 +38,11 @@
     "addNote": "Add note",
     "quantity": "Quantity",
     "selectUpTo": "Select up to {{max}}",
-    "required": "Required"
+    "required": "Required",
+    "searchPlaceholder": "Search the menu",
+    "noResults": "No matches",
+    "noResultsDesc": "Nothing on the menu matches your search.",
+    "clearSearch": "Clear search"
   },
   "cart": {
     "title": "Cart",
@@ -53,7 +57,14 @@
     "goToCheckout": "Go to checkout",
     "doubleTapConfirm": "Tap again to confirm!",
     "doubleTapComplete": "Double tap to complete order",
-    "branchBusy": "Branch Busy"
+    "branchBusy": "Branch Busy",
+    "items": "items",
+    "item": "item",
+    "itemRemoved": "Item removed",
+    "undo": "Undo",
+    "unavailableTitle": "Some items are unavailable",
+    "unavailableDesc": "These items are no longer available at this branch. Remove them to continue.",
+    "remove": "Remove"
   },
   "checkout": {
     "orderType": "Order Type",
@@ -117,7 +128,9 @@
     "contactSupport": "Contact support for any issues",
     "allOrders": "All Orders",
     "default": "Default",
-    "free": "Free"
+    "free": "Free",
+    "estimated": "estimated",
+    "yourItems": "Your items"
   },
   "orders": {
     "title": "Order History",
