@@ -656,10 +656,9 @@ const Checkout = () => {
         )}
 
         {/* Order Type */}
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 1 · Order details</p>
-        <Card className="p-4" data-section="order-type">
-          <h2 className="font-semibold mb-4">{t('checkout.orderType')}</h2>
-          <div className="relative flex items-center bg-muted rounded-full p-1 h-12">
+        <CheckoutSection step="Step 1" title={t('checkout.orderType')} dataSection="order-type">
+          <div className="relative flex items-center border border-border rounded-full p-1 h-12">
+
             {/* Animated thumb */}
             <div
               className="absolute top-1 bottom-1 left-1 rounded-full bg-primary shadow-sm transition-transform duration-300 ease-out"
