@@ -880,7 +880,7 @@ const Checkout = () => {
         {orderType === 'delivery' && (
           <CheckoutSection>
             <FloatingLabelTextarea
-              label="Instructions for courier"
+              label={t('checkout.courierInstructions')}
               requiredHint="Optional"
               value={orderInstructions}
               onChange={(e) => setOrderInstructions(e.target.value.slice(0, 300))}
