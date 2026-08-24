@@ -1165,9 +1165,8 @@ const Checkout = () => {
         </Card>
 
         {/* Summary */}
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Step 3 · Review & pay</p>
-        <Card className="p-4">
-          <h2 className="font-semibold mb-4">{t('checkout.summary')}</h2>
+        <CheckoutSection step="Step 3" title={t('checkout.summary')} divider={false}>
+
 
           {/* Collapsible item list — see exactly what's being paid for */}
           <button
