@@ -130,7 +130,8 @@
     "default": "Προεπιλογή",
     "free": "Δωρεάν",
     "estimated": "εκτίμηση",
-    "yourItems": "Τα προϊόντα σου"
+    "yourItems": "Τα προϊόντα σου",
+    "courierInstructions": "Οδηγίες για τον διανομέα"
   },
   "orders": {
     "title": "Ιστορικό Παραγγελιών",

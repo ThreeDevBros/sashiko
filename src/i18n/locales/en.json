@@ -130,7 +130,8 @@
     "default": "Default",
     "free": "Free",
     "estimated": "estimated",
-    "yourItems": "Your items"
+    "yourItems": "Your items",
+    "courierInstructions": "Instructions for courier"
   },
   "orders": {
     "title": "Order History",
