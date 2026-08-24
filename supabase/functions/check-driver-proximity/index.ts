@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendFcmV2 } from "../_shared/fcm-v2.ts";
+import { getCallerUser, hasAnyRole, STAFF_ROLES } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,10 +28,30 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    const caller = await getCallerUser(req, supabase);
+    if (!caller) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { order_id, driver_lat, driver_lng } = await req.json();
     if (!order_id || driver_lat == null || driver_lng == null) {
       return new Response(JSON.stringify({ error: 'order_id, driver_lat, driver_lng required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Only the driver assigned to this order (or staff) may report proximity
+    const { data: orderOwner } = await supabase
+      .from('orders')
+      .select('driver_id')
+      .eq('id', order_id)
+      .maybeSingle();
+
+    if (!orderOwner || (orderOwner.driver_id !== caller.id && !(await hasAnyRole(supabase, caller.id, STAFF_ROLES)))) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
