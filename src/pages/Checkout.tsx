@@ -1163,25 +1163,45 @@ const Checkout = () => {
         {/* Summary */}
         <Card className="p-4">
           <h2 className="font-semibold mb-4">{t('checkout.summary')}</h2>
+
+          {/* Collapsible item list — see exactly what's being paid for */}
+          <button
+            type="button"
+            onClick={() => setItemsOpen(v => !v)}
+            className="w-full flex items-center justify-between text-sm font-medium mb-3"
+          >
+            <span>
+              {t('checkout.yourItems')} · {items.reduce((s, i) => s + i.quantity, 0)}
+            </span>
+            {itemsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {itemsOpen && (
+            <div className="space-y-2 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+              {items.map(item => (
+                <div key={item.cartKey} className="flex justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground truncate">
+                    {item.quantity}× {item.name}
+                  </span>
+                  <span className="flex-shrink-0">
+                    {formatCurrency(item.price * item.quantity, currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('checkout.subtotal')}</span>
-              <span>{formatCurrency(subtotal, currency)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('checkout.serviceFee')}</span>
-              <span>{formatCurrency(serviceFee, currency)}</span>
-            </div>
-            {orderType === 'delivery' && <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{t('checkout.deliveryFee')}</span>
-                <span className={deliveryFee === 0 && deliveryFeeConfig?.free_delivery_threshold ? 'text-green-600 dark:text-green-400 font-medium' : ''}>
-                  {deliveryFee === 0 && deliveryFeeConfig?.free_delivery_threshold ? t('checkout.freeDelivery') : formatCurrency(deliveryFee, currency)}
-                </span>
-              </div>}
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('checkout.tax')}</span>
-              <span>{formatCurrency(tax, currency)}</span>
-            </div>
+            <FeeSummary
+              currency={currency}
+              subtotal={subtotal}
+              serviceFee={serviceFee}
+              deliveryFee={orderType === 'delivery' ? deliveryFee : null}
+              tax={tax}
+              total={grandTotal}
+              isFreeDelivery={deliveryFee === 0 && !!deliveryFeeConfig?.free_delivery_threshold}
+              showTotal={false}
+            />
+
             
             {/* Cashback Redemption */}
             {!isGuest && cashbackBalance > 0 && (
