@@ -2,10 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Search, X } from 'lucide-react';
 import { useBranding } from '@/hooks/useBranding';
 import { useBranch } from '@/hooks/useBranch';
 import { useCart } from '@/contexts/CartContext';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useHaptics } from '@/hooks/useHaptics';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { MenuItem } from '@/components/menu/MenuItem';
@@ -17,13 +20,17 @@ import type { MenuItem as MenuItemType, MenuCategory } from '@/types';
 export const MenuDisplay = () => {
   const { branding } = useBranding();
   const { branch, loading: branchLoading } = useBranch();
-  const { addItem } = useCart();
+  const { addItem, items: cartItems, updateQuantity, removeItem } = useCart();
+  const haptics = useHaptics();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItemType | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const observerRef = useRef<IntersectionObserver | null>(null);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
 
@@ -46,6 +53,58 @@ export const MenuDisplay = () => {
       });
     }
   };
+
+  /** Items that have modifier groups must go through the detail sheet. */
+  const { data: itemsWithOptions } = useQuery<Set<string>>({
+    queryKey: ['menu-items-with-options'],
+    queryFn: async () => {
+      const { data } = await supabase.from('menu_item_modifiers').select('menu_item_id');
+      return new Set((data || []).map((row: any) => row.menu_item_id as string));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  /** Quantity currently in the cart, keyed by menu item id (all variations). */
+  const cartQuantities = useMemo(() => {
+    const map = new Map<string, number>();
+    cartItems.forEach((line) => {
+      map.set(line.id, (map.get(line.id) || 0) + line.quantity);
+    });
+    return map;
+  }, [cartItems]);
+
+  const quickAdd = useCallback(
+    (item: MenuItemType) => {
+      haptics.light();
+      addItem({
+        id: item.id,
+        name: item.name,
+        price: Number(item.price),
+        image_url: item.image_url,
+        tax_rate: (item as any).tax_rate ?? null,
+        tax_included_in_price: (item as any).tax_included_in_price ?? false,
+      });
+    },
+    [addItem, haptics],
+  );
+
+  /** Decrement the plain (no options, no note) line for this item. */
+  const quickRemove = useCallback(
+    (item: MenuItemType) => {
+      const plainLine = cartItems.find(
+        (line) => line.id === item.id && !line.selectedModifiers?.length && !line.special_instructions,
+      );
+      if (!plainLine) return;
+      haptics.light();
+      if (plainLine.quantity <= 1) {
+        removeItem(plainLine.cartKey);
+      } else {
+        updateQuantity(plainLine.cartKey, plainLine.quantity - 1);
+      }
+    },
+    [cartItems, haptics, removeItem, updateQuantity],
+  );
+
 
   const { data: categories, isLoading: categoriesLoading, refetch: refetchCategories } = useQuery<MenuCategory[]>({
     queryKey: [QUERY_KEYS.MENU_CATEGORIES, branch?.id],
