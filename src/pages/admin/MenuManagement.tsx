@@ -16,7 +16,7 @@ import { formatCurrency } from '@/lib/currency';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { ModifierManagement } from '@/components/admin/ModifierManagement';
 import { CategoryManagement } from '@/components/admin/CategoryManagement';
-import { GenerateMenuImages } from '@/components/admin/GenerateMenuImages';
+
 import { AllergenManagement } from '@/components/admin/AllergenManagement';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -501,7 +501,7 @@ export default function MenuManagement() {
           </TabsList>
 
           <TabsContent value="items" className="space-y-4">
-            <GenerateMenuImages />
+
             
             <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center">
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
