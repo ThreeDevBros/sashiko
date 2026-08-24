@@ -172,6 +172,7 @@ const AppRoutes = () => {
                 <Route path="/reservation-history" element={<AnimatedPage><ReservationHistory /></AnimatedPage>} />
                 <Route path="/book-table" element={<AnimatedPage><TableBooking /></AnimatedPage>} />
                 <Route path="/auth" element={<AnimatedPage><Auth /></AnimatedPage>} />
+                <Route path="/auth/confirmed" element={<AnimatedPage><AuthConfirmed /></AnimatedPage>} />
                 <Route path="/profile" element={<AnimatedPage><Profile /></AnimatedPage>} />
                 <Route path="/profile/address" element={<AnimatedPage><Address /></AnimatedPage>} />
                 <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
