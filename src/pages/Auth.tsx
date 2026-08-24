@@ -314,6 +314,19 @@ const Auth = () => {
       toast.success("Verification email sent — check your inbox!");
     } catch (error: any) {
       console.error('[Auth] Sign up failed:', error);
+      // Detect Supabase rate-limit responses and convert them into a visible
+      // countdown on the button instead of a generic error toast.
+      const raw = String(error?.message || '').toLowerCase();
+      const secondsMatch = raw.match(/after\s+(\d+)\s*seconds?/);
+      const isRate =
+        error?.status === 429 ||
+        raw.includes('rate limit') ||
+        raw.includes('too many') ||
+        secondsMatch !== null;
+      if (isRate) {
+        const secs = secondsMatch ? parseInt(secondsMatch[1], 10) : 30;
+        setSignupCooldown(Math.max(5, Math.min(secs, 120)));
+      }
       showAuthError(error, t('auth.createFailed'));
     } finally {
       setLoading(false);
