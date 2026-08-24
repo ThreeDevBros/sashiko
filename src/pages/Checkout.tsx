@@ -30,7 +30,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useDeliveryValidation } from '@/hooks/useDeliveryValidation';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, AlertTriangle, Check, ExternalLink } from "lucide-react";
+import { AlertCircle, AlertTriangle, Check, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { FeeSummary } from "@/components/order/FeeSummary";
 import { BackButton } from '@/components/BackButton';
 import { GuestCheckoutForm } from '@/components/checkout/GuestCheckoutForm';
 import { Switch } from "@/components/ui/switch";
@@ -96,6 +97,7 @@ const Checkout = () => {
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [pinMapOpen, setPinMapOpen] = useState(false);
   const [branchInfoOpen, setBranchInfoOpen] = useState(false);
+  const [itemsOpen, setItemsOpen] = useState(false);
   const [stripePromise, setStripePromise] = useState(() => getStripePromise());
   const [stripeReady, setStripeReady] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
