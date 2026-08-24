@@ -682,12 +682,7 @@ const Checkout = () => {
 
           {/* Out of range notice — delivery only */}
           {orderType === 'delivery' && isOutOfRange && (
-            <OutOfRangeNotice
-              distanceKm={deliveryDistance}
-              radiusKm={deliveryRadiusKm}
-              onChangeAddress={() => setAddressDialogOpen(true)}
-              onSwitchToPickup={() => setOrderType('pickup')}
-            />
+            <OutOfRangeNotice />
           )}
 
 
