@@ -1232,8 +1232,33 @@ const Checkout = () => {
               <span>{formatCurrency(grandTotal, currency)}</span>
             </div>
           </div>
-          
+
+          {/* Explain what's blocking the order instead of a silently dead button */}
+          {(() => {
+            const blockReason = branchIsPaused
+              ? 'This branch is busy and not accepting orders right now.'
+              : (deliveryTiming === 'standard' && !branchIsOpen)
+                ? 'This branch is closed — schedule your order for later.'
+                : (orderType === 'delivery' && !selectedAddressId)
+                  ? 'Add a delivery address to continue.'
+                  : (orderType === 'delivery' && !canDeliver && !!selectedAddressId)
+                    ? 'This address is outside the delivery area — switch to pickup or pick another address.'
+                    : (isGuest && (!guestInfo.name.trim() || !guestInfo.email.trim() || !guestInfo.phone.trim()))
+                      ? 'Fill in your name, email and phone to continue.'
+                      : (currentPaymentType === 'wallet' && !stripeReady)
+                        ? 'Preparing your wallet payment…'
+                        : null;
+            if (!blockReason) return null;
+            return (
+              <p className="mt-4 text-xs text-muted-foreground flex items-start gap-1.5">
+                <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                {blockReason}
+              </p>
+            );
+          })()}
+
           {validationLoading && orderType === 'delivery' ? <Button className="w-full mt-4" size="lg" disabled>
+
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Checking delivery zone...
             </Button> : <Button size="lg" onClick={() => {
