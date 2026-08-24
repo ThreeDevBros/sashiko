@@ -31,7 +31,7 @@ export const CheckoutSection = ({
 }: CheckoutSectionProps) => (
   <section
     data-section={dataSection}
-    className={`py-6 rounded-lg ${divider ? 'border-b border-border/50' : ''} ${className}`}
+    className={`py-5 rounded-lg ${divider ? 'border-b border-border/50' : ''} ${className}`}
   >
     {(step || title || action) && (
       <div className="mb-5 flex items-end justify-between gap-4">

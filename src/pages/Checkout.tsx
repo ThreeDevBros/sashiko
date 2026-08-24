@@ -680,7 +680,7 @@ const Checkout = () => {
 
 
         {/* Order Type */}
-        <CheckoutSection title={t('checkout.orderType')} dataSection="order-type">
+        <CheckoutSection dataSection="order-type">
           <div className="relative flex items-center border border-border rounded-full p-1 h-12">
 
             {/* Animated thumb */}
