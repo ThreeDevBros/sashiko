@@ -28,6 +28,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useTheme } from "@/components/ThemeProvider";
 import sashikoLogo from "@/assets/sashiko-logo-transparent.png";
 import OtpVerification from "@/components/auth/OtpVerification";
+import { PasswordField } from "@/components/auth/PasswordField";
+import { PasswordChecklist } from "@/components/auth/PasswordChecklist";
+import { useHaptics } from "@/hooks/useHaptics";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { useBranding } from "@/hooks/useBranding";
 import { nativeAppleSignIn } from "@/lib/nativeAppleSignIn";
@@ -131,6 +135,8 @@ const Auth = () => {
   const { theme } = useTheme();
   const { branding } = useBranding();
   const navigate = useNavigate();
+  const haptics = useHaptics();
+  const isMobile = useIsMobile();
   const isLightTheme = theme === 'light';
   const appleButtonClass = isLightTheme
     ? "h-9 rounded-lg bg-black hover:bg-black/90 text-white border-none text-sm font-semibold shadow-md"
@@ -152,6 +158,8 @@ const Auth = () => {
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
+  const [socialPending, setSocialPending] = useState<'google' | 'apple' | null>(null);
 
   // Signup validation
   const isFullNameValid = fullName.trim().length >= 2;
@@ -244,7 +252,7 @@ const Auth = () => {
     if (msg === null) return; // silent (user cancelled)
     const finalMsg = msg || fallback || 'Something went wrong. Please try again.';
     setAuthError(finalMsg);
-    toast.error(finalMsg);
+    haptics.error();
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -253,20 +261,20 @@ const Auth = () => {
 
     if (!isFullNameValid) {
       const m = "Full name must be at least 2 characters";
-      setAuthError(m); toast.error(m); return;
+      setAuthError(m); haptics.error(); return;
     }
     if (!isPhoneValid) {
       const m = "Phone number must contain at least 6 digits";
-      setAuthError(m); toast.error(m); return;
+      setAuthError(m); haptics.error(); return;
     }
     const passwordValidation = passwordSchema.safeParse(password);
     if (!passwordValidation.success) {
       const m = passwordValidation.error.errors[0].message;
-      setAuthError(m); toast.error(m); return;
+      setAuthError(m); haptics.error(); return;
     }
     if (!passwordsMatch) {
       const m = "Passwords do not match";
-      setAuthError(m); toast.error(m); return;
+      setAuthError(m); haptics.error(); return;
     }
     
     setLoading(true);
@@ -287,6 +295,7 @@ const Auth = () => {
       if (error) throw error;
       setSignupEmail(email);
       setShowOtpVerification(true);
+      haptics.success();
       toast.success("Verification code sent to your email!");
     } catch (error: any) {
       console.error('[Auth] Sign up failed:', error);
@@ -308,6 +317,7 @@ const Auth = () => {
       });
 
       if (error) throw error;
+      haptics.success();
       toast.success(t('auth.welcomeBack'));
     } catch (error: any) {
       console.error('[Auth] Sign in failed:', error);
@@ -317,7 +327,7 @@ const Auth = () => {
       const isCredErr = mapped === 'Incorrect email or password.' || !mapped;
       const finalMsg = isCredErr ? t('auth.invalidCredentials') : mapped;
       setAuthError(finalMsg);
-      toast.error(finalMsg);
+      haptics.error();
     } finally {
       setLoading(false);
     }
@@ -326,6 +336,8 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     console.log('[Auth] Google sign-in tapped');
     setAuthError(null);
+    setSocialPending('google');
+    haptics.light();
     try {
       const { error } = await nativeGoogleSignIn();
       if (error) {
@@ -341,11 +353,15 @@ const Auth = () => {
         `[Auth] Google sign-in failed: code=${error?.code ?? 'n/a'} message=${error?.message ?? String(error)}`
       );
       showAuthError(error, 'Google sign-in failed. Please try again.');
+    } finally {
+      setSocialPending(null);
     }
   };
 
   const handleAppleSignIn = async () => {
     setAuthError(null);
+    setSocialPending('apple');
+    haptics.light();
     try {
       console.log('[Auth] Apple sign-in starting');
       const { error } = await nativeAppleSignIn();
@@ -362,6 +378,8 @@ const Auth = () => {
     } catch (error: any) {
       console.error('[Auth] Apple sign-in failed:', error);
       showAuthError(error, 'Apple sign-in failed. Please try again.');
+    } finally {
+      setSocialPending(null);
     }
   };
 
@@ -487,33 +505,36 @@ const Auth = () => {
               <form onSubmit={handleUpdatePassword} className="space-y-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="new-password" className="text-xs">New Password</Label>
-                  <Input
+                  <PasswordField
                     id="new-password"
-                    type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     minLength={12}
+                    autoComplete="new-password"
+                    enterKeyHint="next"
                     placeholder="Min 12 characters, with uppercase, lowercase & number"
                     className="h-9"
                   />
-                  <p className="text-[10px] text-muted-foreground">
-                    Must be at least 12 characters with uppercase, lowercase, and numbers
-                  </p>
+                  <PasswordChecklist value={newPassword} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="confirm-password" className="text-xs">Confirm Password</Label>
-                  <Input
+                  <PasswordField
                     id="confirm-password"
-                    type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     minLength={12}
+                    autoComplete="new-password"
+                    enterKeyHint="go"
                     className="h-9"
                   />
+                  {confirmPassword.length > 0 && confirmPassword !== newPassword && (
+                    <p className="text-[10px] text-destructive">Passwords do not match</p>
+                  )}
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading} aria-busy={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Update Password
                 </Button>
@@ -671,12 +692,19 @@ const Auth = () => {
         <Card className="w-full bg-card/95 backdrop-blur-xl border-border/50">
           <CardHeader className="space-y-1">
             <CardTitle className="text-xl font-bold text-center text-foreground">
-              {t('auth.signUpFree')}
+              {activeTab === 'signin' ? t('auth.welcomeBackTitle') : t('auth.createAccountTitle')}
             </CardTitle>
+            <CardDescription className="text-center text-xs">
+              {activeTab === 'signin' ? t('auth.signInSubtitle') : t('auth.signUpSubtitle')}
+            </CardDescription>
           </CardHeader>
 
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full" onValueChange={() => setAuthError(null)}>
+          <Tabs
+            value={activeTab}
+            className="w-full"
+            onValueChange={(v) => { setActiveTab(v as 'signin' | 'signup'); setAuthError(null); }}
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
               <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
@@ -685,6 +713,7 @@ const Auth = () => {
             {authError && (
               <div
                 role="alert"
+                aria-live="polite"
                 className="mt-3 w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 flex items-start gap-2"
               >
                 <span className="text-base leading-none mt-0.5">⚠️</span>
@@ -705,6 +734,7 @@ const Auth = () => {
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-3">
                 <div className="space-y-1.5">
+                  <Label htmlFor="signin-email" className="sr-only">{t('auth.email')}</Label>
                   <Input
                     id="signin-email"
                     type="email"
@@ -712,22 +742,35 @@ const Auth = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoFocus={!isMobile}
+                    autoComplete="email"
+                    inputMode="email"
+                    enterKeyHint="next"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     className="h-9 rounded-lg bg-muted/50 border-border/30 placeholder:text-muted-foreground/60"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Input
+                  <Label htmlFor="signin-password" className="sr-only">{t('auth.password')}</Label>
+                  <PasswordField
                     id="signin-password"
-                    type="password"
                     placeholder={t('auth.password')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    autoComplete="current-password"
+                    enterKeyHint="go"
                     className="h-9 rounded-lg bg-muted/50 border-border/30"
                   />
                 </div>
 
-                <Button type="submit" className="w-full h-9 rounded-lg text-sm font-semibold" disabled={loading}>
+                <Button
+                  type="submit"
+                  className="w-full h-9 rounded-lg text-sm font-semibold"
+                  disabled={loading || socialPending !== null}
+                  aria-busy={loading}
+                >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t('auth.login')}
                 </Button>
@@ -748,9 +791,15 @@ const Auth = () => {
                     <button
                       type="button"
                       onClick={handleAppleSignIn}
-                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95`}
+                      disabled={socialPending !== null || loading}
+                      aria-busy={socialPending === 'apple'}
+                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95 disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
                     >
-                      <FaApple className={appleIconClass} />
+                      {socialPending === 'apple' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <FaApple className={appleIconClass} />
+                      )}
                       {t('auth.continueWithApple')}
                     </button>
                   )}
@@ -758,28 +807,25 @@ const Auth = () => {
                     type="button"
                     variant="outline"
                     onClick={handleGoogleSignIn}
+                    disabled={socialPending !== null || loading}
+                    aria-busy={socialPending === 'google'}
                     className="h-9 rounded-lg bg-[#4285F4] hover:bg-[#3b78e7] dark:bg-[#4285F4] dark:hover:bg-[#3b78e7] border-none text-white dark:text-white text-sm font-semibold shadow-md"
                   >
-                    <div className="mr-2 bg-white rounded-full w-6 h-6 flex items-center justify-center">
-                      <FcGoogle className="!h-5 !w-5" />
-                    </div>
+                    {socialPending === 'google' ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <div className="mr-2 bg-white rounded-full w-6 h-6 flex items-center justify-center">
+                        <FcGoogle className="!h-5 !w-5" />
+                      </div>
+                    )}
                     {t('auth.continueWithGoogle')}
                   </Button>
                 </div>
                 
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => {
-                    localStorage.setItem('guestMode', 'true');
-                    navigate('/');
-                  }}
-                  className="w-full h-9 rounded-lg text-sm font-semibold"
+                <Dialog
+                  open={resetDialogOpen}
+                  onOpenChange={(o) => { setResetDialogOpen(o); if (o && email) setResetEmail(email); }}
                 >
-                  {t('auth.continueAsGuest')}
-                </Button>
-
-                <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="link" className="w-full text-xs text-primary">
                       {t('auth.forgotPassword')}
@@ -802,6 +848,11 @@ const Auth = () => {
                           value={resetEmail}
                           onChange={(e) => setResetEmail(e.target.value)}
                           required
+                          autoComplete="email"
+                          inputMode="email"
+                          enterKeyHint="go"
+                          autoCapitalize="none"
+                          spellCheck={false}
                         />
                       </div>
                       <Button type="submit" className="w-full" disabled={resetLoading}>
@@ -817,6 +868,7 @@ const Auth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-3">
                 <div className="space-y-1.5">
+                  <Label htmlFor="signup-name" className="sr-only">{t('auth.fullName')}</Label>
                   <Input
                     id="signup-name"
                     type="text"
@@ -824,10 +876,14 @@ const Auth = () => {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
+                    autoComplete="name"
+                    autoCapitalize="words"
+                    enterKeyHint="next"
                     className="h-9 rounded-lg bg-muted/50 border-border/30 placeholder:text-muted-foreground/60"
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <Label htmlFor="signup-email" className="sr-only">{t('auth.email')}</Label>
                   <Input
                     id="signup-email"
                     type="email"
@@ -835,10 +891,16 @@ const Auth = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
+                    inputMode="email"
+                    enterKeyHint="next"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     className="h-9 rounded-lg bg-muted/50 border-border/30 placeholder:text-muted-foreground/60"
                   />
                 </div>
                 <div className="space-y-1.5">
+                  <Label htmlFor="signup-phone" className="sr-only">{t('auth.phone')}</Label>
                   <Input
                     id="signup-phone"
                     type="tel"
@@ -846,23 +908,32 @@ const Auth = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     required
+                    autoComplete="tel"
+                    inputMode="tel"
+                    enterKeyHint="next"
                     className="h-9 rounded-lg bg-muted/50 border-border/30 placeholder:text-muted-foreground/60"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Input
+                  <Label htmlFor="signup-password" className="sr-only">{t('auth.password')}</Label>
+                  <PasswordField
                     id="signup-password"
-                    type="password"
                     placeholder={t('auth.password')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={12}
+                    autoComplete="new-password"
+                    enterKeyHint="next"
                     className="h-9 rounded-lg bg-muted/50 border-border/30"
                   />
-                   <p className="text-[10px] text-muted-foreground">
-                    {t('auth.passwordRequirements')}
-                  </p>
+                  {password.length > 0 ? (
+                    <PasswordChecklist value={password} />
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">
+                      {t('auth.passwordRequirements')}
+                    </p>
+                  )}
                 </div>
                 <div
                   className="overflow-hidden transition-all duration-300 ease-in-out"
@@ -873,12 +944,14 @@ const Auth = () => {
                   }}
                 >
                   <div className="space-y-1.5">
-                    <Input
+                    <Label htmlFor="signup-confirm-password" className="sr-only">{t('auth.confirmPassword')}</Label>
+                    <PasswordField
                       id="signup-confirm-password"
-                      type="password"
                       placeholder={t('auth.confirmPassword')}
                       value={signupConfirmPassword}
                       onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                      autoComplete="new-password"
+                      enterKeyHint="go"
                       className="h-9 rounded-lg bg-muted/50 border-border/30"
                     />
                     {signupConfirmPassword.length > 0 && !passwordsMatch && (
@@ -889,7 +962,12 @@ const Auth = () => {
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full h-9 rounded-lg text-sm font-semibold" disabled={!canCreateAccount}>
+                <Button
+                  type="submit"
+                  className="w-full h-9 rounded-lg text-sm font-semibold"
+                  disabled={!canCreateAccount || socialPending !== null}
+                  aria-busy={loading}
+                >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t('auth.createAccount')}
                 </Button>
@@ -910,9 +988,15 @@ const Auth = () => {
                     <button
                       type="button"
                       onClick={handleAppleSignIn}
-                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95`}
+                      disabled={socialPending !== null || loading}
+                      aria-busy={socialPending === 'apple'}
+                      className={`${appleButtonClass} inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg transition-all active:scale-95 disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
                     >
-                      <FaApple className={appleIconClass} />
+                      {socialPending === 'apple' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <FaApple className={appleIconClass} />
+                      )}
                       {t('auth.continueWithApple')}
                     </button>
                   )}
@@ -920,11 +1004,17 @@ const Auth = () => {
                     type="button"
                     variant="outline"
                     onClick={handleGoogleSignIn}
+                    disabled={socialPending !== null || loading}
+                    aria-busy={socialPending === 'google'}
                     className="h-9 rounded-lg bg-[#4285F4] hover:bg-[#3b78e7] dark:bg-[#4285F4] dark:hover:bg-[#3b78e7] border-none text-white dark:text-white text-sm font-semibold shadow-md"
                   >
-                    <div className="mr-2 bg-white rounded-full w-6 h-6 flex items-center justify-center">
-                      <FcGoogle className="!h-5 !w-5" />
-                    </div>
+                    {socialPending === 'google' ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <div className="mr-2 bg-white rounded-full w-6 h-6 flex items-center justify-center">
+                        <FcGoogle className="!h-5 !w-5" />
+                      </div>
+                    )}
                     {t('auth.continueWithGoogle')}
                   </Button>
                 </div>
@@ -932,6 +1022,18 @@ const Auth = () => {
               </form>
             </TabsContent>
           </Tabs>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              localStorage.setItem('guestMode', 'true');
+              navigate('/');
+            }}
+            className="mt-3 w-full h-9 rounded-lg text-sm font-semibold"
+          >
+            {t('auth.continueAsGuest')}
+          </Button>
         </CardContent>
 
         <CardFooter className="flex flex-col gap-2">
