@@ -58,7 +58,9 @@ const Cart = () => {
             is_vegetarian,
             is_vegan,
             calories,
-            category_id
+            category_id,
+            tax_rate,
+            tax_included_in_price
           )
         `)
         .eq('branch_id', savedBranchId)
