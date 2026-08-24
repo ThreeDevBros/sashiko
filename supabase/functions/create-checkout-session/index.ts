@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@14.21.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { computeOrderPricing } from '../_shared/order-pricing.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -132,12 +133,19 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
 
-    // SERVER-SIDE PRICE VERIFICATION
-    const { priceMap, subtotal } = await getVerifiedPrices(supabaseAdmin, items, branch_id);
+    // SERVER-SIDE VERIFICATION: prices, tax and delivery fee recomputed from DB
+    const pricing = await computeOrderPricing(supabaseAdmin, {
+      items,
+      branchId: branch_id,
+      orderType: order_type,
+      deliveryAddressId: delivery_address_id,
+      clientDeliveryFee,
+    });
 
-    const tax = clientTax !== undefined ? clientTax : subtotal * 0.1;
-    const deliveryFee = order_type === 'delivery' ? clientDeliveryFee : 0;
-    const total = subtotal + tax + deliveryFee;
+    const priceMap = pricing.itemMap;
+    const { subtotal, tax, deliveryFee } = pricing;
+    const serviceFee = pricing.serviceFee;
+    const total = pricing.total;
 
     const stripeCurrency = requestCurrency.toLowerCase();
 

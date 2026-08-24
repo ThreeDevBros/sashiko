@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { computeOrderPricing } from '../_shared/order-pricing.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -209,15 +210,47 @@ serve(async (req) => {
       }
     }
 
-    // SERVER-SIDE PRICE VERIFICATION: fetch authoritative prices from DB
-    const { priceMap, subtotal } = await getVerifiedPrices(supabaseClient, items, branch_id);
+    // SERVER-SIDE VERIFICATION: prices, tax, delivery fee and service fee are all
+    // recomputed from the database — client-supplied amounts are never trusted.
+    const pricing = await computeOrderPricing(supabaseClient, {
+      items,
+      branchId: branch_id,
+      orderType: order_type,
+      deliveryAddressId: delivery_address_id,
+      destLat: guest_delivery_lat,
+      destLng: guest_delivery_lng,
+      clientDeliveryFee,
+    });
 
-    const tax = clientTax !== undefined ? clientTax : subtotal * 0.1;
-    const deliveryFee = order_type === 'delivery' ? clientDeliveryFee : 0;
-    const serviceFee = subtotal * 0.05;
-    const totalBeforeDiscount = subtotal + tax + deliveryFee + serviceFee;
-    const cashbackDiscount = Math.min(cashback_used, totalBeforeDiscount);
-    const total = totalBeforeDiscount - cashbackDiscount;
+    const priceMap = pricing.itemMap;
+    const { subtotal, tax, deliveryFee } = pricing;
+    const totalBeforeDiscount = pricing.total;
+
+    // Cashback can never exceed the customer's real balance (guests get none)
+    let availableCashback = 0;
+    if (user?.id) {
+      const { data: balanceRow } = await supabaseClient
+        .from('profiles')
+        .select('cashback_balance')
+        .eq('id', user.id)
+        .maybeSingle();
+      availableCashback = Number(balanceRow?.cashback_balance ?? 0) || 0;
+    }
+
+    const cashbackDiscount = Math.max(
+      0,
+      Math.round(Math.min(cashback_used, availableCashback, totalBeforeDiscount) * 100) / 100,
+    );
+
+    if (cashback_used > availableCashback + 0.001) {
+      console.warn(`Cashback claim exceeded balance: requested=${cashback_used}, available=${availableCashback}`);
+      return new Response(
+        JSON.stringify({ error: 'Not enough cashback balance for this order.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    const total = Math.round((totalBeforeDiscount - cashbackDiscount) * 100) / 100;
 
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
 
@@ -238,6 +271,7 @@ serve(async (req) => {
         subtotal,
         tax,
         delivery_fee: deliveryFee,
+        service_fee: pricing.serviceFee,
         total,
         status: 'pending',
         payment_method: 'cash',
