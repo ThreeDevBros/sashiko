@@ -160,6 +160,16 @@ const Auth = () => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
   const [socialPending, setSocialPending] = useState<'google' | 'apple' | null>(null);
+  const [signupCooldown, setSignupCooldown] = useState(0);
+
+  // Tick the create-account cooldown down once per second.
+  useEffect(() => {
+    if (signupCooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setSignupCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [signupCooldown]);
 
   // Signup validation
   const isFullNameValid = fullName.trim().length >= 2;
@@ -168,7 +178,7 @@ const Auth = () => {
   const isPasswordValid = passwordSchema.safeParse(password).success;
   const showConfirmField = password.trim().length > 0;
   const passwordsMatch = signupConfirmPassword === password;
-  const canCreateAccount = isFullNameValid && email.trim().length > 0 && isPhoneValid && isPasswordValid && passwordsMatch && !loading;
+  const canCreateAccount = isFullNameValid && email.trim().length > 0 && isPhoneValid && isPasswordValid && passwordsMatch && !loading && signupCooldown === 0;
 
   // Lock html/body to viewport so the gradient background covers the entire screen
   // (prevents the dark strip from appearing below the fixed background layer)
