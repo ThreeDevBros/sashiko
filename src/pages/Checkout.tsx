@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
 import { CheckoutSection } from '@/components/checkout/CheckoutSection';
+import { FloatingLabelTextarea } from '@/components/checkout/FloatingLabelField';
 import { ChevronLeft, Bike, ShoppingBag, Clock, Loader2, Navigation, Coins, CalendarIcon, AlertTriangle as AlertTriangleIcon, MapPin, MapPinned, Store, Info } from "lucide-react";
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import { format, addDays } from "date-fns";
@@ -646,7 +647,7 @@ const Checkout = () => {
 
 
         {/* Order Type */}
-        <CheckoutSection step="Step 1" title={t('checkout.orderType')} dataSection="order-type">
+        <CheckoutSection title={t('checkout.orderType')} dataSection="order-type">
           <div className="relative flex items-center border border-border rounded-full p-1 h-12">
 
             {/* Animated thumb */}
@@ -875,21 +876,22 @@ const Checkout = () => {
           }}
         />
 
-        {/* Order Instructions */}
-        <CheckoutSection
-          title={t('checkout.orderInstructions')}
-          note={`(${t('checkout.orderInstructionsOptional')})`}
-        >
-          <textarea
-            value={orderInstructions}
-            onChange={(e) => setOrderInstructions(e.target.value.slice(0, 300))}
-            placeholder="e.g. Gate code, floor, ring the bell, leave at the door, call when outside…"
-            maxLength={300}
-            rows={3}
-            className="flex w-full border-0 border-b border-border/60 bg-transparent px-0 py-2 text-sm placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:border-primary transition-colors disabled:cursor-not-allowed disabled:opacity-50 resize-none max-h-32 overflow-y-auto"
-          />
-          <p className="text-[11px] text-muted-foreground/70 text-right mt-1.5">{orderInstructions.length}/300</p>
-        </CheckoutSection>
+        {/* Instructions for courier (delivery only) */}
+        {orderType === 'delivery' && (
+          <CheckoutSection>
+            <FloatingLabelTextarea
+              label={t('checkout.courierInstructions')}
+              requiredHint="Optional"
+              value={orderInstructions}
+              onChange={(e) => setOrderInstructions(e.target.value.slice(0, 300))}
+              placeholder={t('checkout.orderInstructionsPlaceholder')}
+              maxLength={300}
+              rows={3}
+              className="max-h-32 overflow-y-auto"
+            />
+            <p className="text-[11px] text-muted-foreground/70 text-right mt-1.5">{orderInstructions.length}/300</p>
+          </CheckoutSection>
+        )}
 
 
         {/* When */}
@@ -992,7 +994,7 @@ const Checkout = () => {
         )}
 
         {/* Payment */}
-        <CheckoutSection step="Step 2" title={t('checkout.paymentMethod')}>
+        <CheckoutSection title={t('checkout.paymentMethod')}>
 
           
           {!authChecked ? (
@@ -1159,7 +1161,7 @@ const Checkout = () => {
 
 
         {/* Summary */}
-        <CheckoutSection step="Step 3" title={t('checkout.summary')} divider={false}>
+        <CheckoutSection title={t('checkout.summary')} divider={false}>
 
 
           {/* Collapsible item list — see exactly what's being paid for */}
@@ -1239,11 +1241,9 @@ const Checkout = () => {
                   ? 'Add a delivery address to continue.'
                   : (orderType === 'delivery' && !canDeliver && !!selectedAddressId)
                     ? 'This address is outside the delivery area — switch to pickup or pick another address.'
-                    : (isGuest && (!guestInfo.name.trim() || !guestInfo.email.trim() || !guestInfo.phone.trim()))
-                      ? 'Fill in your name, email and phone to continue.'
-                      : (currentPaymentType === 'wallet' && !stripeReady)
-                        ? 'Preparing your wallet payment…'
-                        : null;
+                    : (currentPaymentType === 'wallet' && !stripeReady)
+                      ? 'Preparing your wallet payment…'
+                      : null;
             if (!blockReason) return null;
             return (
               <p className="mt-4 text-xs text-muted-foreground flex items-start gap-1.5">
