@@ -157,6 +157,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('[Auth] onAuthStateChange:', _event, newSession ? 'has session' : 'no session');
         setSession(newSession);
         setUser(newSession?.user ?? null);
+        if (_event === 'SIGNED_IN') {
+          window.setTimeout(() => setAuthTransition(null), 700);
+        }
         // Mirror to native on every change (fire-and-forget)
         saveSessionToNative(newSession);
       }
