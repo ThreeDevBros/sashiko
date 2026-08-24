@@ -420,6 +420,18 @@ const AppContent = () => {
     return () => clearTimeout(timer);
   }, [showLoadingScreen, branding, branch]);
 
+  // Auto-recover: if data arrives after the safety timeout fired, dismiss the failure screen
+  useEffect(() => {
+    if (!connectionFailed) return;
+    if (branding || branch) {
+      console.log('[App] Data arrived after timeout — dismissing connection failed screen');
+      setConnectionFailed(false);
+      setShowLoadingScreen(false);
+      setBootstrapComplete(true);
+    }
+  }, [connectionFailed, branding, branch]);
+
+
   const handleRetry = useCallback(() => {
     hasBootstrapped.current = false;
     setConnectionFailed(false);
