@@ -731,7 +731,10 @@ const Auth = () => {
               </div>
             )}
 
-            <TabsContent value="signin">
+            <TabsContent
+              value="signin"
+              className="data-[state=active]:animate-in data-[state=active]:fade-in-0 data-[state=active]:slide-in-from-left-6 data-[state=active]:duration-300 data-[state=active]:ease-out"
+            >
               <form onSubmit={handleSignIn} className="space-y-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="signin-email" className="sr-only">{t('auth.email')}</Label>
