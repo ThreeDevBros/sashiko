@@ -58,7 +58,7 @@ const Index = () => {
       if (popularItemIds.length === 0) return [];
       const { data, error } = await supabase
         .from('menu_items')
-        .select('id, name, price, image_url, preparation_time_mins')
+        .select('id, name, price, image_url, preparation_time_mins, tax_rate, tax_included_in_price')
         .in('id', popularItemIds)
         .eq('is_available', true);
       if (error) throw error;

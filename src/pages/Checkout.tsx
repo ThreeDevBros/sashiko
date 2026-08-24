@@ -675,9 +675,6 @@ const Checkout = () => {
             >
               <Bike className="h-4 w-4" />
               <span>{t('checkout.delivery')}</span>
-              {isOutOfRange && orderType !== 'delivery' && (
-                <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
-              )}
             </button>
             <button
               type="button"

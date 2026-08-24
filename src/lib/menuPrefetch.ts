@@ -32,6 +32,8 @@ export const fetchBranchMenuItems = async (branchId: string): Promise<MenuItemTy
         is_vegan,
         calories,
         category_id,
+        tax_rate,
+        tax_included_in_price,
         menu_categories (name)
       )
     `)
