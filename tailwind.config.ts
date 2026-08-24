@@ -16,7 +16,9 @@ export default {
       fontFamily: {
         display: ['Outfit', 'system-ui', 'sans-serif'],
         body: ['Figtree', 'system-ui', 'sans-serif'],
+        editorial: ['"Instrument Serif"', 'Georgia', 'serif'],
       },
+
 
       colors: {
         border: "hsl(var(--border))",
