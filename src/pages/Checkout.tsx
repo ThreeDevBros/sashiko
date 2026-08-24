@@ -587,73 +587,63 @@ const Checkout = () => {
     );
   };
 
-  return <div className="min-h-screen bg-background pb-32">
+  return <div className="min-h-screen bg-background pb-32 font-body">
       <FloatingBranchWidget />
       
       {/* Header */}
-      <div className="bg-background border-b sticky top-0 z-10 pt-safe">
+      <div className="bg-background/90 backdrop-blur border-b border-border/50 sticky top-0 z-10 pt-safe">
         <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
           <BackButton />
           <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold text-foreground">{branch?.name || branding?.tenant_name || 'Checkout'}</h1>
+            <h1 className="font-display text-lg font-semibold tracking-tight text-foreground">{branch?.name || branding?.tenant_name || 'Checkout'}</h1>
           </div>
         </div>
       </div>
 
-      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
-        {/* Map + Branch Strip merged container */}
+      <div className="container max-w-2xl mx-auto px-4 pt-6 divide-y-0">
+        {/* Map — framed only by a hairline, no card fill */}
         {(orderType === 'delivery' && hasDeliveryLocation || orderType === 'pickup' && branch?.latitude && branch?.longitude) && (
-          <div>
+          <div className="relative overflow-hidden rounded-2xl border border-border/60">
+            <button
+              onClick={() => setBranchInfoOpen(true)}
+              className="absolute top-3 right-3 z-[5] w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border/60 flex items-center justify-center hover:bg-accent/10 transition-colors"
+            >
+              <Info className="w-4 h-4 text-foreground" />
+            </button>
 
             {/* Delivery map */}
             {orderType === 'delivery' && hasDeliveryLocation && (
-              <Card className="p-4 relative">
-                <button
-                  onClick={() => setBranchInfoOpen(true)}
-                  className="absolute top-6 right-6 z-[5] w-8 h-8 rounded-full bg-card/90 backdrop-blur border border-border shadow-md flex items-center justify-center hover:bg-accent transition-colors"
-                >
-                  <Info className="w-4 h-4 text-foreground" />
-                </button>
-                <DeliveryMap 
-                  key={`delivery-${activeLocation?.latitude ?? 0},${activeLocation?.longitude ?? 0},${branch?.id ?? ''}`}
-                  selectedAddressId={selectedAddressId} 
-                  addresses={addresses} 
-                  restaurantLocation={branch && branch.latitude && branch.longitude ? {
-                    latitude: branch.latitude,
-                    longitude: branch.longitude,
-                    name: branch.name
-                  } : undefined} 
-                  deliveryRadiusKm={branch?.delivery_radius_km ?? undefined} 
-                  showRadiusRing={!canDeliver && hasDeliveryLocation} 
-                />
-              </Card>
+              <DeliveryMap 
+                key={`delivery-${activeLocation?.latitude ?? 0},${activeLocation?.longitude ?? 0},${branch?.id ?? ''}`}
+                selectedAddressId={selectedAddressId} 
+                addresses={addresses} 
+                restaurantLocation={branch && branch.latitude && branch.longitude ? {
+                  latitude: branch.latitude,
+                  longitude: branch.longitude,
+                  name: branch.name
+                } : undefined} 
+                deliveryRadiusKm={branch?.delivery_radius_km ?? undefined} 
+                showRadiusRing={!canDeliver && hasDeliveryLocation} 
+              />
             )}
 
             {/* Pickup map */}
             {orderType === 'pickup' && branch?.latitude && branch?.longitude && (
-              <Card className="p-4 rounded-b-none border-b-0 relative">
-                <button
-                  onClick={() => setBranchInfoOpen(true)}
-                  className="absolute top-6 right-6 z-[5] w-8 h-8 rounded-full bg-card/90 backdrop-blur border border-border shadow-md flex items-center justify-center hover:bg-accent transition-colors"
-                >
-                  <Info className="w-4 h-4 text-foreground" />
-                </button>
-                <DeliveryMap
-                  key={`pickup-${branch.id}-${branch.latitude}-${branch.longitude}`}
-                  selectedAddressId={null}
-                  addresses={[]}
-                  restaurantLocation={{
-                    latitude: branch.latitude,
-                    longitude: branch.longitude,
-                    name: branch.name
-                  }}
-                  pickupMode
-                />
-              </Card>
+              <DeliveryMap
+                key={`pickup-${branch.id}-${branch.latitude}-${branch.longitude}`}
+                selectedAddressId={null}
+                addresses={[]}
+                restaurantLocation={{
+                  latitude: branch.latitude,
+                  longitude: branch.longitude,
+                  name: branch.name
+                }}
+                pickupMode
+              />
             )}
-
           </div>
         )}
+
 
         {/* Order Type */}
         <CheckoutSection step="Step 1" title={t('checkout.orderType')} dataSection="order-type">
