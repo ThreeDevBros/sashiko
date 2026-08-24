@@ -24,6 +24,14 @@ export const AppRuntimeListeners = () => {
         const { App: CapApp } = await import('@capacitor/app');
         const listener = await CapApp.addListener('appUrlOpen', (event: { url: string }) => {
           const url = event.url;
+
+          // Returning from the email "Verify Email" button
+          if (/^sashiko:\/\/auth-verified/i.test(url)) {
+            console.log('[DeepLink] Auth verified deep link');
+            navigate('/');
+            return;
+          }
+
           const match = url.match(/sashiko:\/\/order-tracking\/([a-f0-9-]+)/i);
 
           if (!match?.[1]) {
