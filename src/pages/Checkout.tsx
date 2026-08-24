@@ -654,14 +654,16 @@ const Checkout = () => {
             />
             <button
               type="button"
-              onClick={() => deliveryAvailable && setOrderType('delivery')}
-              disabled={!deliveryAvailable}
-              className={`relative z-10 flex-1 h-full flex items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors ${
+              onClick={() => setOrderType('delivery')}
+              className={`relative z-10 flex-1 h-full flex items-center justify-center gap-2 rounded-full text-sm font-medium transition-colors cursor-pointer ${
                 orderType === 'delivery' ? 'text-primary-foreground' : 'text-foreground'
-              } ${!deliveryAvailable ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+              }`}
             >
               <Bike className="h-4 w-4" />
               <span>{t('checkout.delivery')}</span>
+              {isOutOfRange && orderType !== 'delivery' && (
+                <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+              )}
             </button>
             <button
               type="button"
@@ -676,12 +678,16 @@ const Checkout = () => {
             </button>
           </div>
 
-          {/* Out of range hint */}
-          {!deliveryAvailable && hasDeliveryLocation && (
-            <p className="mt-2 text-xs text-muted-foreground text-center">
-              Delivery unavailable — address is outside our delivery area
-            </p>
+          {/* Out of range notice — delivery only */}
+          {orderType === 'delivery' && isOutOfRange && (
+            <OutOfRangeNotice
+              distanceKm={deliveryDistance}
+              radiusKm={deliveryRadiusKm}
+              onChangeAddress={() => setAddressDialogOpen(true)}
+              onSwitchToPickup={() => setOrderType('pickup')}
+            />
           )}
+
 
           {/* Branch paused warning */}
           {branchIsPaused && (
