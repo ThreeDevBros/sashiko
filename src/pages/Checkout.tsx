@@ -986,7 +986,8 @@ const Checkout = () => {
               </div>
             </div>
           </RadioGroup>
-        </Card>
+        </CheckoutSection>
+
 
         {/* Guest Info Form */}
         {isGuest && (
