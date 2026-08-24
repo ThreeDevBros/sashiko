@@ -3,6 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
 import { CheckoutSection } from '@/components/checkout/CheckoutSection';
+import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
+
 import { FloatingLabelTextarea } from '@/components/checkout/FloatingLabelField';
 import { OutOfRangeNotice } from '@/components/checkout/OutOfRangeNotice';
 
@@ -113,6 +115,8 @@ const Checkout = () => {
   
   const paymentTypeRef = useRef<'card' | 'wallet' | 'cash'>('cash');
   const [currentPaymentType, setCurrentPaymentType] = useState<'card' | 'wallet' | 'cash'>('cash');
+  const [currentWalletType, setCurrentWalletType] = useState<'applePay' | 'googlePay' | null>(null);
+
   const [buttonText, setButtonText] = useState({ loading: t('checkout.placingOrder'), action: t('checkout.placeOrder') });
   const [cashbackBalance, setCashbackBalance] = useState<number>(0);
   const [useCashback, setUseCashback] = useState(false);
@@ -187,6 +191,7 @@ const Checkout = () => {
   const handlePaymentTypeChange = useCallback((type: 'card' | 'wallet' | 'cash', walletType?: 'applePay' | 'googlePay') => {
     paymentTypeRef.current = type;
     setCurrentPaymentType(type);
+    setCurrentWalletType(walletType ?? null);
 
     if (type === 'cash') {
       setButtonText({ loading: 'Placing Order...', action: 'Place Order' });
@@ -201,6 +206,7 @@ const Checkout = () => {
 
     setButtonText({ loading: 'Processing Payment...', action: 'Pay Now' });
   }, []);
+
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -1296,11 +1302,26 @@ const Checkout = () => {
             );
           })()}
 
-          {validationLoading && orderType === 'delivery' ? <Button className="w-full mt-4" size="lg" disabled>
+          {validationLoading && orderType === 'delivery' ? <Button className="w-full mt-4 h-14 rounded-2xl" size="lg" disabled>
 
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Checking delivery zone...
-            </Button> : <Button size="lg" onClick={() => {
+            </Button> : <PlaceOrderButton
+          className="mt-4"
+          variant={currentPaymentType === 'wallet' ? (currentWalletType === 'googlePay' ? 'googlePay' : 'applePay') : currentPaymentType === 'card' ? 'card' : 'cash'}
+          amountLabel={formatCurrency(grandTotal, currency)}
+          loading={loading}
+          loadingLabel={buttonText.loading}
+          actionLabel={buttonText.action}
+          blockedLabel={
+            branchIsPaused ? 'Branch Busy'
+              : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed'
+              : (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ? t('checkout.deliveryNotPossible')
+              : null
+          }
+          disabled={loading || (currentPaymentType === 'wallet' && !stripeReady) || (orderType === 'delivery' && !canDeliver && !!selectedAddressId)}
+          onClick={() => {
+
           // Prevent duplicate submissions from rapid clicks
           if (loading) return;
 
@@ -1413,23 +1434,8 @@ const Checkout = () => {
           const form = document.querySelector('form');
           if (form) form.requestSubmit();
           // The form's handleSubmit will manage its own guard
-        }} disabled={loading || (currentPaymentType === 'wallet' && !stripeReady) || (orderType === 'delivery' && !canDeliver && !!selectedAddressId)}
-        className={`w-full mt-4 ${
-          (!loading && (
-            branchIsPaused ||
-            (deliveryTiming === 'standard' && !branchIsOpen) ||
-            (orderType === 'delivery' && !selectedAddressId) ||
-            (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ||
-            (isGuest && currentPaymentType === 'card' && !guestCardValid) ||
-            (currentPaymentType === 'wallet' && !stripeReady) ||
-            (isGuest && (!guestInfo.name.trim() || guestInfo.name.trim().length < 2 || !guestInfo.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestInfo.email.trim()) || !guestInfo.phone.trim()))
-          )) ? 'opacity-50' : ''
-        }`}>
-              {loading ? <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {buttonText.loading}
-                </> : branchIsPaused ? 'Branch Busy' : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed' : (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ? t('checkout.deliveryNotPossible') : buttonText.action}
-            </Button>}
+        }} />}
+
 
         </CheckoutSection>
 
