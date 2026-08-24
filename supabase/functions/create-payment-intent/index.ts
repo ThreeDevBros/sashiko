@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@14.21.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { computeOrderPricing } from '../_shared/order-pricing.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -150,27 +151,31 @@ serve(async (req) => {
 
     console.log('Creating payment intent for:', user ? `user ${user.id}` : `guest ${guest_info?.email}`);
 
-    // SERVER-SIDE PRICE VERIFICATION: fetch authoritative prices from DB for metadata/sanity check
-    const { priceMap, subtotal } = await getVerifiedPrices(supabaseAdmin, items, branch_id);
+    // SERVER-SIDE PRICE VERIFICATION: prices, tax, delivery and service fees are
+    // all recomputed from the database. Client values are never charged.
+    const pricing = await computeOrderPricing(supabaseAdmin, {
+      items,
+      branchId: branch_id,
+      orderType: order_type,
+      deliveryAddressId: (delivery_address_id && delivery_address_id !== 'current-location') ? delivery_address_id : null,
+      clientDeliveryFee,
+    });
 
-    const tax = clientTax !== undefined ? clientTax : subtotal * 0.1;
-    const deliveryFee = order_type === 'delivery' ? clientDeliveryFee : 0;
-    const serviceFee = clientServiceFee;
-    const serverTotal = subtotal + tax + deliveryFee + serviceFee;
+    const priceMap = pricing.itemMap;
+    const { subtotal, tax, deliveryFee, serviceFee } = pricing;
+    const chargeTotal = pricing.total;
 
-    // Use the UI-computed order_total as the authoritative charge amount
-    // Log a warning if it deviates significantly from server calculation (for debugging)
-    if (Math.abs(order_total - serverTotal) > 1) {
-      console.warn(`Price deviation detected: UI total=${order_total}, server total=${serverTotal}, subtotal=${subtotal}, tax=${tax}, deliveryFee=${deliveryFee}, serviceFee=${serviceFee}`);
+    if (Math.abs(order_total - chargeTotal) > 1) {
+      console.warn(`Price deviation detected: client total=${order_total}, server total=${chargeTotal}, subtotal=${subtotal}, tax=${tax}, deliveryFee=${deliveryFee}, serviceFee=${serviceFee}`);
     }
 
     // Check minimum amount (Stripe requires at least $0.50 USD)
     const minimumAmount = 0.50;
-    if (order_total < minimumAmount) {
-      console.error(`Total amount $${order_total} is below minimum $${minimumAmount}`);
+    if (chargeTotal < minimumAmount) {
+      console.error(`Total amount $${chargeTotal} is below minimum $${minimumAmount}`);
       return new Response(
         JSON.stringify({ 
-          error: `Order total must be at least $${minimumAmount.toFixed(2)}. Current total: $${order_total.toFixed(2)}` 
+          error: `Order total must be at least $${minimumAmount.toFixed(2)}. Current total: $${chargeTotal.toFixed(2)}` 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
@@ -218,7 +223,7 @@ serve(async (req) => {
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(order_total * 100),
+      amount: Math.round(chargeTotal * 100),
       currency: requestCurrency.toLowerCase(),
       customer: customerId,
       payment_method_types: ['card'],
