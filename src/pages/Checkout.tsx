@@ -1300,11 +1300,26 @@ const Checkout = () => {
             );
           })()}
 
-          {validationLoading && orderType === 'delivery' ? <Button className="w-full mt-4" size="lg" disabled>
+          {validationLoading && orderType === 'delivery' ? <Button className="w-full mt-4 h-14 rounded-2xl" size="lg" disabled>
 
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Checking delivery zone...
-            </Button> : <Button size="lg" onClick={() => {
+            </Button> : <PlaceOrderButton
+          className="mt-4"
+          variant={currentPaymentType === 'wallet' ? (currentWalletType === 'googlePay' ? 'googlePay' : 'applePay') : currentPaymentType === 'card' ? 'card' : 'cash'}
+          amountLabel={formatCurrency(grandTotal, currency)}
+          loading={loading}
+          loadingLabel={buttonText.loading}
+          actionLabel={buttonText.action}
+          blockedLabel={
+            branchIsPaused ? 'Branch Busy'
+              : (!branchIsOpen && deliveryTiming === 'standard') ? 'Branch Closed'
+              : (orderType === 'delivery' && !canDeliver && !!selectedAddressId) ? t('checkout.deliveryNotPossible')
+              : null
+          }
+          disabled={loading || (currentPaymentType === 'wallet' && !stripeReady) || (orderType === 'delivery' && !canDeliver && !!selectedAddressId)}
+          onClick={() => {
+
           // Prevent duplicate submissions from rapid clicks
           if (loading) return;
 
