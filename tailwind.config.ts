@@ -13,6 +13,11 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['Outfit', 'system-ui', 'sans-serif'],
+        body: ['Figtree', 'system-ui', 'sans-serif'],
+      },
+
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
