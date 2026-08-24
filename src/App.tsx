@@ -30,6 +30,7 @@ import { handleGlobalResume } from "@/lib/lifecycleManager";
 import { restoreLiveActivityMappings } from "@/lib/nativeLiveActivity";
 import { AppRuntimeListeners } from "./components/AppRuntimeListeners";
 import { BranchRealtimeManager } from "./components/BranchRealtimeManager";
+import { ActionProcessingOverlay } from "./components/ActionProcessingOverlay";
 import { getCurrentPosition, isGeolocationAvailable } from "@/lib/geolocation";
 // Critical pages — loaded eagerly for instant navigation
 import Index from "./pages/Index";
@@ -224,7 +225,7 @@ const AppRoutes = () => {
 const AppContent = () => {
   const { branding, isLoading: brandingLoading, isError: brandingError } = useBranding();
   const { branch, loading: branchLoading, error: branchError } = useBranch();
-  const { isAuthReady, isAuthRecovering, user, refreshSession } = useAuth();
+  const { isAuthReady, isAuthRecovering, user, refreshSession, authTransition } = useAuth();
   const qc = useQueryClient();
   
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
@@ -486,6 +487,11 @@ const AppContent = () => {
         </div>
       )}
       {showLoadingScreen && <LoadingScreen show={true} />}
+      <ActionProcessingOverlay
+        visible={authTransition !== null}
+        title={authTransition === 'signing-out' ? 'Signing you out…' : 'Signing you in…'}
+        subtitle="Please wait a moment"
+      />
     </>
   );
 };
