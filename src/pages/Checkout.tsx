@@ -113,6 +113,8 @@ const Checkout = () => {
   
   const paymentTypeRef = useRef<'card' | 'wallet' | 'cash'>('cash');
   const [currentPaymentType, setCurrentPaymentType] = useState<'card' | 'wallet' | 'cash'>('cash');
+  const [currentWalletType, setCurrentWalletType] = useState<'applePay' | 'googlePay' | null>(null);
+
   const [buttonText, setButtonText] = useState({ loading: t('checkout.placingOrder'), action: t('checkout.placeOrder') });
   const [cashbackBalance, setCashbackBalance] = useState<number>(0);
   const [useCashback, setUseCashback] = useState(false);
