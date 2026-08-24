@@ -37,6 +37,7 @@ import Order from "./pages/Order";
 import NotFound from "./pages/NotFound";
 
 const Auth = lazy(() => import("./pages/Auth"));
+const AuthConfirmed = lazy(() => import("./pages/AuthConfirmed"));
 
 // All other pages — lazy-loaded on first visit
 const Cart = lazy(() => import("./pages/Cart"));
@@ -172,6 +173,7 @@ const AppRoutes = () => {
                 <Route path="/reservation-history" element={<AnimatedPage><ReservationHistory /></AnimatedPage>} />
                 <Route path="/book-table" element={<AnimatedPage><TableBooking /></AnimatedPage>} />
                 <Route path="/auth" element={<AnimatedPage><Auth /></AnimatedPage>} />
+                <Route path="/auth/confirmed" element={<AnimatedPage><AuthConfirmed /></AnimatedPage>} />
                 <Route path="/profile" element={<AnimatedPage><Profile /></AnimatedPage>} />
                 <Route path="/profile/address" element={<AnimatedPage><Address /></AnimatedPage>} />
                 <Route path="/settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
