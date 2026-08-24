@@ -128,7 +128,9 @@
     "contactSupport": "Contact support for any issues",
     "allOrders": "All Orders",
     "default": "Default",
-    "free": "Free"
+    "free": "Free",
+    "estimated": "estimated",
+    "yourItems": "Your items"
   },
   "orders": {
     "title": "Order History",
