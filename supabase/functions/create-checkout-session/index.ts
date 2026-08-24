@@ -222,6 +222,8 @@ serve(async (req) => {
         subtotal: subtotal.toString(),
         tax: tax.toString(),
         delivery_fee: deliveryFee.toString(),
+        service_fee: serviceFee.toString(),
+        total: total.toString(),
         items: JSON.stringify(items),
       },
     });
