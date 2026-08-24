@@ -608,16 +608,13 @@ const Auth = () => {
               />
             </div>
           </div>
-          <OtpVerification
+          <EmailSentNotice
             email={signupEmail}
-            onVerified={() => {
-              setShowOtpVerification(false);
-              navigate('/');
-            }}
             onBack={() => {
               setShowOtpVerification(false);
             }}
           />
+
         </div>
       </div>
       </>
