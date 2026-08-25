@@ -373,7 +373,7 @@ export const MenuDisplay = () => {
 
           {/* Search — expands sideways from the circular button into a full-width field */}
           <div
-            className={`absolute top-2 right-4 flex items-center gap-2 transition-[left] duration-300 ease-out ${
+            className={`absolute top-2 right-5 flex items-center gap-2 transition-[left] duration-300 ease-out ${
               searchOpen ? 'left-4' : 'left-[calc(100%-2.75rem)]'
             }`}
           >
