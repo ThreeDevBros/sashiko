@@ -102,9 +102,9 @@ export const MenuItem = ({
                       type="button"
                       aria-label="Remove one"
                       onClick={() => onQuickRemove(item)}
-                      className="h-8 w-8 rounded-full flex items-center justify-center text-primary active:scale-90 transition-transform"
+                      className="h-9 w-9 rounded-full flex items-center justify-center text-primary active:scale-90 transition-transform"
                     >
-                      <Minus className="h-3.5 w-3.5" />
+                      <Minus className="h-4 w-4" />
                     </button>
                     <span className="min-w-4 text-center text-sm font-bold text-primary">
                       {cartQuantity}
@@ -113,9 +113,9 @@ export const MenuItem = ({
                       type="button"
                       aria-label="Add one"
                       onClick={() => onQuickAdd(item)}
-                      className="h-8 w-8 rounded-full flex items-center justify-center bg-primary text-primary-foreground active:scale-90 transition-transform"
+                      className="h-9 w-9 rounded-full flex items-center justify-center bg-primary text-primary-foreground active:scale-90 transition-transform"
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-4 w-4" />
                     </button>
                   </div>
                 )}
