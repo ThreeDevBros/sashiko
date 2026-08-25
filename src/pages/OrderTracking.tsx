@@ -24,7 +24,8 @@ import { useBranding } from '@/hooks/useBranding';
 import { useTheme } from '@/components/ThemeProvider';
 import { OrderProgressTracker } from '@/components/order/OrderProgressTracker';
 import { OrderTrackingMap } from '@/components/order/OrderTrackingMap';
-import { LiveOrderCountdown } from '@/components/order/LiveOrderCountdown';
+import { useOrderEta } from '@/hooks/useOrderEta';
+import { TrackingStatusHero } from '@/components/order/TrackingStatusHero';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import { getGuestOrders } from '@/lib/guestOrders';
@@ -266,6 +267,17 @@ export default function OrderTracking() {
       etaMinutes: minutes,
     });
   }, [getStatusMessageForOrder]);
+
+  // Live ETA — single source of truth shared with the Live Activity bridge
+  const { remainingMinutes, transitMinutes, prepRemainingMinutes } = useOrderEta({
+    orderType: order?.order_type ?? 'delivery',
+    status: order?.status ?? 'pending',
+    estimatedReadyAt: order?.estimated_ready_at ?? null,
+    deliveryTransitMinutes: order?.delivery_transit_minutes ?? null,
+    onRemainingMinutesChange: handleRemainingMinutesChange,
+  });
+
+
 
   // Subscribe to real-time order status updates
   useEffect(() => {
@@ -970,54 +982,15 @@ export default function OrderTracking() {
   }
 
   const currency = branding?.currency || 'USD';
+  const isDelivery = order.order_type === 'delivery';
+  const deliveryLine = address
+    ? `${address.address_line1}${address.address_line2 ? `, ${address.address_line2}` : ''}, ${address.city}${address.postal_code ? ` ${address.postal_code}` : ''}`
+    : order.guest_delivery_address;
 
   return (
-    <div className="min-h-screen bg-background pb-8">
-      {/* Header */}
-      <div className="bg-card border-b sticky top-0 z-20 pt-safe">
-        <div className="container max-w-2xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <BackButton />
-              <div>
-                <h1 className="text-lg font-bold">Order #{order.order_number}</h1>
-                <p className="text-sm text-muted-foreground">
-                  {new Date(order.created_at).toLocaleDateString(undefined, {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-5">
-
-        {/* Order Progress Tracker */}
-        <OrderProgressTracker status={order.status} orderType={order.order_type} />
-
-        {/* Live Countdown Timer — uses same ETA formula as server-side Live Activity */}
-        <LiveOrderCountdown
-          orderType={order.order_type}
-          status={order.status}
-          estimatedReadyAt={order.estimated_ready_at}
-          deliveryTransitMinutes={(order as any).delivery_transit_minutes}
-          branchLat={branch?.latitude}
-          branchLng={branch?.longitude}
-          deliveryLat={address?.latitude}
-          deliveryLng={address?.longitude}
-          guestDeliveryLat={order.guest_delivery_lat}
-          guestDeliveryLng={order.guest_delivery_lng}
-          onTransitMinutesCalculated={saveTransitMinutes}
-          onRemainingMinutesChange={handleRemainingMinutesChange}
-        />
-
-        {/* Map Section - unified for all order types */}
+    <div className="min-h-screen bg-background">
+      {/* ─── Live map hero ─────────────────────────────────────────── */}
+      <div className="relative h-[54vh] min-h-[340px] w-full overflow-hidden bg-muted">
         <OrderTrackingMap
           orderId={order.id}
           orderType={order.order_type}
@@ -1027,190 +1000,212 @@ export default function OrderTracking() {
             latitude: branch.latitude,
             longitude: branch.longitude,
             name: branch.name,
-            address: branch.address
+            address: branch.address,
           } : null}
           guestDeliveryAddress={order.guest_delivery_address}
           guestDeliveryLat={order.guest_delivery_lat ?? (address?.latitude ? Number(address.latitude) : null)}
           guestDeliveryLng={order.guest_delivery_lng ?? (address?.longitude ? Number(address.longitude) : null)}
           isGuest={isGuest}
           guestDriverLocation={guestDriverLocation}
+          fullBleed
         />
 
-        {/* Location & Actions Card - all order types */}
-        {branch && (
-          <Card className="p-4">
-            <div className="space-y-4">
-              {/* Restaurant/Branch Info */}
+        {/* Top scrim for legibility */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-background via-background/60 to-transparent" />
+
+        {/* Floating header */}
+        <div className="absolute inset-x-0 top-0 z-20 px-4 pt-safe">
+          <div className="flex items-center gap-3 py-2">
+            <BackButton />
+            <div className="min-w-0">
+              <p className="font-heading text-base font-semibold leading-tight text-foreground">
+                Order #{order.order_number}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {new Date(order.created_at).toLocaleDateString(undefined, {
+                  weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating status card — straddles the map / sheet seam */}
+        <div className="absolute inset-x-4 bottom-[4.25rem] z-20">
+          <TrackingStatusHero
+            status={order.status}
+            orderType={order.order_type}
+            remainingMinutes={remainingMinutes}
+            prepRemainingMinutes={prepRemainingMinutes}
+            transitMinutes={transitMinutes}
+          />
+        </div>
+      </div>
+
+      {/* ─── Detail sheet ──────────────────────────────────────────── */}
+      <div className="relative z-10 -mt-16 rounded-t-[32px] border-t border-border/60 bg-background px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+2.5rem)]">
+        <div className="mx-auto h-1 w-10 rounded-full bg-muted-foreground/25" />
+
+        <div className="mx-auto w-full max-w-xl space-y-7 pt-6">
+          {/* Route: branch → you */}
+          {branch && (
+            <section className="space-y-4">
               <div className="flex items-start gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Store className="h-5 w-5 text-primary" />
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Store className="h-4 w-4 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium">{branch.name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+                    {isDelivery ? 'From' : 'Collect at'}
+                  </p>
+                  <p className="font-medium text-foreground">{branch.name}</p>
                   <p className="text-sm text-muted-foreground">{branch.address}</p>
                 </div>
               </div>
 
-              {/* Delivery Address - delivery only */}
-              {order.order_type === 'delivery' && (address || order.guest_delivery_address) && (
-                <div className="flex items-start gap-3 pt-3 border-t">
-                  <div className="p-2 bg-accent/20 rounded-lg">
-                    <MapPin className="h-5 w-5 text-accent-foreground" />
+              {isDelivery && deliveryLine && (
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+                    <MapPin className="h-4 w-4 text-foreground/70" />
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium">Delivery Address</p>
-                    {address ? (
-                      <p className="text-sm text-muted-foreground">
-                        {address.address_line1}
-                        {address.address_line2 && `, ${address.address_line2}`}, {address.city}
-                        {address.postal_code && ` ${address.postal_code}`}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">{order.guest_delivery_address}</p>
-                    )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">To</p>
+                    <p className="text-sm text-foreground">{deliveryLine}</p>
                   </div>
                 </div>
               )}
 
-              {/* Maps directions button - pickup/dine_in only */}
-              {order.order_type !== 'delivery' && branch.latitude && branch.longitude && (
+              {/* Quiet action row */}
+              <div className="flex items-center gap-2 pt-1">
                 <button
-                  onClick={() => directions.open({ lat: Number(branch.latitude), lng: Number(branch.longitude), label: branch.name })}
-                  className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
+                  onClick={() => window.open(`tel:${branch.phone}`, '_self')}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted active:scale-[0.98]"
                 >
-                  {useNeutralMapsIcon ? (
-                    <span className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
-                      <MapPin className="h-5 w-5 text-primary" />
-                    </span>
-                  ) : (
-                    <img src={googleMapsIcon} alt="Google Maps" className="h-9 w-9 rounded-md object-contain" />
-                  )}
-                  Need Directions? Open in Maps
-                  <ExternalLink className="h-3.5 w-3.5 ml-0.5 opacity-60" />
+                  <Phone className="h-4 w-4" />
+                  Call
                 </button>
-              )}
+                {!isDelivery && branch.latitude && branch.longitude && (
+                  <button
+                    onClick={() => directions.open({ lat: Number(branch.latitude), lng: Number(branch.longitude), label: branch.name })}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted active:scale-[0.98]"
+                  >
+                    {useNeutralMapsIcon ? (
+                      <Navigation className="h-4 w-4 text-primary" />
+                    ) : (
+                      <img src={googleMapsIcon} alt="" className="h-4 w-4 rounded object-contain" />
+                    )}
+                    Directions
+                    <ExternalLink className="h-3 w-3 opacity-50" />
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
 
-              {/* Call Restaurant */}
-              <button
-                onClick={() => window.open(`tel:${branch.phone}`, '_self')}
-                className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-muted/50 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
-              >
-                <Phone className="h-4 w-4" />
-                Call Restaurant
-              </button>
+          <div className="h-px bg-border" />
+
+          {/* Items */}
+          <section className="space-y-4">
+            <div className="flex items-baseline justify-between">
+              <h3 className="font-heading text-lg font-semibold text-foreground">Your order</h3>
+              <span className="text-xs text-muted-foreground">
+                {orderItems.reduce((n, i) => n + i.quantity, 0)} items
+              </span>
             </div>
-          </Card>
-        )}
 
-        {/* Order Items */}
-        <Card className="overflow-hidden">
-          <div className="p-4 border-b">
-            <h3 className="font-semibold">Order Items</h3>
-          </div>
-          <div className="divide-y">
-            {orderItems.map((item) => (
-              <div key={item.id} className="p-4 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {item.menu_item?.image_url ? (
-                    <img 
-                      src={item.menu_item.image_url} 
-                      alt={item.menu_item?.name || 'Item'} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Package className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{item.menu_item?.name || 'Unknown Item'}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {item.quantity} × {formatCurrency(item.unit_price, currency)}
+            <div className="space-y-3">
+              {orderItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-3">
+                  <span className="flex h-7 min-w-7 items-center justify-center rounded-lg bg-muted px-1.5 text-xs font-semibold tabular-nums text-foreground">
+                    {item.quantity}
+                  </span>
+                  <p className="min-w-0 flex-1 truncate text-sm text-foreground">
+                    {item.menu_item?.name || 'Item'}
+                  </p>
+                  <p className="text-sm tabular-nums text-muted-foreground">
+                    {formatCurrency(item.total_price, currency)}
                   </p>
                 </div>
-                <p className="font-medium">
-                  {formatCurrency(item.total_price, currency)}
-                </p>
-              </div>
-            ))}
-          </div>
-          
-          {/* Order Summary */}
-          <div className="p-4 bg-muted/50 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatCurrency(order.subtotal, currency)}</span>
+              ))}
             </div>
-            {order.tax && order.tax > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax</span>
-                <span>{formatCurrency(order.tax, currency)}</span>
-              </div>
-            )}
-            {order.delivery_fee && order.delivery_fee > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Delivery Fee</span>
-                <span>{formatCurrency(order.delivery_fee, currency)}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-semibold pt-2 border-t">
-              <span>Total</span>
-              <span>{formatCurrency(order.total, currency)}</span>
-            </div>
-          </div>
-        </Card>
 
-        {/* Need Help */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Need Help?</p>
-              <p className="text-sm text-muted-foreground">Contact support for any issues</p>
+            <div className="space-y-1.5 pt-2">
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatCurrency(order.subtotal, currency)}</span>
+              </div>
+              {!!order.tax && order.tax > 0 && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Tax</span>
+                  <span className="tabular-nums">{formatCurrency(order.tax, currency)}</span>
+                </div>
+              )}
+              {!!order.delivery_fee && order.delivery_fee > 0 && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Delivery</span>
+                  <span className="tabular-nums">{formatCurrency(order.delivery_fee, currency)}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 font-heading text-base font-semibold text-foreground">
+                <span>Total</span>
+                <span className="tabular-nums">{formatCurrency(order.total, currency)}</span>
+              </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => navigate('/order-history')}>
-              All Orders
-            </Button>
-          </div>
-        </Card>
+          </section>
 
-        {/* Cancel Order Button */}
-        {allowCustomerCancel && order.status !== 'cancelled' && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                size="lg"
-                className="w-full"
-                disabled={order.status !== 'pending' || isCancelling}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                {isCancelling
-                  ? 'Cancelling...'
-                  : order.status !== 'pending'
-                    ? 'Cannot cancel after confirmation'
-                    : 'Cancel Order'}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Cancel this order?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You can only cancel before the restaurant confirms. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Keep Order</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleCancelOrder}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Yes, Cancel
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+          <div className="h-px bg-border" />
+
+          {/* Footer actions */}
+          <section className="space-y-3">
+            <button
+              onClick={() => navigate('/order-history')}
+              className="flex w-full items-center justify-between rounded-2xl border border-border px-4 py-3.5 text-left transition-colors hover:bg-muted active:scale-[0.99]"
+            >
+              <span className="text-sm font-medium text-foreground">All orders</span>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => navigate('/support')}
+              className="flex w-full items-center justify-between rounded-2xl border border-border px-4 py-3.5 text-left transition-colors hover:bg-muted active:scale-[0.99]"
+            >
+              <span className="text-sm font-medium text-foreground">Need help with this order?</span>
+              <Phone className="h-4 w-4 text-muted-foreground" />
+            </button>
+
+            {allowCustomerCancel && order.status === 'pending' && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    disabled={isCancelling}
+                    className="w-full rounded-2xl px-4 py-3.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    {isCancelling ? 'Cancelling…' : 'Cancel order'}
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel this order?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      You can only cancel before the restaurant confirms. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep Order</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleCancelOrder}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Yes, Cancel
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </section>
+        </div>
       </div>
       {directions.sheet}
     </div>
   );
 }
+
