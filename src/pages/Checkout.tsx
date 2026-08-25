@@ -632,7 +632,7 @@ const Checkout = () => {
     );
   };
 
-  return <div className="min-h-screen bg-background pb-32 font-body">
+  return <div className="min-h-screen bg-background pb-24 font-body">
       <FloatingBranchWidget />
       
       {/* Header — fixed so it stays visible (and gets dimmed) while drawers are open */}
