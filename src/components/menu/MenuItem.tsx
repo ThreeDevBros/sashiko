@@ -94,7 +94,7 @@ export const MenuItem = ({
               >
                 {onQuickRemove && (
                   <div
-                    className={`absolute right-0 top-0 h-9 flex items-center gap-1 rounded-full border border-primary bg-primary/10 p-0.5 origin-right transition-all duration-200 ease-out ${
+                    className={`absolute right-0 top-0 h-9 flex items-center rounded-full border border-primary bg-primary/10 p-0 origin-right transition-all duration-200 ease-out ${
                       inCart ? 'opacity-100 scale-100' : 'opacity-0 scale-x-[0.35] pointer-events-none'
                     }`}
                   >
