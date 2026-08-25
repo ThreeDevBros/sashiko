@@ -22,6 +22,7 @@ export function StickyCheckoutCTA({
   isGuest,
   guestInfo,
   guestValidationErrors,
+  checkingDelivery = false,
   placeOrderButton,
 }: StickyCheckoutCTAProps) {
   const { t } = useTranslation();
