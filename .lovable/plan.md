@@ -18,9 +18,8 @@
 Replace the in-flow CTA with a sticky bottom bar on `/checkout` that guides the user through the page in steps.
 
 States, in order:
-1. **Not yet at the guest info section** (guest mode only): label like "Continue" / "Next: your details". Tapping smooth-scrolls to the guest info section (`[data-section="guest-info"]`) and focuses the first empty field.
-2. **Guest info visible / signed-in user, payment section not yet reached**: label "Next: payment". Tapping scrolls to the payment section.
-3. **Bottom of the page reached (summary visible)**: the bar becomes the real CTA — existing `PlaceOrderButton` with its current cash / card / Apple Pay / Google Pay variants, blocked labels, loading state, and click logic unchanged.
+1. **Not yet at the bottom of the page** (guest or signed-in): label like "Continue". Tapping smooth-scrolls to the next missing section (guest info first if not valid, then payment section), or to the summary section if everything above is already valid.
+2. **Bottom of the page reached (summary visible)**: the bar becomes the real CTA — existing `PlaceOrderButton` with its current cash / card / Apple Pay / Google Pay variants, blocked labels, loading state, and click logic unchanged.
 - Progress is tracked with an IntersectionObserver on the existing sections, so scrolling manually advances the button just like tapping it does; the button never blocks a user who scrolls on their own.
 - Existing validation behaviour is preserved: if the user reaches the final state with missing guest info, the current red-outline + scroll-to-first-error logic still runs.
 - The sticky bar uses the same visual language as the cart footer (hairline top border, translucent blurred background, `pb-safe` plus a little extra lift).
