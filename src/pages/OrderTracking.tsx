@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Package, Phone, MapPin, Store, Clock, Navigation, Coins, ExternalLink, AlertTriangle, XCircle, CheckCircle2, ChefHat } from 'lucide-react';
+import { Package, Phone, MapPin, Store, Clock, Navigation, Coins, ExternalLink, AlertTriangle, XCircle, ChevronUp } from 'lucide-react';
 import googleMapsIcon from '@/assets/google-maps-icon.png';
 import {
   AlertDialog,
@@ -447,8 +447,6 @@ export default function OrderTracking() {
         if (data?.order) {
           const gOrder = data.order;
           const oldStatus = order?.status;
-          if (gOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(gOrder.status)) {
-          }
           setOrder(gOrder);
           if (gOrder.order_items) {
             setOrderItems(gOrder.order_items.map((oi: any) => ({
