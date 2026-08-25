@@ -8,7 +8,10 @@ const corsHeaders = {
 };
 
 const requestSchema = z.object({
-  email: z.string().email().max(255),
+  email: z.string().max(255).regex(
+    /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/,
+    'Enter a full email address including a domain, e.g. name@example.com'
+  ),
   password: z.string().min(12),
   fullName: z.string().min(1).max(100),
   role: z.enum(['manager', 'staff', 'delivery']),
