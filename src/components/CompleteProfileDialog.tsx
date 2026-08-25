@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UserCircle, Loader2, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -142,10 +141,8 @@ export function CompleteProfileDialog() {
         }, { onConflict: 'id' });
       if (error) throw error;
 
-      toast.success(t('auth.profileCompleted', 'Profile completed!'));
       setOpen(false);
     } catch {
-      toast.error(t('auth.profileSaveFailed', 'Failed to save. Please try again.'));
     } finally {
       setSaving(false);
     }

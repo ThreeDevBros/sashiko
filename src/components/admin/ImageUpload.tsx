@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { Upload, Loader2, Trash2, RefreshCw } from 'lucide-react';
 
 interface ImageUploadProps {
@@ -16,7 +15,6 @@ interface ImageUploadProps {
 
 export function ImageUpload({ onUploadComplete, onRemove, currentImageUrl, folder = 'general', id = 'image-upload' }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
-  const { toast } = useToast();
 
   const validateImageMagicBytes = (bytes: Uint8Array, mimeType: string): boolean => {
     // SVG files are XML text
@@ -60,11 +58,6 @@ export function ImageUpload({ onUploadComplete, onRemove, currentImageUrl, folde
       // Validate file size (10MB max for all formats)
       const MAX_SIZE = 10 * 1024 * 1024;
       if (file.size > MAX_SIZE) {
-        toast({
-          title: 'File too large',
-          description: 'File must be less than 10MB',
-          variant: 'destructive'
-        });
         setUploading(false);
         return;
       }
@@ -86,11 +79,6 @@ export function ImageUpload({ onUploadComplete, onRemove, currentImageUrl, folde
       ];
       
       if (!allowedTypes.includes(file.type) && !file.type.startsWith('image/')) {
-        toast({
-          title: 'Invalid file type',
-          description: 'Please upload a valid image file (JPEG, PNG, WebP, GIF, SVG, BMP, TIFF, AVIF, HEIC)',
-          variant: 'destructive'
-        });
         setUploading(false);
         return;
       }
@@ -99,11 +87,6 @@ export function ImageUpload({ onUploadComplete, onRemove, currentImageUrl, folde
       const buffer = await file.slice(0, 100).arrayBuffer();
       const bytes = new Uint8Array(buffer);
       if (!validateImageMagicBytes(bytes, file.type)) {
-        toast({
-          title: 'Invalid image file',
-          description: 'File does not appear to be a valid image',
-          variant: 'destructive'
-        });
         setUploading(false);
         return;
       }
@@ -123,14 +106,8 @@ export function ImageUpload({ onUploadComplete, onRemove, currentImageUrl, folde
         .getPublicUrl(fileName);
 
       onUploadComplete(publicUrl);
-      toast({ title: 'Image uploaded successfully' });
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast({ 
-        title: 'Upload failed', 
-        description: 'Failed to upload image. Please try again with a different file.',
-        variant: 'destructive' 
-      });
     } finally {
       setUploading(false);
     }

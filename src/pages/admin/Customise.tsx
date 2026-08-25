@@ -12,7 +12,6 @@ import HomePageViewSection from '@/components/admin/HomePageViewSection';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRateLimitedAction } from '@/hooks/useRateLimitedAction';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
@@ -124,10 +123,8 @@ export default function Customise() {
       queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
       queryClient.invalidateQueries({ queryKey: ['tenant-branding'] });
       markClean();
-      toast.success('Branding updated successfully');
     },
     onError: () => {
-      toast.error('Failed to update branding');
     },
   });
 
@@ -148,7 +145,6 @@ export default function Customise() {
       setLogoFile(null);
       if (logoInputRef.current) logoInputRef.current.value = '';
     } catch (error) {
-      toast.error('Failed to upload logo');
     } finally {
       setIsUploadingLogo(false);
       setLogoProgress(0);
@@ -171,7 +167,6 @@ export default function Customise() {
       await updateBrandingMutation.mutateAsync({
         tenant_name: restaurantName.trim(),
       });
-      toast.success('Restaurant name updated');
     });
   };
 
@@ -442,7 +437,6 @@ export default function Customise() {
                           );
                           await updateBrandingMutation.mutateAsync({ login_logo_url: publicUrl });
                         } catch {
-                          toast.error('Upload failed');
                         } finally {
                           setIsUploadingLoginLogo(false);
                           setLoginLogoProgress(0);
@@ -499,7 +493,6 @@ export default function Customise() {
                         );
                         await updateBrandingMutation.mutateAsync({ login_logo_url: publicUrl });
                       } catch {
-                        toast.error('Upload failed');
                       } finally {
                         setIsUploadingLoginLogo(false);
                         setLoginLogoProgress(0);

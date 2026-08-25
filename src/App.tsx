@@ -1,5 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
@@ -472,8 +470,6 @@ const AppContent = () => {
           the authVersion key forces a clean remount when the session is restored. */}
       {bootstrapComplete && (
         <div>
-          <Toaster />
-          <Sonner />
           <BranchRealtimeManager />
           <GlobalDriverTracker />
           <CompleteProfileDialog />

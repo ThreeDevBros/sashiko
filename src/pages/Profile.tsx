@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { PROFILE_QUERY_KEY, fetchProfile } from '@/lib/profilePrefetch';
 import { User, Mail, Phone, Lock, Shield, Package, LogOut, Trash2, MapPin, Coins, Calendar, Info, FileText, ShieldCheck, Settings, Cookie, UserX, LifeBuoy } from 'lucide-react';
 
@@ -28,7 +27,6 @@ import { SocialMediaSection } from '@/components/SocialMediaSection';
 export default function Profile() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user: authUser, isAuthReady, signOutWithTransition } = useAuth();
   const { isAdmin } = useAdmin();
   const { hasStaffRole, userRoles } = usePermissions();
@@ -98,7 +96,6 @@ export default function Profile() {
 
   const handleSaveName = async () => {
     if (!editNameValue.trim() || editNameValue.trim().length < 2) {
-      toast({ title: 'Error', description: 'Full name must be at least 2 characters.', variant: 'destructive' });
       return;
     }
     setSaving(true);
@@ -108,8 +105,7 @@ export default function Profile() {
       setFullName(editNameValue.trim());
       setSavedName(editNameValue.trim());
       setEditNameOpen(false);
-      toast({ title: 'Name updated' });
-    } catch { toast({ title: 'Update failed', variant: 'destructive' }); }
+    } catch { }
     finally { setSaving(false); }
   };
 
@@ -130,8 +126,7 @@ export default function Profile() {
       setPhone(editPhoneValue.trim());
       setSavedPhone(editPhoneValue.trim());
       setEditPhoneOpen(false);
-      toast({ title: 'Phone updated' });
-    } catch { toast({ title: 'Update failed', variant: 'destructive' }); }
+    } catch { }
     finally { setSaving(false); }
   };
 
@@ -139,9 +134,8 @@ export default function Profile() {
     try {
       const { error } = await supabase.from('user_addresses').delete().eq('id', addressId);
       if (error) throw error;
-      toast({ title: 'Address deleted', description: 'Your delivery address has been removed.' });
       fetchAddresses();
-    } catch (error: any) { toast({ title: 'Error', description: 'Failed to delete address.', variant: 'destructive' }); }
+    } catch (error: any) { }
   };
 
   const handleSetDefaultAddress = async (addressId: string) => {
@@ -149,30 +143,27 @@ export default function Profile() {
       await supabase.from('user_addresses').update({ is_default: false }).eq('user_id', user.id);
       const { error } = await supabase.from('user_addresses').update({ is_default: true }).eq('id', addressId);
       if (error) throw error;
-      toast({ title: 'Default address updated' });
       fetchAddresses();
-    } catch (error: any) { toast({ title: 'Error', description: 'Failed to set default address.', variant: 'destructive' }); }
+    } catch (error: any) { }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword !== confirmPassword) { toast({ title: 'Error', description: 'Passwords do not match', variant: 'destructive' }); return; }
-    if (newPassword.length < 6) { toast({ title: 'Error', description: 'Password must be at least 6 characters', variant: 'destructive' }); return; }
+    if (newPassword !== confirmPassword) { return; }
+    if (newPassword.length < 6) { return; }
     setSaving(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      toast({ title: 'Password updated', description: 'Your password has been changed successfully.' });
       setChangePasswordOpen(false); setNewPassword(''); setConfirmPassword('');
-    } catch (error: any) { toast({ title: 'Password update failed', variant: 'destructive' }); } finally { setSaving(false); }
+    } catch (error: any) { } finally { setSaving(false); }
   };
 
   const handleLogout = async () => {
     try {
       await signOutWithTransition();
-      toast({ title: 'Logged out' });
       navigate('/auth');
-    } catch (error: any) { toast({ title: 'Logout failed', variant: 'destructive' }); }
+    } catch (error: any) { }
   };
 
   const handleDeleteAccount = async () => {
@@ -185,10 +176,9 @@ export default function Profile() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       });
       if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to delete account'); }
-      toast({ title: 'Account deleted' });
       await supabase.auth.signOut();
       navigate('/auth');
-    } catch (error: any) { toast({ title: 'Deletion failed', description: error.message, variant: 'destructive' }); } finally { setSaving(false); }
+    } catch (error: any) { } finally { setSaving(false); }
   };
 
   if (loading) {

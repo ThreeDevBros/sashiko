@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from 'react';
-import { useToast } from '@/hooks/use-toast';
 
 interface UseRateLimitedActionOptions {
   cooldownMs?: number;
@@ -11,8 +10,6 @@ export const useRateLimitedAction = (options: UseRateLimitedActionOptions = {}) 
     cooldownMs = 5000,
     cooldownMessage = "Please wait before saving again"
   } = options;
-  
-  const { toast } = useToast();
   const [isOnCooldown, setIsOnCooldown] = useState(false);
   const lastActionTime = useRef<number>(0);
 
@@ -22,11 +19,6 @@ export const useRateLimitedAction = (options: UseRateLimitedActionOptions = {}) 
 
     if (timeSinceLastAction < cooldownMs) {
       const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastAction) / 1000);
-      toast({
-        title: "Too fast!",
-        description: `${cooldownMessage} (${remainingSeconds}s remaining)`,
-        variant: "destructive"
-      });
       return null;
     }
 
@@ -48,7 +40,7 @@ export const useRateLimitedAction = (options: UseRateLimitedActionOptions = {}) 
       lastActionTime.current = 0;
       throw error;
     }
-  }, [cooldownMs, cooldownMessage, toast]);
+  }, [cooldownMs, cooldownMessage]);
 
   return { executeAction, isOnCooldown };
 };

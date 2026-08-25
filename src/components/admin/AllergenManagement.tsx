@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
@@ -24,7 +23,6 @@ import {
 } from '@/components/ui/drawer';
 
 export function AllergenManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [openDialog, setOpenDialog] = useState(false);
@@ -51,7 +49,6 @@ export function AllergenManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allergens'] });
-      toast({ title: 'Allergen created successfully' });
       setOpenDialog(false);
     },
   });
@@ -66,7 +63,6 @@ export function AllergenManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allergens'] });
-      toast({ title: 'Allergen updated successfully' });
       setOpenDialog(false);
       setEditingAllergen(null);
     },
@@ -82,7 +78,6 @@ export function AllergenManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allergens'] });
-      toast({ title: 'Allergen deleted successfully' });
     },
   });
 

@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2, DollarSign, Globe, Settings, Coins, Timer, ToggleLeft, Truck, Banknote, CalendarDays, HandCoins, FileText, ShieldCheck, Cookie, Copy, ExternalLink, EyeOff } from 'lucide-react';
@@ -43,7 +42,6 @@ import {
 } from '@/components/ui/dialog';
 
 const Configure = () => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   
   // Payment & VAT settings state
@@ -237,17 +235,8 @@ const Configure = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches-cash-settings'] });
-      toast({
-        title: 'Cash payment settings saved',
-        description: 'Cash availability has been updated for this branch'
-      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Failed to save cash settings',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
 
@@ -271,17 +260,8 @@ const Configure = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
       markClean();
-      toast({ 
-        title: 'Payment settings saved',
-        description: 'VAT and tax settings have been updated successfully'
-      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Failed to save payment settings',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
 
@@ -304,17 +284,8 @@ const Configure = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
       markClean();
-      toast({ 
-        title: 'Regional settings saved',
-        description: 'Currency, timezone, and language settings have been updated'
-      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Failed to save regional settings',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
 
@@ -335,17 +306,8 @@ const Configure = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
       markClean();
-      toast({ 
-        title: 'Reservation settings saved',
-        description: 'Default reservation duration has been updated'
-      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Failed to save reservation settings',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
 
@@ -372,17 +334,8 @@ const Configure = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
       markClean();
-      toast({ 
-        title: 'Order automation saved',
-        description: 'Auto-progression settings have been updated'
-      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Failed to save automation settings',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
 
@@ -407,17 +360,8 @@ const Configure = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
       markClean();
-      toast({ 
-        title: 'Delivery fee settings saved',
-        description: 'Delivery fee formula has been updated successfully'
-      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Failed to save delivery settings',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
   // Save service fee settings mutation
@@ -435,17 +379,8 @@ const Configure = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
       markClean();
-      toast({
-        title: 'Service fee settings saved',
-        description: 'Service fee rate has been updated successfully'
-      });
     },
     onError: (error: any) => {
-      toast({
-        title: 'Failed to save service fee settings',
-        description: error.message,
-        variant: 'destructive',
-      });
     },
   });
 

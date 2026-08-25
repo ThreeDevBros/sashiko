@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 interface LocalAddress {
@@ -33,7 +32,6 @@ export const DeliveryAddressWidget = () => {
     city: '',
     postal_code: ''
   });
-  const { toast } = useToast();
 
   useEffect(() => {
     loadLocalAddresses();
@@ -69,11 +67,6 @@ export const DeliveryAddressWidget = () => {
 
   const getCurrentLocation = async () => {
     if (!isGeolocationAvailable()) {
-      toast({
-        title: 'Not supported',
-        description: 'Geolocation is not supported by your browser.',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -108,17 +101,8 @@ export const DeliveryAddressWidget = () => {
       // Dispatch event
       window.dispatchEvent(new Event('addressChanged'));
       
-      toast({
-        title: 'Location updated',
-        description: 'Using your current location',
-      });
     } catch (error) {
       console.error('Geolocation error:', error);
-      toast({
-        title: 'Location error',
-        description: 'Could not get your location',
-        variant: 'destructive',
-      });
     } finally {
       setGettingLocation(false);
     }
@@ -136,19 +120,10 @@ export const DeliveryAddressWidget = () => {
     
     window.dispatchEvent(new Event('addressChanged'));
     
-    toast({
-      title: 'Address updated',
-      description: 'Your delivery address has been updated.'
-    });
   };
 
   const saveManualAddress = () => {
     if (!formData.label || !formData.address_line1 || !formData.city) {
-      toast({
-        title: 'Missing fields',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -175,10 +150,6 @@ export const DeliveryAddressWidget = () => {
       postal_code: ''
     });
     
-    toast({
-      title: 'Address saved',
-      description: 'Your address has been saved to this device',
-    });
   };
 
   const getDisplayAddress = () => {

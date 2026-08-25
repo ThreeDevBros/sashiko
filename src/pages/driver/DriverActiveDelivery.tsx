@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Package, Phone, Clock, Navigation, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 interface ActiveOrder {
   id: string;
@@ -27,7 +26,6 @@ export default function DriverActiveDelivery() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [lastDriverLocation, setLastDriverLocation] = useState<Date | null>(null);
-  const { toast } = useToast();
 
   // Import useAuth at the top level
   const { user: authUser, isAuthReady } = useAuth();
@@ -92,11 +90,9 @@ export default function DriverActiveDelivery() {
 
       if (error) throw error;
 
-      toast({ title: 'Delivered!', description: 'Order marked as delivered' });
       loadActiveOrders();
     } catch (error) {
       console.error('Error:', error);
-      toast({ title: 'Error', description: 'Failed to update', variant: 'destructive' });
     } finally {
       setUpdatingId(null);
     }

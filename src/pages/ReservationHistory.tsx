@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Calendar, Users, CalendarDays, Phone, ExternalLink, X, ChevronRight } from "lucide-react";
-import { toast } from "sonner";
 import { BackButton } from "@/components/BackButton";
 import LoadingScreen from "@/components/LoadingScreen";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -94,7 +93,6 @@ const ReservationHistory = () => {
       }
     } catch (error) {
       console.error("Error fetching reservations:", error);
-      toast.error("Failed to load reservations");
     } finally {
       setLoading(false);
     }
@@ -123,10 +121,8 @@ const ReservationHistory = () => {
       setReservations(prev =>
         prev.map(r => r.id === reservation.id ? { ...r, status: 'cancelled' } : r)
       );
-      toast.success('Reservation cancelled successfully');
     } catch (error) {
       console.error('Error cancelling reservation:', error);
-      toast.error('Failed to cancel reservation');
     } finally {
       setCancellingId(null);
     }

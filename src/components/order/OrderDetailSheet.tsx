@@ -7,7 +7,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { useBranding } from '@/hooks/useBranding';
 import { useCart } from '@/contexts/CartContext';
-import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock, MapPin, Store, Truck, ShoppingBag, Star, RotateCcw,
@@ -83,7 +82,6 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
 
         if (orderError) throw orderError;
         if (!orderData) {
-          toast.error('Order not found');
           return;
         }
 
@@ -184,7 +182,6 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
       }
     } catch (err) {
       console.error('Error fetching order detail:', err);
-      toast.error('Failed to load order details');
     } finally {
       setLoading(false);
     }
@@ -207,13 +204,11 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
     setSendingReceipt(true);
     // Simulate receipt sending
     await new Promise(r => setTimeout(r, 1500));
-    toast.success('Receipt sent to your email');
     setSendingReceipt(false);
   };
 
   const handleOrderAgain = () => {
     if (!order?.items?.length) {
-      toast.error('No items to reorder');
       return;
     }
 
@@ -232,7 +227,6 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
       }
     }
 
-    toast.success('Items added to cart');
     onOpenChange(false);
     navigate('/cart');
   };
@@ -240,14 +234,12 @@ export function OrderDetailSheet({ orderId, open, onOpenChange }: OrderDetailShe
   const handleRateOrder = () => {
     onOpenChange(false);
     // Could navigate to a review page or open a dialog
-    toast.info('Rating feature coming soon');
   };
 
   const handleContactRestaurant = () => {
     if (order?.branch?.phone) {
       window.open(`tel:${order.branch.phone}`, '_self');
     } else {
-      toast.info('Contact info not available');
     }
   };
 

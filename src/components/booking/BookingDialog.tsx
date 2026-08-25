@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
 interface LayoutObject {
@@ -48,7 +47,6 @@ export const BookingDialog = ({
   selectedTime,
   onReservationComplete,
 }: BookingDialogProps) => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [guestName, setGuestName] = useState('');
@@ -139,7 +137,6 @@ export const BookingDialog = ({
 
   const handleConfirmClick = () => {
     if (!selectedDate || !selectedTime) {
-      toast({ title: 'Missing selection', description: 'Please select a date and time on the booking page.', variant: 'destructive' });
       return;
     }
     if (!validateAndScrollToErrors()) return;
@@ -206,7 +203,6 @@ export const BookingDialog = ({
       const message = requiresTableCombination
         ? 'Large party request submitted! Admin will arrange tables and confirm your booking shortly.'
         : 'Reservation submitted! We will confirm your booking shortly.';
-      toast({ title: 'Success!', description: message });
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
       onReservationComplete?.();
@@ -214,11 +210,6 @@ export const BookingDialog = ({
     },
     onError: (error: any) => {
       const errorMessage = error?.message || 'Failed to create reservation. Please check your details and try again.';
-      toast({
-        title: 'Booking failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
     },
   });
 

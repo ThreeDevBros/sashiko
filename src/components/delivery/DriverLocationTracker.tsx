@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Navigation, MapPin, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { isGeolocationAvailable, watchPosition, clearWatch as geoClearWatch } from '@/lib/geolocation';
 
 interface DriverLocationTrackerProps {
@@ -17,7 +16,6 @@ export function DriverLocationTracker({ orderId, onLocationUpdate }: DriverLocat
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const watchIdRef = useRef<string | null>(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     return () => {
@@ -30,11 +28,6 @@ export function DriverLocationTracker({ orderId, onLocationUpdate }: DriverLocat
   const startTracking = async () => {
     if (!isGeolocationAvailable()) {
       setError('Geolocation is not supported by your browser');
-      toast({
-        title: 'Error',
-        description: 'Geolocation is not supported by your browser',
-        variant: 'destructive',
-      });
       return;
     }
 

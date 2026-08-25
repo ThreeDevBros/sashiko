@@ -33,7 +33,6 @@ import { getStripePromise, initStripeOnce, isNativeStripeReady } from '@/lib/str
 import { CheckoutForm, StripeCheckoutForm } from '@/components/checkout/CheckoutForm';
 import { DeliveryMap } from '@/components/checkout/DeliveryMap';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { useDeliveryValidation } from '@/hooks/useDeliveryValidation';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, AlertTriangle, Check, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
@@ -495,13 +494,11 @@ const Checkout = () => {
             }
           } catch {}
           console.error('Payment intent error details:', { status: (response.error as any)?.status, message: errorMessage });
-          toast.error(errorMessage);
           return;
         }
         setClientSecret(response.data.clientSecret);
       } catch (error: any) {
         console.error('Error creating payment intent:', error);
-        toast.error('Failed to initialize payment. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -512,7 +509,6 @@ const Checkout = () => {
   // --- Device location handler ---
   const useDeviceLocation = async () => {
     if (!isGeolocationAvailable()) {
-      toast.error('Geolocation is not supported by your browser');
       return;
     }
 
@@ -537,10 +533,8 @@ const Checkout = () => {
       localStorage.setItem(STORAGE_KEYS.CURRENT_LOCATION_DATA, JSON.stringify(locationData));
       setAddressDialogOpen(false);
       window.dispatchEvent(new Event('addressChanged'));
-      toast.success('Using your current location for delivery');
     } catch (error) {
       console.error('Geolocation error:', error);
-      toast.error('Could not get your location. Please check your permissions.');
     } finally {
       setGettingLocation(false);
     }
@@ -932,7 +926,6 @@ const Checkout = () => {
           onConfirm={(place: PlaceResult) => {
             setPinMapOpen(false);
             setSearchOrPinLocation({ latitude: place.latitude, longitude: place.longitude, address: place.address }, 'pin');
-            toast.success('Location pinned successfully');
           }}
         />
 
@@ -1359,7 +1352,6 @@ const Checkout = () => {
 
               // --- Branch Paused: block order ---
               if (branchIsPaused) {
-                toast.error('This branch is currently busy and not accepting orders. Please try again shortly.');
                 return;
               }
 
@@ -1371,7 +1363,6 @@ const Checkout = () => {
                   orderTypeCard.classList.add('ring-2', 'ring-destructive', 'ring-offset-2');
                   setTimeout(() => orderTypeCard.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2'), 3000);
                 }
-                toast.error('This branch is currently closed. Please schedule for later or try during operating hours.');
                 return;
               }
 
@@ -1383,7 +1374,6 @@ const Checkout = () => {
                   deliverySection.classList.add('ring-2', 'ring-destructive', 'ring-offset-2');
                   setTimeout(() => deliverySection.classList.remove('ring-2', 'ring-destructive', 'ring-offset-2'), 3000);
                 }
-                toast.error('Please set your delivery location to continue.');
                 return;
               }
 

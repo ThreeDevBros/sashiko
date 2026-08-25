@@ -12,7 +12,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Separator } from '@/components/ui/separator';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Search, X, Check, MessageSquareText, ShoppingBag, User, MapPin, Phone, Mail, Clock, UtensilsCrossed, AlertTriangle, Timer, ChevronRight, Ban } from 'lucide-react';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatOrderDisplayNumber } from '@/lib/orderNumber';
 import { useOrderAlerts } from '@/hooks/useOrderAlerts';
@@ -270,9 +269,7 @@ function StaffOrdersContent() {
           console.log('[Staff Refund] Response:', { refundData, refundErr });
           if (refundErr) {
             console.error('[Staff Refund] Error:', refundErr);
-            toast.error('Refund failed', { description: refundErr.message || 'Could not process automatic refund.', duration: 10000 });
           } else if (refundData?.refunded) {
-            toast.success('Refund issued', { description: 'Payment has been refunded.', duration: 5000 });
           } else if (refundData?.reason === 'cash_order') {
             console.log('[Staff Refund] Cash order — no refund needed');
           } else if (refundData?.reason) {
@@ -280,7 +277,6 @@ function StaffOrdersContent() {
           }
         } catch (e: any) {
           console.error('[Staff Refund] Exception:', e);
-          toast.error('Refund error', { description: 'Unexpected error processing refund.', duration: 10000 });
         }
       }
 
@@ -303,7 +299,6 @@ function StaffOrdersContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-orders'] });
       queryClient.invalidateQueries({ queryKey: ['staff-pending-count'] });
-      toast.success('Order status updated');
     },
   });
 
@@ -320,7 +315,6 @@ function StaffOrdersContent() {
     if (!newOrderPopup) return;
     const minutes = parseInt(estimatedMinutes);
     if (isNaN(minutes) || minutes < 1) {
-      toast.error('Please enter a valid time estimate');
       return;
     }
     const estimatedReadyAt = new Date(Date.now() + minutes * 60000).toISOString();
@@ -338,7 +332,6 @@ function StaffOrdersContent() {
     if (!newOrderPopup) return;
     const reason = selectedDeclineReason === 'other' ? customDeclineReason : selectedDeclineReason;
     if (!reason.trim()) {
-      toast.error('Please select or enter a reason');
       return;
     }
     updateStatusMutation.mutate({

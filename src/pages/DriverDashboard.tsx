@@ -10,7 +10,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Package, Phone, Clock } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 interface Order {
   id: string;
@@ -37,7 +36,6 @@ export default function DriverDashboard() {
   const [address, setAddress] = useState<Address | null>(null);
   const [loading, setLoading] = useState(true);
   const { branding } = useBranding();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -76,11 +74,6 @@ export default function DriverDashboard() {
       }
     } catch (error) {
       console.error('Error loading active order:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load active delivery',
-        variant: 'destructive',
-      });
     } finally {
       setLoading(false);
     }
@@ -97,20 +90,11 @@ export default function DriverDashboard() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Order marked as delivered',
-      });
 
       setActiveOrder(null);
       setAddress(null);
     } catch (error) {
       console.error('Error marking order as delivered:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark order as delivered',
-        variant: 'destructive',
-      });
     }
   };
 

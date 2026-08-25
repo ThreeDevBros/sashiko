@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, MapPin, Package, ChevronRight } from "lucide-react";
-import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { BackButton } from "@/components/BackButton";
 import LoadingScreen from "@/components/LoadingScreen";
@@ -82,7 +81,6 @@ const OrderHistory = () => {
       }
     } catch (error) {
       console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders");
     } finally {
       setLoading(false);
     }

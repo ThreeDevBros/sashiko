@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import LoadingScreen from '@/components/LoadingScreen';
 import { useBranding } from '@/hooks/useBranding';
 import sashikoLogo from '@/assets/sashiko-logo.png';
-import { useToast } from '@/hooks/use-toast';
 import { BackButton } from '@/components/BackButton';
 
 export default function CheckoutSuccess() {
@@ -17,7 +16,6 @@ export default function CheckoutSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { clearCart } = useCart();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const { branding } = useBranding();
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
@@ -67,18 +65,13 @@ export default function CheckoutSuccess() {
       } catch (err: any) {
         console.error('Error verifying payment:', err);
         setError(err.message || 'Failed to verify payment');
-        toast({
-          title: 'Verification failed',
-          description: 'We could not verify your payment. Please contact support.',
-          variant: 'destructive',
-        });
       } finally {
         setLoading(false);
       }
     };
 
     verifyPayment();
-  }, [searchParams, clearCart, navigate, toast]);
+  }, [searchParams, clearCart, navigate]);
 
   if (loading) {
     return <LoadingScreen show={true} />;

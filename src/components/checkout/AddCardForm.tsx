@@ -5,7 +5,6 @@ import { Loader2, Check, CreditCard, Lock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { CreditCardVisual } from './CreditCardVisual';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 interface AddCardFormProps {
   onSuccess: () => void;
@@ -35,7 +34,6 @@ const getStripeElementStyle = () => {
 export const AddCardForm = ({ onSuccess, onCancel }: AddCardFormProps) => {
   const stripe = useStripe();
   const elements = useElements();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [cardholderName, setCardholderName] = useState('');
   const [cardNumberComplete, setCardNumberComplete] = useState(false);
@@ -64,11 +62,9 @@ export const AddCardForm = ({ onSuccess, onCancel }: AddCardFormProps) => {
       });
       if (error) throw error;
 
-      toast({ title: 'Card saved', description: 'Your card has been saved successfully.' });
       onSuccess();
     } catch (error: any) {
       console.error('Error saving card:', error);
-      toast({ title: 'Failed to save card', description: error.message || 'Please try again.', variant: 'destructive' });
     } finally { setLoading(false); }
   };
 

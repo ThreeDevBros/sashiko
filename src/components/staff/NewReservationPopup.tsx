@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { Calendar, Clock, Users, Mail, Phone, Check, X, MapPin, MessageSquareText, UtensilsCrossed, TableProperties } from 'lucide-react';
-import { toast } from 'sonner';
 import { playReservationAlert } from '@/lib/notificationSound';
 import { ReservationMiniMap } from '@/components/reservation/ReservationMiniMap';
 
@@ -59,9 +58,6 @@ export const NewReservationPopup = () => {
         queryClient.invalidateQueries({ queryKey: ['staff-reservations'] });
         if (staffBranchId && (payload.new as any)?.branch_id === staffBranchId) {
           playReservationAlert();
-          toast.success('New reservation request!', {
-            description: `From ${(payload.new as any)?.guest_name || 'a guest'}`,
-          });
           fetchReservationDetails((payload.new as any).id);
         }
       })
@@ -85,7 +81,6 @@ export const NewReservationPopup = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-reservations'] });
-      toast.success('Reservation updated');
       setReservation(null);
     },
   });

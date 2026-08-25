@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, subMonths } from 'date-fns';
 import { Check, X, Clock, Package, Calendar, LogOut } from 'lucide-react';
-import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useOrderAlerts } from '@/hooks/useOrderAlerts';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,7 +24,6 @@ export default function StaffDashboard() {
 
   const handleLogout = async () => {
     await signOutWithTransition();
-    toast.success('Logged out successfully');
     navigate('/auth');
   };
 
@@ -41,9 +39,6 @@ export default function StaffDashboard() {
           queryClient.invalidateQueries({ queryKey: ['staff-order-history'] });
           
           if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
-            toast.success('New order received!', {
-              description: `Order #${formatOrderDisplayNumber(payload.new.display_number)}`,
-            });
           }
         }
       )
@@ -126,9 +121,8 @@ export default function StaffDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-pending-orders'] });
       queryClient.invalidateQueries({ queryKey: ['staff-order-history'] });
-      toast.success('Order updated successfully');
     },
-    onError: () => { toast.error('Failed to update order'); },
+    onError: () => { },
   });
 
   // Update reservation status
@@ -142,9 +136,8 @@ export default function StaffDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-pending-reservations'] });
-      toast.success('Reservation updated successfully');
     },
-    onError: () => { toast.error('Failed to update reservation'); },
+    onError: () => { },
   });
 
   const getStatusColor = (status: string) => {

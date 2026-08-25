@@ -10,7 +10,6 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import PopularItemsSection from './PopularItemsSection';
 
 export interface BannerItem {
@@ -238,10 +237,8 @@ export default function HomePageViewSection() {
 
       queryClient.invalidateQueries({ queryKey: ['tenant-settings-banner'] });
       queryClient.invalidateQueries({ queryKey: ['tenant-branding'] });
-      toast.success('Home page settings saved!');
     } catch (err) {
       console.error(err);
-      toast.error('Failed to save home page settings');
     } finally {
       setIsSaving(false);
     }
@@ -346,7 +343,7 @@ function QuickActionsSubsection({ settingsId, config: rawConfig }: { settingsId?
     if (!settingsId) return;
     const updated = { ...config, [key]: checked };
     const { error } = await supabase.from('tenant_settings').update({ quick_actions_config: updated } as any).eq('id', settingsId);
-    if (error) { toast.error('Failed to update'); return; }
+    if (error) { return; }
     queryClient.invalidateQueries({ queryKey: ['tenant-settings'] });
     queryClient.invalidateQueries({ queryKey: ['tenant-settings-banner'] });
     queryClient.invalidateQueries({ queryKey: ['tenant-branding'] });

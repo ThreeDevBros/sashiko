@@ -11,7 +11,6 @@ import { useCart } from '@/contexts/CartContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
 import { MenuItem } from '@/components/menu/MenuItem';
 import { MenuItemDetailSheet } from '@/components/menu/MenuItemDetailSheet';
 import { QUERY_KEYS, ANIMATION_DELAYS } from '@/constants';

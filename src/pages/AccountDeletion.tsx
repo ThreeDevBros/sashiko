@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { BackButton } from '@/components/BackButton';
 import { Check, X, AlertTriangle, Loader2 } from 'lucide-react';
@@ -19,7 +18,6 @@ import {
 
 export default function AccountDeletion() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user, signOutWithTransition } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -116,15 +114,13 @@ export default function AccountDeletion() {
       }
 
       await signOutWithTransition();
-      toast({ title: 'Account deleted', description: 'Your account and all data have been permanently removed.' });
       navigate('/auth', { replace: true });
     } catch (error: any) {
-      toast({ title: 'Deletion failed', description: error.message, variant: 'destructive' });
     } finally {
       setDeleting(false);
       setDrawerOpen(false);
     }
-  }, [navigate, toast]);
+  }, [navigate]);
 
   if (!user) {
     navigate('/auth', { replace: true });

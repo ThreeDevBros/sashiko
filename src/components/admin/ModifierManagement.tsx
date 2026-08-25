@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,7 +105,6 @@ function SortableModifierRow({
 }
 
 export function ModifierManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [openDialog, setOpenDialog] = useState(false);
@@ -180,7 +178,6 @@ export function ModifierManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['modifier-groups'] });
-      toast({ title: 'Modifier group created with modifiers' });
       setOpenDialog(false);
       resetForm();
     },
@@ -218,7 +215,6 @@ export function ModifierManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['modifier-groups'] });
-      toast({ title: 'Modifier group updated' });
       setOpenDialog(false);
       resetForm();
     },
@@ -234,7 +230,6 @@ export function ModifierManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['modifier-groups'] });
-      toast({ title: 'Modifier group deleted' });
     },
   });
 
@@ -248,7 +243,6 @@ export function ModifierManagement() {
 
     if (showMinimum) {
       if (!minSelections) {
-        toast({ title: 'Please enter a minimum value', variant: 'destructive' });
         return;
       }
       groupData.min_selections = parseInt(minSelections);
@@ -256,7 +250,6 @@ export function ModifierManagement() {
 
     if (showMaximum) {
       if (!maxSelections) {
-        toast({ title: 'Please enter a maximum value', variant: 'destructive' });
         return;
       }
       groupData.max_selections = parseInt(maxSelections);

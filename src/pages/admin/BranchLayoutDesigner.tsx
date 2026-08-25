@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Save, Plus, Trash2, ZoomIn, ZoomOut, RotateCw, Layers, ChevronDown, Crosshair } from 'lucide-react';
 import {
@@ -152,7 +151,6 @@ const MIN_EDITOR_ZOOM = 0.15;
 const MAX_EDITOR_ZOOM = 3;
 
 export default function BranchLayoutDesigner({ initialBranchId, onClose }: BranchLayoutDesignerProps) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedBranchId, setSelectedBranchId] = useState<string>(initialBranchId || '');
   const [objects, setObjects] = useState<LayoutObject[]>([]);
@@ -326,7 +324,6 @@ export default function BranchLayoutDesigner({ initialBranchId, onClose }: Branc
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branch-layout', selectedBranchId] });
-      toast({ title: 'Layout saved successfully' });
     },
   });
 

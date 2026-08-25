@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
 import { Calendar, Clock, Users, Mail, Phone, Check, X, CalendarIcon } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,7 +17,6 @@ import { PauseBranchButton } from '@/components/PauseBranchButton';
 import type { DateRange } from 'react-day-picker';
 
 export default function ReservationManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedMonth, setSelectedMonth] = useState<Date>();
@@ -43,10 +41,6 @@ export default function ReservationManagement() {
             queryClient.invalidateQueries({ queryKey: ['admin-reservations'] });
 
             if (payload.eventType === 'INSERT') {
-              toast({
-                title: '🔔 New Reservation!',
-                description: `New reservation from ${(payload.new as any)?.guest_name || 'a guest'}`,
-              });
             }
           }, 250);
         }
@@ -57,7 +51,7 @@ export default function ReservationManagement() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
-  }, [queryClient, toast]);
+  }, [queryClient]);
 
   const { data: reservations, isLoading } = useQuery({
     queryKey: ['admin-reservations'],
@@ -88,7 +82,6 @@ export default function ReservationManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-reservations'] });
-      toast({ title: 'Reservation updated successfully' });
       setRejectDialogOpen(false);
       setRejectingId(null);
       setRejectionReason('');

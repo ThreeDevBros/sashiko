@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, MapPin, Navigation, Search } from 'lucide-react';
 import { MapLocationPicker } from '@/components/admin/MapLocationPicker';
-import { toast } from 'sonner';
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 
 interface GuestLocationPickerProps {
@@ -42,7 +41,6 @@ export const GuestLocationPicker = ({
 
   const handleUseCurrentLocation = async () => {
     if (!isGeolocationAvailable()) {
-      toast.error('Geolocation is not supported by your browser');
       return;
     }
 
@@ -70,10 +68,8 @@ export const GuestLocationPicker = ({
 
       onLocationSelect({ latitude, longitude, address: addressString });
       onOpenChange(false);
-      toast.success('Location set successfully');
     } catch (error) {
       console.error('Geolocation error:', error);
-      toast.error('Could not get your location. Please check your permissions or search manually.');
     } finally {
       setGettingLocation(false);
     }
@@ -91,11 +87,9 @@ export const GuestLocationPicker = ({
       setSearchResults(data);
       
       if (data.length === 0) {
-        toast.error('No results found. Try a different search term.');
       }
     } catch (error) {
       console.error('Search error:', error);
-      toast.error('Search failed. Please try again.');
     } finally {
       setSearching(false);
     }
@@ -140,7 +134,6 @@ export const GuestLocationPicker = ({
         address: addressString 
       });
       onOpenChange(false);
-      toast.success('Delivery location set');
     } catch (error) {
       console.error('Geocoding error:', error);
       // Still allow if geocoding fails

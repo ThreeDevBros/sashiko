@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Star, Plus, X, Loader2, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/currency';
 
 const MAX_SLOTS = 10;
@@ -187,10 +186,8 @@ export default function PopularItemsSection() {
       queryClient.invalidateQueries({ queryKey: ['tenant-branding'] });
       queryClient.invalidateQueries({ queryKey: ['branch-popular-items'] });
       queryClient.invalidateQueries({ queryKey: ['popular-items-home'] });
-      toast.success('Popular items section saved!');
     } catch (err) {
       console.error(err);
-      toast.error('Failed to save popular items section');
     } finally {
       setIsSaving(false);
     }

@@ -4,7 +4,6 @@ import { Check, CreditCard, Lock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { CreditCardVisual } from './CreditCardVisual';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { getGlobalCurrency } from '@/lib/currency';
@@ -64,7 +63,6 @@ export const GuestCardPayment = ({
   tax = 0,
   orderTotal = 0,
 }: GuestCardPaymentProps) => {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { items, clearCart } = useCart();
   const [stripe, setStripe] = useState<Stripe | null>(null);
@@ -92,7 +90,6 @@ export const GuestCardPayment = ({
 
         if (keyError || !data?.key) {
           console.error('Error loading Stripe key:', keyError);
-          toast({ title: 'Payment unavailable', description: 'Card payment is currently unavailable.', variant: 'destructive' });
           return;
         }
 
@@ -124,7 +121,6 @@ export const GuestCardPayment = ({
         setMounted(true);
       } catch (error) {
         console.error('Error initializing Stripe:', error);
-        toast({ title: 'Payment error', description: 'Failed to initialize payment.', variant: 'destructive' });
       }
     };
     initStripe();
@@ -168,7 +164,6 @@ export const GuestCardPayment = ({
           }
         });
         if (orderError) throw new Error(orderError.message || 'Failed to create order');
-        toast({ title: 'Payment successful!', description: 'Your order has been placed.' });
         // Store guest order for tracking and history
         if (orderData?.order_id && guestInfo?.email) {
           const { addGuestOrder } = await import('@/lib/guestOrders');
@@ -187,9 +182,8 @@ export const GuestCardPayment = ({
       console.error('Payment error:', error);
       let errorMessage = 'Please try again or use cash on delivery.';
       if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function')) errorMessage = error.message;
-      toast({ title: 'Payment failed', description: errorMessage, variant: 'destructive' });
     } finally { setLoading(false); isSubmittingRef.current = false; }
-  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, toast, deliveryFee, serviceFee, tax, orderTotal]);
+  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, deliveryFee, serviceFee, tax, orderTotal]);
 
   useEffect(() => {
     if (submitRef) submitRef.current = handleSubmit;

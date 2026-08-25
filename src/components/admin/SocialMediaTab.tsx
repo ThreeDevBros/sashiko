@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { Plus, Trash2, Upload, Facebook, Instagram, Youtube, Linkedin, MessageCircle } from 'lucide-react';
 import { FaTiktok, FaSnapchat, FaThreads, FaPinterestP, FaWhatsapp, FaTelegram, FaXTwitter } from 'react-icons/fa6';
 
@@ -78,9 +77,8 @@ export const SocialMediaTab = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['social-media-visibility'] });
-      toast.success('Visibility updated');
     },
-    onError: () => toast.error('Failed to update visibility'),
+    onError: () => void 0,
   });
 
   const { data: links = [], isLoading } = useQuery({
@@ -105,7 +103,6 @@ export const SocialMediaTab = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['social-media-links'] });
-      toast.success('Social media link added');
     },
   });
 
@@ -124,7 +121,6 @@ export const SocialMediaTab = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['social-media-links'] });
-      toast.success('Social media link removed');
     },
   });
 
@@ -135,12 +131,10 @@ export const SocialMediaTab = () => {
       .from('restaurant-images')
       .upload(filePath, file, { upsert: true });
     if (uploadError) {
-      toast.error('Failed to upload logo');
       return;
     }
     const { data: urlData } = supabase.storage.from('restaurant-images').getPublicUrl(filePath);
     updateMutation.mutate({ id, logo_url: urlData.publicUrl });
-    toast.success('Logo uploaded');
   };
 
   const handleAddPlatform = (platformId: string) => {
