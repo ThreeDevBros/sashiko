@@ -8,7 +8,6 @@ import { Plus, ChevronRight, AlertTriangle, ChevronDown, ChevronUp } from "lucid
 import { useNavigate } from "react-router-dom";
 import { useCart, type CartItem as CartLine } from '@/contexts/CartContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { useBranding } from '@/hooks/useBranding';
 import { useDeliveryFeeConfig } from '@/hooks/useDeliveryFeeConfig';
 import { formatCurrency } from '@/lib/currency';
@@ -143,10 +142,6 @@ const Cart = () => {
 
   const handleDeleteLine = (line: CartLine) => {
     removeItem(line.cartKey);
-    toast(t('cart.itemRemoved'), {
-      description: line.name,
-      action: { label: t('cart.undo'), onClick: () => restoreLine(line) },
-    });
   };
 
   const handleEditItem = async (cartItem: CartLine) => {

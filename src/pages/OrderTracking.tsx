@@ -27,7 +27,6 @@ import { OrderTrackingMap } from '@/components/order/OrderTrackingMap';
 import { useOrderEta } from '@/hooks/useOrderEta';
 import { TrackingStatusHero } from '@/components/order/TrackingStatusHero';
 import { formatCurrency } from '@/lib/currency';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getGuestOrders } from '@/lib/guestOrders';
 import { areLiveActivitiesSupported, startOrderLiveActivity, updateOrderLiveActivity, endOrderLiveActivity } from '@/lib/nativeLiveActivity';
@@ -504,7 +503,6 @@ export default function OrderTracking() {
 
   const handleCancelOrder = async () => {
     if (!order || order.status !== 'pending') {
-      toast.error('Too late — order already confirmed.');
       return;
     }
     setIsCancelling(true);
@@ -519,7 +517,6 @@ export default function OrderTracking() {
           try { email = JSON.parse(legacyRaw).email; } catch {}
         }
         if (!email) {
-          toast.error('Unable to verify guest order');
           return;
         }
         const { data, error } = await supabase.functions.invoke('cancel-guest-order', {
@@ -553,7 +550,6 @@ export default function OrderTracking() {
       }
 
       setOrder(prev => prev ? { ...prev, status: 'cancelled', cancellation_reason: 'Cancelled by customer' } : null);
-      toast.success('Order cancelled — refund is being processed');
     } catch (err: any) {
       console.error('Cancel order error:', err);
       // Check if order was confirmed in the meantime
@@ -564,12 +560,10 @@ export default function OrderTracking() {
           .eq('id', order.id)
           .single();
         if (freshOrder && freshOrder.status !== 'pending') {
-          toast.error('Too late — order already confirmed.');
           setOrder(prev => prev ? { ...prev, status: freshOrder.status } : null);
           return;
         }
       }
-      toast.error(err?.message || 'Failed to cancel order');
     } finally {
       setIsCancelling(false);
     }
@@ -581,14 +575,6 @@ export default function OrderTracking() {
       const cashbackEarned = (orderTotal * cashbackRate) / 100;
       const currency = branding?.currency || 'USD';
       
-      toast.success(
-        `You earned ${formatCurrency(cashbackEarned, currency)} cashback!`,
-        {
-          description: 'Cashback has been added to your balance',
-          icon: <Coins className="h-5 w-5 text-amber-500" />,
-          duration: 5000,
-        }
-      );
     }
   };
 

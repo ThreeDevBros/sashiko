@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { Send, Mail, Smartphone, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -64,7 +63,6 @@ export const NotificationsTab = () => {
 
   const sendNotification = async () => {
     if (!title.trim() || !message.trim()) {
-      toast.error('Please fill in the title and message');
       return;
     }
 
@@ -102,13 +100,11 @@ export const NotificationsTab = () => {
         throw fnError;
       }
 
-      toast.success('Notification sent successfully!');
       setTitle('');
       setMessage('');
       queryClient.invalidateQueries({ queryKey: ['broadcast-notifications'] });
     } catch (error: any) {
       console.error('Send notification error:', error);
-      toast.error(error.message || 'Failed to send notification');
     } finally {
       setIsSending(false);
     }

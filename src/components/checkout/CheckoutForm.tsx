@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2, ChevronRight, CreditCard, Banknote, Plus, Trash2 } from 'lucide-react';
 import { ApplePayIcon, GooglePayIcon } from '@/components/icons/PaymentIcons';
 import { Capacitor } from '@capacitor/core';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
@@ -91,10 +90,6 @@ export const CheckoutForm = ({
   stripe = null,
   elements = null,
 }: CheckoutFormProps) => {
-  
-  const {
-    toast
-  } = useToast();
   const navigate = useNavigate();
   const {
     clearCart,
@@ -388,11 +383,6 @@ export const CheckoutForm = ({
 
     // Validation for delivery radius (only for non-guests with address)
     if (orderType === 'delivery' && !canDeliver && selectedAddressId) {
-      toast({
-        title: "Outside Delivery Zone",
-        description: "Your address is outside our delivery zone. Please select pickup or choose a different address.",
-        variant: "destructive"
-      });
       setError('Address is outside delivery zone. Please select pickup instead.');
       isSubmittingRef.current = false;
       return;
@@ -482,10 +472,6 @@ export const CheckoutForm = ({
           throw new Error(errorMessage);
         }
         console.log('Cash order created:', data);
-        toast({
-          title: 'Order placed successfully',
-          description: 'Please have exact cash ready for delivery'
-        });
         // Store guest order for tracking and history
         if (!user && data?.order_id && guestInfo?.email) {
           const { addGuestOrder } = await import('@/lib/guestOrders');
@@ -560,7 +546,6 @@ export const CheckoutForm = ({
             });
           }
 
-          toast({ title: 'Payment successful!', description: 'Your order has been placed.' });
           onBeforeNavigate?.();
           if (result.orderId) {
             await finishSuccess(`/order-tracking/${result.orderId}`);
@@ -650,7 +635,6 @@ export const CheckoutForm = ({
                   });
                 }
 
-                toast({ title: 'Payment successful!', description: 'Your order has been placed.' });
                 onBeforeNavigate?.();
                 if (orderData?.order_id) {
                   await finishSuccess(`/order-tracking/${orderData.order_id}`);
@@ -804,11 +788,6 @@ export const CheckoutForm = ({
         errorMessage = error.message;
       }
       failPayment(errorMessage);
-      toast({
-        title: 'Payment failed',
-        description: errorMessage,
-        variant: 'destructive'
-      });
     } finally {
       setLoading(false);
       isSubmittingRef.current = false;
@@ -898,9 +877,7 @@ export const CheckoutForm = ({
                               setIsAddingNewCard(true);
                             }
                             await refreshCards();
-                            toast({ title: 'Card removed' });
                           } catch (err: any) {
-                            toast({ title: 'Failed to remove card', description: err?.message || 'Please try again', variant: 'destructive' });
                           }
                         }}
                         className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors touch-manipulation"

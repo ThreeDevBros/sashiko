@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { PauseCircle, PlayCircle } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface PauseBranchButtonProps {
   /** If provided, only toggle that branch. Otherwise toggle ALL active branches. */
@@ -84,10 +83,8 @@ export function PauseBranchButton({ branchId, mode = 'orders' }: PauseBranchButt
     onSuccess: (newValue) => {
       queryClient.invalidateQueries({ queryKey: ['branch-paused'] });
       queryClient.invalidateQueries({ queryKey: ['branches'] });
-      toast.success(newValue ? `${label} paused — branch is now busy` : `${label} resumed!`);
     },
     onError: () => {
-      toast.error(`Failed to update ${label.toLowerCase()} status`);
     },
   });
 

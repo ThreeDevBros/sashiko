@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { UnsavedChangesDialog } from '@/components/admin/UnsavedChangesDialog';
@@ -23,7 +22,6 @@ import { BranchHoursEditor, getInitialHours } from '@/components/admin/BranchHou
 import type { BranchHours } from '@/types';
 
 export default function BranchManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [openDialog, setOpenDialog] = useState(false);
@@ -99,7 +97,6 @@ export default function BranchManagement() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setFetchedRating({ rating: data.rating, review_count: data.review_count });
-      toast({ title: `Rating: ${data.rating} ★ (${data.review_count} reviews)` });
 
       // Auto-populate operating hours from Google if available and hours are still defaults
       if (data.opening_hours && Array.isArray(data.opening_hours)) {
@@ -114,7 +111,6 @@ export default function BranchManagement() {
           delivery_enabled: !gh.is_closed,
         }));
         setBranchHours(googleHours);
-        toast({ title: 'Operating hours auto-filled from Google' });
       }
     } catch (err: any) {
       let message = err?.message || 'Failed to fetch rating';
@@ -128,7 +124,6 @@ export default function BranchManagement() {
         }
       }
 
-      toast({ title: 'Failed to fetch rating', description: message, variant: 'destructive' });
     } finally {
       setFetchingRating(false);
     }
@@ -152,7 +147,6 @@ export default function BranchManagement() {
       // Save hours
       await saveBranchHours(newBranch.id);
       queryClient.invalidateQueries({ queryKey: ['branches-admin'] });
-      toast({ title: 'Branch created successfully' });
       setOpenDialog(false);
     }
   });
@@ -166,7 +160,6 @@ export default function BranchManagement() {
     onSuccess: async (branchId) => {
       await saveBranchHours(branchId);
       queryClient.invalidateQueries({ queryKey: ['branches-admin'] });
-      toast({ title: 'Branch updated successfully' });
       setEditingBranch(null);
       setOpenDialog(false);
     }
@@ -197,11 +190,9 @@ export default function BranchManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches-admin'] });
-      toast({ title: 'Branch deleted', description: 'Branch and all related records removed.' });
       setDeleteBranch(null);
     },
     onError: (error: any) => {
-      toast({ title: 'Delete failed', description: error?.message || 'Failed to delete branch', variant: 'destructive' });
     },
   });
 
@@ -332,7 +323,6 @@ export default function BranchManagement() {
               if (pid) {
                 fetchGoogleRating(pid);
               } else {
-                toast({ title: 'Select a location on the map first to fetch reviews', variant: 'destructive' });
               }
             }}
           >

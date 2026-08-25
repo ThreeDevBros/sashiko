@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useAdmin } from '@/hooks/useAdmin';
 
 export const useReservationNotifications = () => {
-  const { toast } = useToast();
   const { isAdmin, loading } = useAdmin();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [newReservation, setNewReservation] = useState<any>(null);
@@ -71,11 +69,6 @@ export const useReservationNotifications = () => {
           setNewReservation(reservation);
 
           // Also show toast as backup
-          toast({
-            title: '🔔 New Reservation!',
-            description: `${reservation.guest_name || 'Guest'} - Party of ${reservation.party_size} - ${new Date(reservation.reservation_date).toLocaleDateString()} at ${reservation.start_time}`,
-            duration: 10000,
-          });
         }
       )
       .subscribe((status, err) => {

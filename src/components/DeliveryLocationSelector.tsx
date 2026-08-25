@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Navigation, ChevronRight, Plus, Loader2, Check, MapPinned } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { toast } from 'sonner';
 import { getAddressIcon } from '@/lib/addressIcons';
 import { LocationAutocompleteInput, type PlaceResult } from '@/components/LocationAutocompleteInput';
 import { PinDropMapOverlay } from '@/components/PinDropMapOverlay';
@@ -113,7 +112,6 @@ export const DeliveryLocationSelector = ({
 
   const handleUseDeviceLocation = async () => {
     if (!isGeolocationAvailable()) {
-      toast.error('Geolocation is not supported by your browser');
       return;
     }
 
@@ -140,10 +138,8 @@ export const DeliveryLocationSelector = ({
         longitude
       });
       onOpenChange(false);
-      toast.success('Using your current location');
     } catch (error) {
       console.error('Geolocation error:', error);
-      toast.error('Location access denied. Please enable location permissions.');
     } finally {
       setGettingLocation(false);
     }
@@ -216,7 +212,6 @@ export const DeliveryLocationSelector = ({
                   label: 'Selected Location',
                 });
                 onOpenChange(false);
-                toast.success('Address selected');
               }}
               placeholder="Search for address, area, or district…"
               onPinMapClick={handleOpenPinMap}
@@ -401,7 +396,6 @@ export const DeliveryLocationSelector = ({
             longitude: place.longitude,
             label: 'Pinned Location',
           });
-          toast.success('Location pinned successfully');
         }}
       />
     </>

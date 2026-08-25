@@ -1,6 +1,5 @@
 import { useState, useCallback, CSSProperties } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useRateLimitedAction } from '@/hooks/useRateLimitedAction';
 
 export interface EditableField {
@@ -35,7 +34,6 @@ export const useEditableContent = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [fieldStyles, setFieldStyles] = useState<Record<string, FieldStyle>>({});
-  const { toast } = useToast();
   const { executeAction, isOnCooldown } = useRateLimitedAction({
     cooldownMs: 5000,
     cooldownMessage: "Please wait before saving again"
@@ -78,10 +76,6 @@ export const useEditableContent = () => {
 
   const saveAllChanges = useCallback(async () => {
     if (pendingChanges.length === 0) {
-      toast({
-        title: "No changes",
-        description: "There are no pending changes to save."
-      });
       return;
     }
 
@@ -105,10 +99,6 @@ export const useEditableContent = () => {
         if (error) throw error;
       }
 
-      toast({
-        title: "Changes published",
-        description: "All changes have been saved successfully."
-      });
 
       setPendingChanges([]);
       

@@ -8,7 +8,6 @@ import { useBranch } from '@/hooks/useBranch';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useRef } from 'react';
 import { useHaptics } from '@/hooks/useHaptics';
-import { toast } from 'sonner';
 
 interface BottomNavProps {
   onCheckout?: () => void;
@@ -70,7 +69,6 @@ export const BottomNav = ({ onCheckout, checkoutLoading = false }: BottomNavProp
   
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (branchIsPaused) {
-      toast.error('This branch is currently busy and not accepting orders.');
       return;
     }
 

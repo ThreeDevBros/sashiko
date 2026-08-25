@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Package, MapPin, Clock, Truck, Navigation, ChefHat } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { subscribeToResume } from '@/lib/lifecycleManager';
 
@@ -39,7 +38,6 @@ export default function DriverOrders() {
   const [activeOrders, setActiveOrders] = useState<OrderWithAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const { toast } = useToast();
   const [resumeCounter, setResumeCounter] = useState(0);
 
   const loadOrders = useCallback(async () => {
@@ -140,11 +138,9 @@ export default function DriverOrders() {
 
       if (error) throw error;
 
-      toast({ title: 'Order picked up', description: 'Order is now out for delivery' });
       loadOrders();
     } catch (error) {
       console.error('Error updating order:', error);
-      toast({ title: 'Error', description: 'Failed to update order', variant: 'destructive' });
     } finally {
       setUpdatingId(null);
     }
@@ -160,11 +156,9 @@ export default function DriverOrders() {
 
       if (error) throw error;
 
-      toast({ title: 'Delivered!', description: 'Order marked as delivered' });
       loadOrders();
     } catch (error) {
       console.error('Error updating order:', error);
-      toast({ title: 'Error', description: 'Failed to mark as delivered', variant: 'destructive' });
     } finally {
       setUpdatingId(null);
     }

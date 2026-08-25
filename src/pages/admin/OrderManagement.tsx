@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Search, CalendarIcon, X, MessageSquareText, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useMemo, Fragment } from 'react';
@@ -81,7 +80,6 @@ const getStatusLabel = (status: string, orderType: string): string => {
 
 export default function OrderManagement() {
   const isMobile = useIsMobile();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -112,10 +110,6 @@ export default function OrderManagement() {
         (payload) => {
           queryClient.invalidateQueries({ queryKey: ['orders-admin'] });
           if (payload.eventType === 'INSERT' && payload.new?.status === 'pending') {
-            toast({
-              title: '🔔 New Order!',
-              description: `Order #${formatOrderDisplayNumber(payload.new.display_number)} received`,
-            });
           }
         }
       )
@@ -155,9 +149,7 @@ export default function OrderManagement() {
           console.log('[Admin Refund] Response:', { refundData, refundErr });
           if (refundErr) {
             console.error('[Admin Refund] Error:', refundErr);
-            toast({ title: 'Refund failed', description: refundErr.message || 'Could not process automatic refund.', variant: 'destructive' });
           } else if (refundData?.refunded) {
-            toast({ title: 'Refund issued', description: 'Payment has been refunded.' });
           } else if (refundData?.reason === 'cash_order') {
             console.log('[Admin Refund] Cash order — no refund needed');
           } else if (refundData?.reason) {
@@ -165,7 +157,6 @@ export default function OrderManagement() {
           }
         } catch (e: any) {
           console.error('[Admin Refund] Exception:', e);
-          toast({ title: 'Refund error', description: 'Unexpected error processing refund.', variant: 'destructive' });
         }
       }
 
@@ -187,7 +178,6 @@ export default function OrderManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders-admin'] });
-      toast({ title: 'Order status updated' });
     },
   });
 

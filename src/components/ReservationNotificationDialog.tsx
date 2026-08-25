@@ -11,7 +11,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar, Clock, Users, Mail, Phone, MessageSquare, TableProperties, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { ReservationMiniMap } from '@/components/reservation/ReservationMiniMap';
 
 interface Reservation {
@@ -38,7 +37,6 @@ export const ReservationNotificationDialog = ({
   onClose,
 }: ReservationNotificationDialogProps) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isOverlapping, setIsOverlapping] = useState(false);
   const [overlapMessage, setOverlapMessage] = useState('');
@@ -145,19 +143,10 @@ export const ReservationNotificationDialog = ({
 
       if (error) throw error;
 
-      toast({
-        title: 'Reservation Confirmed',
-        description: `Successfully confirmed reservation for ${reservation.guest_name}`,
-      });
 
       handleClose();
     } catch (error) {
       console.error('Error accepting reservation:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to confirm reservation',
-        variant: 'destructive',
-      });
     } finally {
       setIsAccepting(false);
     }

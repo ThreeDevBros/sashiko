@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/currency';
-import { useToast } from '@/hooks/use-toast';
 import { usePermissions } from '@/hooks/usePermissions';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -39,7 +38,6 @@ const reservationStatusColor = (status: string) => {
 };
 
 export default function CustomerManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin, loading: permissionsLoading } = usePermissions();
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,10 +114,8 @@ export default function CustomerManagement() {
       setWalletDialogOpen(false);
       setWalletAmount('');
       setWalletReason('');
-      toast({ title: 'Wallet updated', description: `Points ${walletAction === 'add' ? 'added' : 'removed'} successfully` });
     },
     onError: (err: any) => {
-      toast({ title: 'Failed to update wallet', description: err.message, variant: 'destructive' });
     },
   });
 

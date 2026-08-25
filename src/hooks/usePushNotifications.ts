@@ -3,7 +3,6 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Preferences } from '@capacitor/preferences';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 const FCM_TOKEN_KEY = 'fcm_push_token';
 
@@ -103,15 +102,7 @@ export const usePushNotifications = (navigate?: (path: string) => void) => {
         const body = notification.body || '';
 
         if (data.type === 'order_status' && data.order_id) {
-          toast(title, {
-            description: body,
-            action: navigateRef.current ? {
-              label: 'View Order',
-              onClick: () => navigateRef.current?.(`/order-tracking/${data.order_id}`),
-            } : undefined,
-          });
         } else {
-          toast(title, { description: body });
         }
       });
 

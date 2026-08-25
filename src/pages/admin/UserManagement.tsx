@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { Users, Trash2, Search, Pencil } from 'lucide-react';
 import { useAdmin } from '@/hooks/useAdmin';
 import { useState } from 'react';
@@ -41,7 +40,6 @@ const passwordSchema = z.string()
   .regex(/[0-9]/, "Password must contain at least one number");
 
 export default function UserManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin: currentUserIsAdmin } = useAdmin();
   const [email, setEmail] = useState('');
@@ -196,7 +194,6 @@ export default function UserManagement() {
       await queryClient.invalidateQueries({ queryKey: ['staff-users'] });
       await queryClient.refetchQueries({ queryKey: ['staff-users'] });
       
-      toast({ title: 'User created successfully' });
       setEmail('');
       setPassword('');
       setFullName('');
@@ -224,12 +221,6 @@ export default function UserManagement() {
         message = error.message;
       }
       
-      toast({ 
-        title: 'Error creating user', 
-        description: message,
-        variant: 'destructive',
-        duration: 6000 // Show error longer
-      });
     },
   });
 
@@ -257,15 +248,10 @@ export default function UserManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-users'] });
-      toast({ title: 'Permissions updated successfully' });
       setEditingUser(null);
       setEditPermissions([]);
     },
     onError: () => {
-      toast({ 
-        title: 'Error updating permissions',
-        variant: 'destructive'
-      });
     },
   });
 
@@ -291,10 +277,8 @@ export default function UserManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-users'] });
-      toast({ title: 'User deleted successfully', description: 'The account has been permanently removed.' });
     },
     onError: (error: any) => {
-      toast({ title: 'Error deleting user', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -540,9 +524,7 @@ export default function UserManagement() {
                                   .insert({ user_id: user.user_id, branch_id: branchId });
                               }
                               queryClient.invalidateQueries({ queryKey: ['staff-users'] });
-                              toast({ title: 'Branch updated' });
                             } catch (err) {
-                              toast({ title: 'Failed to update branch', variant: 'destructive' });
                             }
                           }}
                         >

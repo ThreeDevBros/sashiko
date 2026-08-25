@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, Clock, Users, Mail, Phone, Check, X, ZoomIn, ZoomOut, Crosshair, ChevronLeft, ChevronRight, Layers, Eye } from 'lucide-react';
-import { toast } from 'sonner';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -193,9 +192,6 @@ export default function StaffReservations() {
           queryClient.invalidateQueries({ queryKey: ['staff-reservations-for-date', branchContext.branchId] });
 
           if (payload.eventType === 'INSERT' && (payload.new as any)?.branch_id === branchContext.branchId) {
-            toast.success('New reservation!', {
-              description: `From ${(payload.new as any)?.guest_name || 'a guest'}`,
-            });
           }
         }, 250);
       })
@@ -342,7 +338,6 @@ export default function StaffReservations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-reservations-for-date'] });
-      toast.success('Reservation updated');
       setDetailDialogOpen(false);
       setSelectedReservation(null);
       setRejectDialogOpen(false);

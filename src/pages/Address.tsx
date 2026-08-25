@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { MapPin, Plus, Edit2, Trash2, Star, Home, Building2, Briefcase, Building, MoreHorizontal, Navigation, Loader2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { AddressMapPicker } from '@/components/address/AddressMapPicker';
@@ -29,7 +28,6 @@ const labelShortcuts = [
 export default function Address() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { toast } = useToast();
   const { user: authUser, isAuthReady } = useAuth();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -102,11 +100,6 @@ export default function Address() {
       setAddresses(data || []);
     } catch (error: any) {
       console.error('Fetch addresses error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load addresses",
-        variant: "destructive",
-      });
     }
   };
 
@@ -150,11 +143,6 @@ export default function Address() {
 
   const handleCurrentLocationForAdd = async () => {
     if (!isGeolocationAvailable()) {
-      toast({
-        title: 'Location not supported',
-        description: 'Your browser does not support geolocation.',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -203,10 +191,6 @@ export default function Address() {
           }));
           
           setViewMode('add_manual_form');
-          toast({
-            title: 'Location detected',
-            description: 'Please confirm your address details.',
-          });
         } else {
           throw new Error('No geocoding results');
         }
@@ -227,18 +211,9 @@ export default function Address() {
         }));
         
         setViewMode('add_manual_form');
-        toast({
-          title: 'Location detected',
-          description: 'Please confirm your address details.',
-        });
       }
     } catch (error) {
       console.error('Error getting address:', error);
-      toast({
-        title: 'Location error',
-        description: 'Could not get your current location. Please allow location access.',
-        variant: 'destructive',
-      });
     } finally {
       setGettingLocation(false);
     }
@@ -250,7 +225,6 @@ export default function Address() {
     if (!user?.id) return;
     const trimmedLabel = addressForm.label.trim();
     if (!trimmedLabel) {
-      toast({ title: 'Missing label', description: 'Please enter an address name', variant: 'destructive' });
       return;
     }
     try {
@@ -272,20 +246,11 @@ export default function Address() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Address saved successfully',
-      });
 
       setViewMode('list');
       fetchAddresses();
     } catch (error: any) {
       console.error('Save address error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save address',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -307,7 +272,6 @@ export default function Address() {
     if (!editingAddress?.id) return;
     const trimmedLabel = addressForm.label.trim();
     if (!trimmedLabel) {
-      toast({ title: 'Missing label', description: 'Please enter an address name', variant: 'destructive' });
       return;
     }
     try {
@@ -326,20 +290,11 @@ export default function Address() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Address updated successfully',
-      });
 
       setViewMode('list');
       fetchAddresses();
     } catch (error: any) {
       console.error('Update address error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update address',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -359,21 +314,12 @@ export default function Address() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Deleted',
-        description: 'Address removed successfully',
-      });
 
       setDeleteDialogOpen(false);
       setAddressToDelete(null);
       fetchAddresses();
     } catch (error: any) {
       console.error('Delete address error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete address',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -393,19 +339,10 @@ export default function Address() {
 
       if (error) throw error;
 
-      toast({
-        title: 'Default updated',
-        description: 'Your default address has been changed',
-      });
 
       fetchAddresses();
     } catch (error: any) {
       console.error('Set default error:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update default address',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -585,11 +522,6 @@ export default function Address() {
                   longitude,
                 }));
               } catch {
-                toast({
-                  title: 'Location error',
-                  description: 'Could not get your current location.',
-                  variant: 'destructive',
-                });
               } finally {
                 setGettingLocation(false);
               }

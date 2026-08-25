@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { MapPin, Clock, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBranch } from "@/hooks/useBranch";
-import { toast } from "sonner";
 import { dispatchBranchChanged, saveBranchId } from '@/lib/branch';
 import type { Branch } from '@/types';
 
@@ -43,10 +42,6 @@ export const FloatingBranchWidget = () => {
     saveBranchId(branchId);
     setIsExpanded(false);
     
-    toast.success('Branch changed', {
-      description: 'Menu updated for selected branch',
-      duration: 2000,
-    });
     
     dispatchBranchChanged();
   };

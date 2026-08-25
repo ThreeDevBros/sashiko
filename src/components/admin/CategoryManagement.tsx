@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -126,7 +125,6 @@ function SortableCategory({
 }
 
 export function CategoryManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [openDialog, setOpenDialog] = useState(false);
@@ -162,7 +160,6 @@ export function CategoryManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-categories'] });
-      toast({ title: 'Category created successfully' });
       setOpenDialog(false);
       setUploadedImageUrl('');
     },
@@ -178,7 +175,6 @@ export function CategoryManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-categories'] });
-      toast({ title: 'Category updated successfully' });
       setEditingCategory(null);
       setOpenDialog(false);
       setUploadedImageUrl('');
@@ -195,7 +191,6 @@ export function CategoryManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-categories'] });
-      toast({ title: 'Category deleted successfully' });
     },
   });
 
@@ -216,7 +211,6 @@ export function CategoryManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-categories'] });
-      toast({ title: 'Category order updated' });
     },
   });
 

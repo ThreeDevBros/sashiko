@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
 import { Loader2, ArrowLeft } from "lucide-react";
 // Inline SVG icons to avoid importing 900KB react-icons bundles
 const FcGoogle = ({ className = "" }: { className?: string }) => (
@@ -317,7 +316,6 @@ const Auth = () => {
       setSignupEmail(email);
       setShowOtpVerification(true);
       haptics.success();
-      toast.success("Verification email sent — check your inbox!");
     } catch (error: any) {
       console.error('[Auth] Sign up failed:', error);
       // Detect Supabase rate-limit responses and convert them into a visible
@@ -353,7 +351,6 @@ const Auth = () => {
 
       if (error) throw error;
       haptics.success();
-      toast.success(t('auth.welcomeBack'));
       window.setTimeout(endAuthTransition, 700);
     } catch (error: any) {
       console.error('[Auth] Sign in failed:', error);
@@ -427,7 +424,6 @@ const Auth = () => {
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetEmail) {
-      toast.error("Please enter your email address");
       return;
     }
     
@@ -445,12 +441,10 @@ const Auth = () => {
       }
       
       console.log("Password reset email sent successfully", data);
-      toast.success("Password reset email sent! Please check your inbox and spam folder.");
       setResetEmail("");
       setResetDialogOpen(false);
     } catch (error: any) {
       console.error("Password reset failed:", error);
-      toast.error(getAuthErrorMessage(error) || "Failed to send reset email. Please try again.");
     } finally {
       setResetLoading(false);
     }
@@ -460,14 +454,12 @@ const Auth = () => {
     e.preventDefault();
     
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
       return;
     }
 
     // Validate password strength
     const passwordValidation = passwordSchema.safeParse(newPassword);
     if (!passwordValidation.success) {
-      toast.error(passwordValidation.error.errors[0].message);
       return;
     }
 
@@ -484,7 +476,6 @@ const Auth = () => {
       }
       
       console.log("Password updated successfully", data);
-      toast.success("Password updated successfully! Redirecting...");
       setIsPasswordReset(false);
       setNewPassword("");
       setConfirmPassword("");
@@ -495,7 +486,6 @@ const Auth = () => {
       }, 1500);
     } catch (error: any) {
       console.error("Password update failed:", error);
-      toast.error(error.message || "Failed to update password. Please try again.");
     } finally {
       setLoading(false);
     }

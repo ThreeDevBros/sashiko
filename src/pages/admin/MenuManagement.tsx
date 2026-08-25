@@ -7,7 +7,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo } from 'react';
 import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import { UnsavedChangesDialog } from '@/components/admin/UnsavedChangesDialog';
@@ -57,7 +56,6 @@ import {
 } from '@/components/ui/popover';
 
 export default function MenuManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [openDialog, setOpenDialog] = useState<string | null>(null);
@@ -212,7 +210,6 @@ export default function MenuManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-categories'] });
-      toast({ title: 'Category created successfully' });
       setOpenDialog(null);
     },
   });
@@ -279,7 +276,6 @@ export default function MenuManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-items-with-branches'] });
-      toast({ title: 'Menu item created successfully' });
       setOpenDialog(null);
       setSelectedModifierGroups([]);
       setSelectedBranches([]);
@@ -374,7 +370,6 @@ export default function MenuManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-items-with-branches'] });
-      toast({ title: 'Menu item updated successfully' });
       setEditingItem(null);
       setOpenDialog(null);
       setSelectedModifierGroups([]);
@@ -413,10 +408,8 @@ export default function MenuManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['menu-items-with-branches'] });
-      toast({ title: 'Menu item deleted successfully' });
     },
     onError: (error: any) => {
-      toast({ title: 'Failed to delete menu item', description: error.message, variant: 'destructive' });
     },
   });
 

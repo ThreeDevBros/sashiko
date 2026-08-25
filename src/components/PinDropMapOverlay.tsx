@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapPin, Navigation, Loader2, ArrowLeft, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { loadGoogleMaps } from '@/lib/googleMaps';
-import { toast } from 'sonner';
 import { getDetailedMapStyle } from '@/lib/mapStyles';
 import type { PlaceResult } from '@/components/LocationAutocompleteInput';
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
@@ -215,7 +214,6 @@ export function PinDropMapOverlay({ open, onClose, onConfirm, initialLat, initia
   // ── GPS — only on explicit tap ────────────────────────────────────
   const handleGPS = async () => {
     if (!isGeolocationAvailable()) {
-      toast.error('Geolocation is not supported by your browser');
       return;
     }
     setGettingLocation(true);
@@ -224,7 +222,6 @@ export function PinDropMapOverlay({ open, onClose, onConfirm, initialLat, initia
       placePin(pos.coords.latitude, pos.coords.longitude);
       mapRef.current?.setZoom(16);
     } catch {
-      toast('Location unavailable — pan the map and tap to pin', { duration: 3000 });
     } finally {
       setGettingLocation(false);
     }

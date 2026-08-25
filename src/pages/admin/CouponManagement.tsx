@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, Tag } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -41,7 +40,6 @@ import {
 } from '@/components/ui/select';
 
 export default function CouponManagement() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [openDialog, setOpenDialog] = useState(false);
@@ -68,7 +66,6 @@ export default function CouponManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons-admin'] });
-      toast({ title: 'Coupon created successfully' });
       setOpenDialog(false);
     },
   });
@@ -83,7 +80,6 @@ export default function CouponManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons-admin'] });
-      toast({ title: 'Coupon updated successfully' });
       setEditingCoupon(null);
       setOpenDialog(false);
     },
@@ -99,7 +95,6 @@ export default function CouponManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons-admin'] });
-      toast({ title: 'Coupon deleted successfully' });
     },
   });
 

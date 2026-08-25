@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { FileText, ShieldCheck, Cookie, Copy, ExternalLink, ChevronDown, ChevronUp, Phone, UserX } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -33,7 +32,6 @@ export const HiddenPagesTab = ({
   setAccountDeletionInfo,
   isLoading,
 }: HiddenPagesTabProps) => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [openSection, setOpenSection] = useState<string | null>(null);
 
@@ -52,8 +50,8 @@ export const HiddenPagesTab = ({
           .eq('id', tenantId);
         if (error) throw error;
       },
-      onSuccess: () => { invalidate(); toast({ title: `${label} saved` }); },
-      onError: (e: any) => { toast({ title: 'Failed to save', description: e.message, variant: 'destructive' }); },
+      onSuccess: () => { invalidate(); },
+      onError: (e: any) => { },
     });
 
   const saveTermsMutation = createSaveMutation('terms_of_service', 'Terms of Service', termsOfService);
@@ -63,7 +61,6 @@ export const HiddenPagesTab = ({
 
   const copyUrl = (url: string, label: string) => {
     navigator.clipboard.writeText(url);
-    toast({ title: 'Copied!', description: `${label} URL copied to clipboard.` });
   };
 
   const sections = [

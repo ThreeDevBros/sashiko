@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, MapPin, Navigation, Edit2, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { getCurrentPosition, isGeolocationAvailable } from '@/lib/geolocation';
 import { loadGoogleMaps } from '@/lib/googleMaps';
 import { getMapStyle, darkMapStyle, lightMapStyle, createMarkerIcon } from '@/lib/mapStyles';
@@ -51,7 +50,6 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
     latitude: null as number | null,
     longitude: null as number | null
   });
-  const { toast } = useToast();
 
   const loadAddresses = async () => {
     try {
@@ -103,11 +101,6 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
 
   const getCurrentLocation = async () => {
     if (!isGeolocationAvailable()) {
-      toast({
-        title: 'Not supported',
-        description: 'Geolocation is not supported by your browser.',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -134,18 +127,9 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
           longitude
         });
 
-        toast({
-          title: 'Location found',
-          description: 'Address fields have been filled with your current location.',
-        });
       }
     } catch (error) {
       console.error('Geolocation error:', error);
-      toast({
-        title: 'Location access denied',
-        description: 'Please enable location access in your browser settings.',
-        variant: 'destructive',
-      });
     } finally {
       setGettingLocation(false);
     }
@@ -173,30 +157,15 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
       
       if (authError) {
         console.error('Auth error:', authError);
-        toast({
-          title: 'Authentication Error',
-          description: 'Please sign in to save addresses.',
-          variant: 'destructive',
-        });
         return;
       }
 
       if (!user) {
-        toast({
-          title: 'Not authenticated',
-          description: 'Please sign in to save addresses.',
-          variant: 'destructive',
-        });
         return;
       }
 
       // Validate required fields
       if (!formValues.label || !formValues.address_line1 || !formValues.city) {
-        toast({
-          title: 'Missing Information',
-          description: 'Please fill in all required fields.',
-          variant: 'destructive',
-        });
         return;
       }
 
@@ -219,10 +188,6 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
 
         if (error) throw error;
 
-        toast({
-          title: 'Success',
-          description: 'Your delivery address has been updated.',
-        });
 
         setAddresses(addresses.map(addr => addr.id === editingAddress.id ? data : addr));
       } else {
@@ -247,10 +212,6 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
 
         if (error) throw error;
 
-        toast({
-          title: 'Success',
-          description: 'Your delivery address has been saved.',
-        });
 
         setAddresses([...addresses, data]);
         onAddressSelect(data.id);
@@ -269,11 +230,6 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
       });
     } catch (error: any) {
       console.error('Error saving address:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save address. Please try again.',
-        variant: 'destructive',
-      });
     }
   };
 
@@ -349,11 +305,6 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
 
   const useCurrentLocation = async () => {
     if (!isGeolocationAvailable()) {
-      toast({
-        title: 'Not supported',
-        description: 'Geolocation is not supported by your browser.',
-        variant: 'destructive',
-      });
       return;
     }
 
@@ -383,17 +334,8 @@ export const AddressSelector = ({ selectedAddressId, onAddressSelect, showMap = 
       setCurrentLocationData(locationData);
       onAddressSelect('current-location', locationData);
       
-      toast({
-        title: 'Location found',
-        description: 'Using your current location for delivery',
-      });
     } catch (error) {
       console.error('Geolocation error:', error);
-      toast({
-        title: 'Location error',
-        description: 'Could not get your location. Please check your permissions.',
-        variant: 'destructive',
-      });
     } finally {
       setGettingLocation(false);
     }

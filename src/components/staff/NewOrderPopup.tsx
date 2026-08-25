@@ -14,7 +14,6 @@ import {
   Phone, Mail, UtensilsCrossed, AlertTriangle, Timer, ChevronRight, Ban,
   CalendarClock
 } from 'lucide-react';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/currency';
 import { StaffOrderMap } from '@/components/staff/StaffOrderMap';
@@ -182,7 +181,6 @@ export const NewOrderPopup = () => {
                   // Schedule the popup for later
                   const timer = setTimeout(() => {
                     playOrderAlert();
-                    toast.success('Scheduled order incoming!', { description: `Order #${payload.new.order_number}` });
                     fetchOrderDetails(payload.new.id);
                     pendingScheduledOrders.current.delete(payload.new.id);
                   }, delayMs);
@@ -195,7 +193,6 @@ export const NewOrderPopup = () => {
 
             // Show immediately (branch open, or alert time already passed)
             playOrderAlert();
-            toast.success('New order received!', { description: `Order #${payload.new.order_number}` });
             fetchOrderDetails(payload.new.id);
           }
         }
@@ -220,7 +217,6 @@ export const NewOrderPopup = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-orders'] });
       queryClient.invalidateQueries({ queryKey: ['staff-pending-count'] });
-      toast.success('Order status updated');
     },
   });
 
@@ -228,7 +224,6 @@ export const NewOrderPopup = () => {
     if (!newOrderPopup) return;
     const minutes = parseInt(estimatedMinutes);
     if (isNaN(minutes) || minutes < 1) {
-      toast.error('Please enter a valid time estimate');
       return;
     }
     const estimatedReadyAt = new Date(Date.now() + minutes * 60000).toISOString();
@@ -242,7 +237,6 @@ export const NewOrderPopup = () => {
     if (!newOrderPopup) return;
     const reason = selectedDeclineReason === 'other' ? customDeclineReason : selectedDeclineReason;
     if (!reason.trim()) {
-      toast.error('Please select or enter a reason');
       return;
     }
     updateStatusMutation.mutate({ id: newOrderPopup.id, status: 'cancelled', cancellation_reason: reason });

@@ -4,7 +4,6 @@ import { authRedirectUrl } from "@/config/site";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
 import { Loader2, MailCheck, ArrowLeft } from "lucide-react";
 
 interface EmailSentNoticeProps {
@@ -41,10 +40,8 @@ const EmailSentNotice = ({ email, onBack }: EmailSentNoticeProps) => {
         },
       });
       if (error) throw error;
-      toast.success("We sent the verification email again");
       setCooldown(60);
     } catch {
-      toast.error("Failed to resend the email. Please try again.");
     } finally {
       setResendLoading(false);
     }
