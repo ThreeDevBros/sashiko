@@ -245,8 +245,8 @@ export const MenuDisplay = () => {
       <div className="space-y-4">
         {/* Sticky skeleton */}
         <div
-          className="fixed left-0 right-0 top-0 md:top-14 z-40 bg-background py-3 border-b border-border"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+          className="fixed left-0 right-0 md:top-14 z-40 bg-background py-3 border-b border-border"
+          style={{ top: 'env(safe-area-inset-top)', paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
         >
           <div className="flex gap-2 px-4 overflow-x-auto">
             {[1, 2, 3, 4, 5].map((i) => (
