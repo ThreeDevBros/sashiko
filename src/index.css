@@ -334,3 +334,9 @@ All colors MUST be HSL.
 .animate-otp-shake {
   animation: otp-shake 0.45s ease-in-out;
 }
+
+/* Slow, calm pulse for the order tracking progress rail */
+@keyframes trackingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}

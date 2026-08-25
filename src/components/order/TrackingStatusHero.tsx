@@ -61,7 +61,7 @@ export function TrackingStatusHero({
 
   return (
     <div className="rounded-[26px] border border-border/60 bg-card/85 backdrop-blur-2xl p-5 shadow-[0_18px_50px_-20px_hsl(var(--foreground)/0.35)]">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
         <div className="min-w-0">
           <h2 className="font-heading text-2xl font-semibold leading-tight text-foreground truncate">
             {headline}
@@ -70,17 +70,6 @@ export function TrackingStatusHero({
             {subline}
           </p>
         </div>
-        {!isDone && (
-          <span className="shrink-0 flex items-center gap-1.5 rounded-full border border-border/60 bg-background/60 px-2.5 py-1">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-70" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
-            </span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Live
-            </span>
-          </span>
-        )}
       </div>
 
       {/* Segmented progress rail */}
@@ -91,7 +80,7 @@ export function TrackingStatusHero({
             className={cn(
               'h-1.5 flex-1 rounded-full transition-colors duration-500',
               i < currentIndex && 'bg-primary',
-              i === currentIndex && 'bg-primary animate-pulse',
+              i === currentIndex && 'bg-primary animate-[trackingPulse_2.6s_ease-in-out_infinite]',
               i > currentIndex && 'bg-muted-foreground/25'
             )}
           />
