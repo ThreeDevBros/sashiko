@@ -68,6 +68,14 @@ export function StickyCheckoutCTA({
 
   const summaryReached = visibleSections.has('summary');
 
+  /** Scroll so the section title lands just below the fixed header / Dynamic Island. */
+  const scrollToSection = useCallback((el: HTMLElement) => {
+    const header = document.querySelector('[data-checkout-header]') as HTMLElement | null;
+    const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+    const top = el.getBoundingClientRect().top + window.scrollY - headerBottom - 12;
+    window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
+  }, []);
+
   const handleContinue = useCallback(() => {
     const sections: { key: string; ref: React.RefObject<HTMLElement> | undefined }[] = [
       { key: 'guest-info', ref: guestInfoRef },
@@ -89,7 +97,7 @@ export function StickyCheckoutCTA({
           : !guestInfo.email
           ? 'guest-email'
           : 'guest-phone';
-        guestInfoRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scrollToSection(guestInfoRef.current);
         setTimeout(() => {
           const el = document.getElementById(firstId);
           if (el) el.focus({ preventScroll: true });
@@ -101,35 +109,40 @@ export function StickyCheckoutCTA({
     // Scroll to the first tracked section that is not yet visible.
     for (const { key, ref } of sections) {
       if (ref?.current && !visibleSections.has(key)) {
-        ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        scrollToSection(ref.current);
         return;
       }
     }
 
     // Fallback to summary if everything else is already visible.
-    summaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [isGuest, guestInfo, guestValidationErrors, guestInfoRef, paymentRef, summaryRef, visibleSections]);
+    if (summaryRef.current) scrollToSection(summaryRef.current);
+  }, [isGuest, guestInfo, guestValidationErrors, guestInfoRef, paymentRef, summaryRef, visibleSections, scrollToSection]);
+
+  const stateKey = checkingDelivery ? 'checking' : summaryReached ? 'cta' : 'continue';
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-md pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
       <div className="container max-w-2xl mx-auto px-4 pt-3 pb-3">
-        {checkingDelivery ? (
-          <Button className="w-full h-14 rounded-2xl" size="lg" disabled>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Checking delivery zone...
-          </Button>
-        ) : summaryReached ? (
-          placeOrderButton
-        ) : (
-          <Button
-            type="button"
-            onClick={handleContinue}
-            className="w-full h-14 rounded-2xl font-semibold text-base bg-primary text-primary-foreground hover:brightness-[1.06]"
-          >
-            {t('checkout.continue')}
-          </Button>
-        )}
+        <div key={stateKey} className="animate-in fade-in duration-300">
+          {checkingDelivery ? (
+            <Button className="w-full h-16 rounded-2xl" size="lg" disabled>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Checking delivery zone...
+            </Button>
+          ) : summaryReached ? (
+            placeOrderButton
+          ) : (
+            <Button
+              type="button"
+              onClick={handleContinue}
+              className="w-full h-16 rounded-2xl font-semibold text-base bg-primary text-primary-foreground hover:brightness-[1.06]"
+            >
+              {t('checkout.continue')}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
