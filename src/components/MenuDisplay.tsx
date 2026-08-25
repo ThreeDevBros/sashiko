@@ -34,6 +34,22 @@ export const MenuDisplay = () => {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [safeAreaTop, setSafeAreaTop] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const div = document.createElement('div');
+      div.style.position = 'fixed';
+      div.style.paddingTop = 'env(safe-area-inset-top)';
+      document.body.appendChild(div);
+      const value = parseFloat(window.getComputedStyle(div).paddingTop) || 0;
+      document.body.removeChild(div);
+      setSafeAreaTop(value);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
 
 
   const handleItemClick = (item: MenuItemType) => {
@@ -182,6 +198,7 @@ export const MenuDisplay = () => {
     if (!categories || categories.length === 0 || !menuItems || menuItems.length === 0) return;
 
     const timer = setTimeout(() => {
+      const topOffset = 64 + safeAreaTop;
       observerRef.current = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -192,7 +209,7 @@ export const MenuDisplay = () => {
             }
           });
         },
-        { rootMargin: '-64px 0px -50% 0px', threshold: 0.01 }
+        { rootMargin: `-${topOffset}px 0px -50% 0px`, threshold: 0.01 }
       );
 
       categories.forEach((category) => {
@@ -209,14 +226,13 @@ export const MenuDisplay = () => {
         observerRef.current.disconnect();
       }
     };
-  }, [categories, menuItems, scrollChipIntoView]);
+  }, [categories, menuItems, scrollChipIntoView, safeAreaTop]);
 
   const scrollToCategory = (categoryId: string) => {
     const element = document.getElementById(`category-${categoryId}`);
     if (element) {
-      const stickyBarHeight = 64;
-      const elementTop = element.getBoundingClientRect().top + window.scrollY - stickyBarHeight;
-      window.scrollTo({ top: elementTop, behavior: 'smooth' });
+      // scroll-margin-top on the section already accounts for the sticky bar + safe area.
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setSelectedCategory(categoryId);
       scrollChipIntoView(categoryId);
     }
@@ -229,8 +245,8 @@ export const MenuDisplay = () => {
       <div className="space-y-4">
         {/* Sticky skeleton */}
         <div
-          className="fixed left-0 right-0 top-0 md:top-14 z-40 bg-background py-3 border-b border-border"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+          className="fixed left-0 right-0 md:top-14 z-40 bg-background py-3 border-b border-border"
+          style={{ top: 'env(safe-area-inset-top)', paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
         >
           <div className="flex gap-2 px-4 overflow-x-auto">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -312,7 +328,8 @@ export const MenuDisplay = () => {
     <div className="relative">
       {/* Sticky Category Bar + Search */}
       <div
-        className="sticky top-0 md:top-14 z-40 bg-background border-b border-border shadow-sm"
+        className="sticky md:top-14 z-40 bg-background border-b border-border shadow-sm"
+        style={{ top: 'env(safe-area-inset-top)' }}
       >
         {searchOpen ? (
           <div className="flex items-center gap-2 px-4 py-3">
@@ -343,7 +360,7 @@ export const MenuDisplay = () => {
           <div className="flex items-center gap-2 pr-3">
             <div
               ref={categoryScrollRef}
-              className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide flex-1"
+              className="flex gap-2 px-4 py-2 overflow-x-auto scrollbar-hide flex-1"
             >
               {categories.map((category, index) => {
                 const categoryItems = menuItems.filter(item => item.category_id === category.id);

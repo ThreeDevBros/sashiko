@@ -74,6 +74,7 @@
     "placingOrder": "Placing Order...",
     "processingPayment": "Processing Payment...",
     "payNow": "Pay Now",
+    "continue": "Continue",
     "subtotal": "Item Subtotal",
     "tax": "Tax",
     "serviceFee": "Service Fee",
