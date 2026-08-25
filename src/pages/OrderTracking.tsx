@@ -960,9 +960,9 @@ export default function OrderTracking() {
     : order.guest_delivery_address;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* ─── Live map hero ─────────────────────────────────────────── */}
-      <div className="relative h-[54vh] min-h-[340px] w-full overflow-hidden bg-muted">
+    <div className="fixed inset-0 overflow-hidden bg-background">
+      {/* ─── Live map (locked, fills the screen) ───────────────────── */}
+      <div className="absolute inset-0 bg-muted">
         <OrderTrackingMap
           orderId={order.id}
           orderType={order.order_type}
@@ -981,44 +981,82 @@ export default function OrderTracking() {
           guestDriverLocation={guestDriverLocation}
           fullBleed
         />
+      </div>
 
-        {/* Top scrim for legibility */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-background via-background/60 to-transparent" />
+      {/* Top scrim for legibility */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-background via-background/60 to-transparent" />
 
-        {/* Floating header */}
-        <div className="absolute inset-x-0 top-0 z-20 px-4 pt-safe">
-          <div className="flex items-center gap-3 py-2">
-            <BackButton />
-            <div className="min-w-0">
-              <p className="font-heading text-base font-semibold leading-tight text-foreground">
-                Order #{order.order_number}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                {new Date(order.created_at).toLocaleDateString(undefined, {
-                  weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                })}
-              </p>
-            </div>
+      {/* Floating header */}
+      <div className="absolute inset-x-0 top-0 z-20 px-4 pt-safe">
+        <div className="flex items-center gap-3 py-2">
+          <BackButton />
+          <div className="min-w-0">
+            <p className="font-heading text-base font-semibold leading-tight text-foreground">
+              Order #{order.order_number}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              {new Date(order.created_at).toLocaleDateString(undefined, {
+                weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+              })}
+            </p>
           </div>
-        </div>
-
-        {/* Floating status card — straddles the map / sheet seam */}
-        <div className="absolute inset-x-4 bottom-[4.25rem] z-20">
-          <TrackingStatusHero
-            status={order.status}
-            orderType={order.order_type}
-            remainingMinutes={remainingMinutes}
-            prepRemainingMinutes={prepRemainingMinutes}
-            transitMinutes={transitMinutes}
-          />
         </div>
       </div>
 
-      {/* ─── Detail sheet ──────────────────────────────────────────── */}
-      <div className="relative z-10 -mt-16 rounded-t-[32px] border-t border-border/60 bg-background px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+2.5rem)]">
-        <div className="mx-auto h-1 w-10 rounded-full bg-muted-foreground/25" />
+      {/* Floating status card — sits just above the collapsed drawer */}
+      <div
+        className={cn(
+          'absolute inset-x-4 bottom-[7.5rem] z-20 transition-all duration-400 ease-out',
+          detailsOpen ? 'pointer-events-none translate-y-3 opacity-0' : 'translate-y-0 opacity-100'
+        )}
+      >
+        <TrackingStatusHero
+          status={order.status}
+          orderType={order.order_type}
+          remainingMinutes={remainingMinutes}
+          prepRemainingMinutes={prepRemainingMinutes}
+          transitMinutes={transitMinutes}
+        />
+      </div>
 
-        <div className="mx-auto w-full max-w-xl space-y-7 pt-6">
+      {/* ─── Detail drawer ─────────────────────────────────────────── */}
+      <div
+        className={cn(
+          'absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-[32px] border-t border-border/60 bg-background shadow-[0_-14px_40px_-24px_hsl(var(--foreground)/0.4)] transition-[height] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]',
+          detailsOpen ? 'h-full rounded-t-none' : 'h-[6.25rem]'
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          aria-expanded={detailsOpen}
+          className={cn(
+            'shrink-0 px-5 pb-2 pt-3 text-left',
+            detailsOpen && 'pt-safe'
+          )}
+        >
+          <span className="mx-auto block h-1 w-10 rounded-full bg-muted-foreground/25" />
+          <span className="mt-3 flex items-center justify-between">
+            <span className="font-heading text-sm font-semibold text-foreground">
+              {detailsOpen ? 'Order details' : 'View order details'}
+            </span>
+            <ChevronUp
+              className={cn(
+                'h-4 w-4 text-muted-foreground transition-transform duration-500',
+                detailsOpen && 'rotate-180'
+              )}
+            />
+          </span>
+        </button>
+
+        <div
+          className={cn(
+            'min-h-0 flex-1 px-5 pb-[calc(env(safe-area-inset-bottom)+2.5rem)] transition-opacity duration-300',
+            detailsOpen ? 'overflow-y-auto opacity-100' : 'pointer-events-none overflow-hidden opacity-0'
+          )}
+        >
+        <div className="mx-auto w-full max-w-xl space-y-7 pt-4">
+
           {/* Route: branch → you */}
           {branch && (
             <section className="space-y-4">
