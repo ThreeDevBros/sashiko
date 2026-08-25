@@ -360,7 +360,7 @@ export const MenuDisplay = () => {
           <div className="flex items-center gap-2 pr-3">
             <div
               ref={categoryScrollRef}
-              className="flex gap-2 px-4 py-3 overflow-x-auto scrollbar-hide flex-1"
+              className="flex gap-2 px-4 py-2 overflow-x-auto scrollbar-hide flex-1"
             >
               {categories.map((category, index) => {
                 const categoryItems = menuItems.filter(item => item.category_id === category.id);
