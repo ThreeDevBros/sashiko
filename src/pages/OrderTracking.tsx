@@ -28,6 +28,7 @@ import { useOrderEta } from '@/hooks/useOrderEta';
 import { TrackingStatusHero } from '@/components/order/TrackingStatusHero';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { getGuestOrders } from '@/lib/guestOrders';
 import { areLiveActivitiesSupported, startOrderLiveActivity, updateOrderLiveActivity, endOrderLiveActivity } from '@/lib/nativeLiveActivity';
 import { subscribeToResume } from '@/lib/lifecycleManager';
@@ -112,6 +113,7 @@ export default function OrderTracking() {
   const hasShownCashbackToast = useRef(false);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [guestDriverLocation, setGuestDriverLocation] = useState<{
     latitude: number;
