@@ -180,9 +180,23 @@ Ensure Google is enabled as an auth provider in your Lovable Cloud settings with
    - ✅ **Push Notifications**
    - ✅ **Background Modes** → check **Remote notifications**
 
-3. In `ios/App/App/Info.plist`, add these keys:
+3. In `ios/App/App/Info.plist`, make sure the orientation arrays support all four rotations (required for iPad multitasking), then add these keys:
 
 ```xml
+<key>UISupportedInterfaceOrientations</key>
+<array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+</array>
+<key>UISupportedInterfaceOrientations~ipad</key>
+<array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+</array>
 <key>NSSupportsLiveActivities</key>
 <true/>
 <key>NSFaceIDUsageDescription</key>
