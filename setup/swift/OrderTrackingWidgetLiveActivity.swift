@@ -13,6 +13,18 @@ import SwiftUI
 /// NOTE: Add a small app icon image named "AppIconSmall" (or reuse "AppIcon")
 /// in the widget extension's asset catalog for the compact leading slot.
 
+// MARK: - App palette (converted from the web design tokens in src/index.css)
+private extension Color {
+    /// hsl(43 96% 56%) — gold primary
+    static let appPrimary = Color(red: 250/255, green: 190/255, blue: 35/255)
+    /// hsl(240 4% 17%) — card background
+    static let appCard = Color(red: 42/255, green: 42/255, blue: 45/255)
+    /// hsl(0 0% 93%) — foreground
+    static let appForeground = Color(red: 237/255, green: 237/255, blue: 237/255)
+    /// hsl(0 0% 62%) — muted foreground
+    static let appMuted = Color(red: 158/255, green: 158/255, blue: 158/255)
+}
+
 private let deliverySteps = ["pending", "confirmed", "preparing", "ready", "out_for_delivery", "delivered"]
 private let pickupSteps = ["pending", "confirmed", "preparing", "ready", "delivered"]
 
@@ -63,6 +75,7 @@ private func subline(status: String, orderType: String, etaText: String) -> Stri
 private struct ProgressRail: View {
     let status: String
     let orderType: String
+    @State private var pulse = false
 
     var body: some View {
         let all = steps(for: orderType)
@@ -74,14 +87,21 @@ private struct ProgressRail: View {
                 Capsule()
                     .fill(fillColor(index: index, currentIndex: currentIndex, isSettled: isSettled))
                     .frame(height: 5)
+                    .opacity(index == currentIndex && !isSettled ? (pulse ? 0.6 : 1) : 1)
+                    .animation(
+                        index == currentIndex && !isSettled
+                            ? .easeInOut(duration: 3).repeatForever(autoreverses: true)
+                            : .default,
+                        value: pulse
+                    )
             }
         }
+        .onAppear { pulse = true }
     }
 
     private func fillColor(index: Int, currentIndex: Int, isSettled: Bool) -> Color {
-        if index < currentIndex { return .accentColor }
-        if index == currentIndex { return isSettled ? .accentColor : .accentColor.opacity(0.55) }
-        return Color.secondary.opacity(0.25)
+        if index <= currentIndex { return .appPrimary }
+        return Color.appMuted.opacity(0.25)
     }
 }
 
@@ -98,13 +118,13 @@ private struct TrackingPill: View {
                 Text(headline(status: status, orderType: orderType))
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.appForeground)
                     .lineLimit(1)
 
                 Text(subline(status: status, orderType: orderType, etaText: etaText))
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(isSettled ? .secondary : .accentColor)
+                    .foregroundColor(isSettled ? .appMuted : .appPrimary)
                     .lineLimit(1)
             }
 
@@ -125,7 +145,8 @@ struct OrderTrackingWidgetLiveActivity: Widget {
             TrackingPill(status: status, orderType: orderType, etaText: etaText)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 16)
-                .activityBackgroundTint(.clear)
+                .activityBackgroundTint(.appCard)
+                .activitySystemActionForegroundColor(.appPrimary)
                 .widgetURL(URL(string: "sashiko://order-tracking/\(orderId)"))
 
         } dynamicIsland: { context in
@@ -161,12 +182,12 @@ struct OrderTrackingWidgetLiveActivity: Widget {
                     Text(deliveryTime, style: .time)
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.appPrimary)
                         .monospacedDigit()
                 } else {
                     Image(systemName: statusIcon(status))
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(.appPrimary)
                 }
             } minimal: {
                 Image("AppIconSmall")
