@@ -592,7 +592,7 @@ export default function TableBooking() {
 
   return (
     <div className="min-h-screen bg-background pb-20 sm:pb-24 overflow-x-hidden pt-safe">
-      <div className="container mx-auto px-4 pt-2 pb-4 sm:py-8 max-w-full">
+      <div className="container mx-auto px-4 pb-4 sm:py-8 max-w-full">
         <BackButton />
         <div className="mb-6 sm:mb-8">
           <h1 className="text-xl sm:text-4xl font-bold mb-2">Reserve a Table</h1>
