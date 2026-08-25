@@ -230,9 +230,8 @@ export const MenuDisplay = () => {
   const scrollToCategory = (categoryId: string) => {
     const element = document.getElementById(`category-${categoryId}`);
     if (element) {
-      const stickyBarHeight = 64;
-      const elementTop = element.getBoundingClientRect().top + window.scrollY - stickyBarHeight;
-      window.scrollTo({ top: elementTop, behavior: 'smooth' });
+      // scroll-margin-top on the section already accounts for the sticky bar + safe area.
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setSelectedCategory(categoryId);
       scrollChipIntoView(categoryId);
     }
