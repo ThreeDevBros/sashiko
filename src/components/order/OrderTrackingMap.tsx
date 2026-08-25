@@ -434,6 +434,13 @@ export function OrderTrackingMap({
 
   // If we have no restaurant coordinates yet, show a waiting state (not error)
   if (!hasRestaurantCoords) {
+    if (fullBleed) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/30">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
     return (
       <Card className="overflow-hidden">
         <div className="w-full h-[300px] flex items-center justify-center bg-muted/30">
@@ -444,6 +451,44 @@ export function OrderTrackingMap({
   }
 
   const driverHasLocation = driverTrackingActive && driverLocation;
+
+  if (fullBleed) {
+    return (
+      <div className="absolute inset-0">
+        {mapState === 'error' ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/30 px-6">
+            <AlertTriangle className="h-7 w-7 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground text-center">
+              Map could not be loaded. Your order is still being tracked.
+            </p>
+            <Button variant="outline" size="sm" onClick={handleRetry}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div ref={containerRef} className="absolute inset-0 h-full w-full" />
+            {mapState === 'loading' && (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted/40">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {driverHasLocation && status === 'out_for_delivery' && (
+              <div className="absolute left-4 bottom-4 flex items-center gap-2 rounded-full border border-border/60 bg-card/85 px-3 py-1.5 backdrop-blur-xl">
+                <Truck className="h-3.5 w-3.5 text-primary" />
+                <span className="text-[11px] font-medium text-foreground">
+                  {estimatedTime ? `Driver ${estimatedTime} away` : 'Driver en route'}
+                </span>
+                {connectionLost && <WifiOff className="h-3 w-3 text-muted-foreground" />}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-3">
