@@ -387,7 +387,7 @@ export const MenuDisplay = () => {
                 placeholder={t('menu.searchPlaceholder')}
                 enterKeyHint="search"
                 tabIndex={searchOpen ? 0 : -1}
-                className={`pl-9 rounded-full h-9 w-full transition-opacity duration-200 ${
+                className={`pl-9 rounded-full h-9 w-full transition-opacity duration-200 focus-visible:ring-0 focus-visible:ring-offset-0 ${
                   searchOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
                 }`}
               />
