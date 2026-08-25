@@ -24,7 +24,7 @@ import { useBranding } from '@/hooks/useBranding';
 import { useTheme } from '@/components/ThemeProvider';
 import { OrderProgressTracker } from '@/components/order/OrderProgressTracker';
 import { OrderTrackingMap } from '@/components/order/OrderTrackingMap';
-import { useOrderEta, formatEta } from '@/hooks/useOrderEta';
+import { useOrderEta } from '@/hooks/useOrderEta';
 import { TrackingStatusHero } from '@/components/order/TrackingStatusHero';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
