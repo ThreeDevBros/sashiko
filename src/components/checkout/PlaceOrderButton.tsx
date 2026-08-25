@@ -42,8 +42,10 @@ export const PlaceOrderButton = ({
     'transition-all duration-200 select-none touch-manipulation',
     'active:scale-[0.985] disabled:active:scale-100',
     'disabled:opacity-50 disabled:cursor-not-allowed',
+    'animate-in fade-in duration-300',
     className,
   );
+
 
   if (loading) {
     return (
