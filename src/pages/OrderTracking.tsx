@@ -249,7 +249,7 @@ export default function OrderTracking() {
       // Update existing activity with new status/ETA
       updateOrderLiveActivity(laData);
     } else if (!isActive && liveActivityStarted.current) {
-      endOrderLiveActivity(order.id);
+      endOrderLiveActivity(order.id, { orderType: order.order_type as any, status: order.status });
       liveActivityStarted.current = false;
       _startedActivities.delete(order.id);
     }
