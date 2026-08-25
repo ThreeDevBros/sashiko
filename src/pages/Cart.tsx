@@ -359,7 +359,7 @@ const Cart = () => {
       </div>
 
       {/* Sticky summary + checkout */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-md pb-safe">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-md pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
         <div className="container max-w-2xl mx-auto px-4 pt-3 pb-5 space-y-3">
           {breakdownOpen && (
             <FeeSummary
