@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import type { GuestValidationErrors } from '@/lib/guestValidation';
 
 interface StickyCheckoutCTAProps {
@@ -10,6 +11,7 @@ interface StickyCheckoutCTAProps {
   isGuest: boolean;
   guestInfo: { name: string; email: string; phone: string };
   guestValidationErrors?: GuestValidationErrors;
+  checkingDelivery?: boolean;
   placeOrderButton: React.ReactNode;
 }
 
