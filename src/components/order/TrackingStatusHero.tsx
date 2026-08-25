@@ -80,7 +80,7 @@ export function TrackingStatusHero({
             className={cn(
               'h-1.5 flex-1 rounded-full transition-colors duration-500',
               i < currentIndex && 'bg-primary',
-              i === currentIndex && (isDone ? 'bg-primary' : 'bg-primary animate-[trackingPulse_2.6s_ease-in-out_infinite]'),
+              i === currentIndex && ((isDone || status === 'cancelled') ? 'bg-primary' : 'bg-primary animate-[trackingPulse_2.6s_ease-in-out_infinite]'),
               i > currentIndex && 'bg-muted-foreground/25'
             )}
           />
