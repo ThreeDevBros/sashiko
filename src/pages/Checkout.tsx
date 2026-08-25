@@ -1056,7 +1056,9 @@ const Checkout = () => {
         )}
 
         {/* Payment */}
-        <CheckoutSection title={t('checkout.paymentMethod')}>
+        <CheckoutSection title={t('checkout.paymentMethod')} dataSection="payment" ref={paymentRef}>
+
+          
 
           
           {!authChecked ? (
