@@ -198,6 +198,7 @@ export const MenuDisplay = () => {
     if (!categories || categories.length === 0 || !menuItems || menuItems.length === 0) return;
 
     const timer = setTimeout(() => {
+      const topOffset = 64 + safeAreaTop;
       observerRef.current = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -208,7 +209,7 @@ export const MenuDisplay = () => {
             }
           });
         },
-        { rootMargin: '-64px 0px -50% 0px', threshold: 0.01 }
+        { rootMargin: `-${topOffset}px 0px -50% 0px`, threshold: 0.01 }
       );
 
       categories.forEach((category) => {
@@ -225,7 +226,7 @@ export const MenuDisplay = () => {
         observerRef.current.disconnect();
       }
     };
-  }, [categories, menuItems, scrollChipIntoView]);
+  }, [categories, menuItems, scrollChipIntoView, safeAreaTop]);
 
   const scrollToCategory = (categoryId: string) => {
     const element = document.getElementById(`category-${categoryId}`);
