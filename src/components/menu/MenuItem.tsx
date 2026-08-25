@@ -86,14 +86,23 @@ export const MenuItem = ({
 
             {/* Quick add / stepper — stops the card's detail sheet from opening */}
             {onQuickAdd && (
-              <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-                {inCart && onQuickRemove ? (
-                  <div className="flex items-center gap-1 rounded-full border border-primary bg-primary/10 p-0.5">
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className={`relative h-9 flex-shrink-0 transition-[width] duration-200 ease-out ${
+                  inCart && onQuickRemove ? 'w-[6.5rem]' : 'w-9'
+                }`}
+              >
+                {onQuickRemove && (
+                  <div
+                    className={`absolute right-0 top-0 h-9 flex items-center gap-1 rounded-full border border-primary bg-primary/10 p-0.5 origin-right transition-all duration-200 ease-out ${
+                      inCart ? 'opacity-100 scale-100' : 'opacity-0 scale-x-[0.35] pointer-events-none'
+                    }`}
+                  >
                     <button
                       type="button"
                       aria-label="Remove one"
                       onClick={() => onQuickRemove(item)}
-                      className="h-7 w-7 rounded-full flex items-center justify-center text-primary active:scale-90 transition-transform"
+                      className="h-8 w-8 rounded-full flex items-center justify-center text-primary active:scale-90 transition-transform"
                     >
                       <Minus className="h-3.5 w-3.5" />
                     </button>
@@ -104,23 +113,26 @@ export const MenuItem = ({
                       type="button"
                       aria-label="Add one"
                       onClick={() => onQuickAdd(item)}
-                      className="h-7 w-7 rounded-full flex items-center justify-center bg-primary text-primary-foreground active:scale-90 transition-transform"
+                      className="h-8 w-8 rounded-full flex items-center justify-center bg-primary text-primary-foreground active:scale-90 transition-transform"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    aria-label={`Add ${item.name} to cart`}
-                    onClick={() => onQuickAdd(item)}
-                    className="h-9 w-9 rounded-full flex items-center justify-center bg-primary text-primary-foreground shadow-md active:scale-90 transition-transform"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
                 )}
+
+                <button
+                  type="button"
+                  aria-label={`Add ${item.name} to cart`}
+                  onClick={() => onQuickAdd(item)}
+                  className={`absolute right-0 top-0 h-9 w-9 rounded-full flex items-center justify-center bg-primary text-primary-foreground shadow-md transition-all duration-200 ease-out active:scale-90 ${
+                    inCart && onQuickRemove ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100'
+                  }`}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
               </div>
             )}
+
 
             {/* Items with options: show cart count, tap opens the sheet */}
             {!onQuickAdd && inCart && (

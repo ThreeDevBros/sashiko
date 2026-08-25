@@ -326,77 +326,92 @@ export const MenuDisplay = () => {
 
   return (
     <div className="relative">
+      {/* Opaque strip covering the top safe area so content never shows above the sticky bar */}
+      <div
+        aria-hidden
+        className="fixed inset-x-0 top-0 z-40 bg-background pointer-events-none"
+        style={{ height: 'env(safe-area-inset-top)' }}
+      />
+
       {/* Sticky Category Bar + Search */}
       <div
         className="sticky md:top-14 z-40 bg-background border-b border-border shadow-sm"
         style={{ top: 'env(safe-area-inset-top)' }}
       >
-        {searchOpen ? (
-          <div className="flex items-center gap-2 px-4 py-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative flex items-center px-4 py-2 min-h-[3.25rem]">
+          {/* Category chips — slide out of the way when search opens */}
+          <div
+            ref={categoryScrollRef}
+            className={`flex gap-2 overflow-x-auto scrollbar-hide flex-1 pr-12 transition-all duration-300 ease-out ${
+              searchOpen ? 'opacity-0 -translate-x-8 pointer-events-none' : 'opacity-100 translate-x-0'
+            }`}
+          >
+            {categories.map((category, index) => {
+              const categoryItems = menuItems.filter(item => item.category_id === category.id);
+              if (categoryItems.length === 0) return null;
+              const isActive = selectedCategory === category.id;
+
+              return (
+                <button
+                  key={category.id}
+                  data-category-id={category.id}
+                  className={`whitespace-nowrap flex-shrink-0 transition-all duration-200 h-9 px-4 rounded-full text-sm font-medium border ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground border-primary shadow-md font-semibold'
+                      : 'bg-transparent text-foreground border-border hover:bg-muted'
+                  }`}
+                  onClick={() => {
+                    scrollToCategory(category.id);
+                  }}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  {category.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search — expands sideways from the circular button into a full-width field */}
+          <div
+            className={`absolute top-2 right-4 flex items-center gap-2 transition-[left] duration-300 ease-out ${
+              searchOpen ? 'left-4' : 'left-[calc(100%-2.75rem)]'
+            }`}
+          >
+            <div className="relative flex-1 min-w-0 overflow-hidden">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+
               <Input
                 ref={searchInputRef}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t('menu.searchPlaceholder')}
-                className="pl-9 rounded-full h-10"
-                autoFocus
                 enterKeyHint="search"
+                tabIndex={searchOpen ? 0 : -1}
+                className={`pl-9 rounded-full h-9 w-full transition-opacity duration-200 ${
+                  searchOpen ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'
+                }`}
               />
             </div>
             <button
               type="button"
+              aria-label={searchOpen ? t('common.close') : t('menu.searchPlaceholder')}
               onClick={() => {
-                setSearchTerm('');
-                setSearchOpen(false);
+                if (searchOpen) {
+                  setSearchTerm('');
+                  setSearchOpen(false);
+                } else {
+                  setSearchOpen(true);
+                  setTimeout(() => searchInputRef.current?.focus(), 220);
+                }
               }}
-              className="h-10 px-3 rounded-full text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+              className="h-9 w-9 flex-shrink-0 rounded-full border border-border bg-background flex items-center justify-center text-foreground hover:bg-muted transition-colors"
             >
-              <X className="h-4 w-4" />
+              {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
             </button>
           </div>
-        ) : (
-          <div className="flex items-center gap-2 pr-3">
-            <div
-              ref={categoryScrollRef}
-              className="flex gap-2 px-4 py-2 overflow-x-auto scrollbar-hide flex-1"
-            >
-              {categories.map((category, index) => {
-                const categoryItems = menuItems.filter(item => item.category_id === category.id);
-                if (categoryItems.length === 0) return null;
-                const isActive = selectedCategory === category.id;
-
-                return (
-                  <button
-                    key={category.id}
-                    data-category-id={category.id}
-                    className={`whitespace-nowrap flex-shrink-0 transition-all duration-200 px-4 py-2 rounded-full text-sm font-medium border ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground border-primary shadow-md font-semibold'
-                        : 'bg-transparent text-foreground border-border hover:bg-muted'
-                    }`}
-                    onClick={() => {
-                      scrollToCategory(category.id);
-                    }}
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
-                    {category.name}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              aria-label={t('menu.searchPlaceholder')}
-              onClick={() => setSearchOpen(true)}
-              className="h-9 w-9 flex-shrink-0 rounded-full border border-border flex items-center justify-center text-foreground hover:bg-muted transition-colors"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+        </div>
       </div>
+
 
       {/* Search results */}
       {isSearching ? (

@@ -636,7 +636,7 @@ const Checkout = () => {
       <FloatingBranchWidget />
       
       {/* Header — fixed so it stays visible (and gets dimmed) while drawers are open */}
-      <div className="fixed inset-x-0 top-0 z-10 bg-background/90 backdrop-blur border-b border-border/50 pt-safe">
+      <div data-checkout-header className="fixed inset-x-0 top-0 z-10 bg-background/90 backdrop-blur border-b border-border/50 pt-safe">
         <div className="container max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
           <BackButton />
           <div className="flex-1 text-center">
@@ -1339,8 +1339,10 @@ const Checkout = () => {
         checkingDelivery={validationLoading && orderType === 'delivery'}
         placeOrderButton={
           <PlaceOrderButton
+            key={`cta-${currentPaymentType}-${currentWalletType ?? 'none'}`}
             className="w-full"
             variant={currentPaymentType === 'wallet' ? (currentWalletType === 'googlePay' ? 'googlePay' : 'applePay') : currentPaymentType === 'card' ? 'card' : 'cash'}
+
             loading={loading}
             loadingLabel={buttonText.loading}
             actionLabel={buttonText.action}

@@ -136,8 +136,9 @@ export const AddCardForm = ({ onSuccess, onCancel }: AddCardFormProps) => {
 
         <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
           <Lock className="h-3 w-3" />
-          <p className="text-xs">Secured with Stripe encryption</p>
+          <p className="text-xs">Secure encrypted payment</p>
         </div>
+
 
         {/* Save Card button */}
         <Button
