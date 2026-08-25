@@ -106,7 +106,7 @@ export const MenuItem = ({
                     >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="min-w-4 text-center text-sm font-bold text-primary">
+                    <span className="min-w-4 px-0.5 text-center text-sm font-bold text-primary">
                       {cartQuantity}
                     </span>
                     <button
