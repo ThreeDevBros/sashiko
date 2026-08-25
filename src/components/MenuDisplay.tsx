@@ -373,8 +373,8 @@ export const MenuDisplay = () => {
 
           {/* Search — expands sideways from the circular button into a full-width field */}
           <div
-            className={`absolute top-2 right-6 flex items-center gap-2 transition-[left] duration-300 ease-out ${
-              searchOpen ? 'left-4' : 'left-[calc(100%-2.75rem)]'
+            className={`absolute top-2 right-4 flex items-center gap-2 transition-all duration-300 ease-out ${
+              searchOpen ? 'left-4' : 'left-auto w-9'
             }`}
           >
             <div className="relative flex-1 min-w-0 overflow-hidden">
