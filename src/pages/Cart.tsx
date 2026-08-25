@@ -241,7 +241,7 @@ const Cart = () => {
   const hasUnavailable = unavailableIds.length > 0;
 
   return (
-    <div className="min-h-screen bg-background pb-52">
+    <div className="min-h-screen bg-background pb-28">
       <FloatingBranchWidget />
 
       {/* Header */}
