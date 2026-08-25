@@ -30,11 +30,11 @@ const Order = () => {
   useNearestBranch();
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="bg-background pt-safe pb-1 px-4">
-        <div className="pt-4">
-        <div className="flex items-center justify-between mb-3">
+      <header className="bg-background pt-safe pb-0 px-4">
+        <div className="pt-2">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <BackButton />
           </div>
