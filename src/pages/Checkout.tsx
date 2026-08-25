@@ -4,6 +4,7 @@ import googleMapsIcon from '@/assets/google-maps-icon.png';
 import { fetchDeliveryFeeConfig, calculateDeliveryFee, type DeliveryFeeConfig } from '@/lib/deliveryFee';
 import { CheckoutSection } from '@/components/checkout/CheckoutSection';
 import { PlaceOrderButton } from '@/components/checkout/PlaceOrderButton';
+import { StickyCheckoutCTA } from '@/components/checkout/StickyCheckoutCTA';
 
 import { FloatingLabelTextarea } from '@/components/checkout/FloatingLabelField';
 import { OutOfRangeNotice } from '@/components/checkout/OutOfRangeNotice';
