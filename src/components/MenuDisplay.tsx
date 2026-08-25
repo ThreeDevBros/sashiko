@@ -377,8 +377,9 @@ export const MenuDisplay = () => {
               searchOpen ? 'left-4' : 'left-[calc(100%-2.75rem)]'
             }`}
           >
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="relative flex-1 min-w-0 overflow-hidden">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+
               <Input
                 ref={searchInputRef}
                 value={searchTerm}
