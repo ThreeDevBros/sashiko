@@ -123,6 +123,10 @@ const Checkout = () => {
   const [guestCardValid, setGuestCardValid] = useState(false);
   const [guestValidationErrors, setGuestValidationErrors] = useState<GuestValidationErrors>({});
   const guestCardSubmitRef = useRef<(() => Promise<void>) | null>(null);
+  const guestInfoRef = useRef<HTMLElement>(null);
+  const paymentRef = useRef<HTMLElement>(null);
+  const summaryRef = useRef<HTMLElement>(null);
+
   const [orderInstructions, setOrderInstructions] = useState('');
   const [deliveryFeeConfig, setDeliveryFeeConfig] = useState<DeliveryFeeConfig | null>(null);
   const {
