@@ -306,9 +306,6 @@ export default function OrderTracking() {
             const oldStatus = orderStatusRef.current;
             const statusChanged = !!newStatus && newStatus !== oldStatus;
 
-            if (statusChanged && oldStatus && newStatus && ['delivered', 'cancelled'].includes(newStatus)) {
-              showStatusChangeToast(newStatus, nextOrder.order_type || 'delivery', nextOrder.order_number || '');
-            }
 
             if (newStatus === 'delivered' && oldStatus !== 'delivered' && !hasShownCashbackToast.current) {
               showCashbackEarnedToast(nextOrder.total || 0);
@@ -399,7 +396,6 @@ export default function OrderTracking() {
         if (freshOrder) {
           const oldStatus = orderStatusRef.current;
           if (freshOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(freshOrder.status)) {
-            showStatusChangeToast(freshOrder.status, freshOrder.order_type || 'delivery', freshOrder.order_number || '');
             if (freshOrder.status === 'delivered' && !hasShownCashbackToast.current) {
               showCashbackEarnedToast(freshOrder.total || 0);
               hasShownCashbackToast.current = true;
@@ -452,7 +448,6 @@ export default function OrderTracking() {
           const gOrder = data.order;
           const oldStatus = order?.status;
           if (gOrder.status !== oldStatus && oldStatus && ['delivered', 'cancelled'].includes(gOrder.status)) {
-            showStatusChangeToast(gOrder.status, gOrder.order_type || 'delivery', gOrder.order_number || '');
           }
           setOrder(gOrder);
           if (gOrder.order_items) {
@@ -580,27 +575,6 @@ export default function OrderTracking() {
     }
   };
 
-  const showStatusChangeToast = (newStatus: string, orderType: string, orderNumber: string) => {
-    const messages: Record<string, { title: string; icon: React.ReactNode }> = {
-      confirmed: { title: '✅ Order confirmed!', icon: <CheckCircle2 className="h-5 w-5 text-blue-500" /> },
-      preparing: { title: '👨‍🍳 Your food is being prepared', icon: <ChefHat className="h-5 w-5 text-orange-500" /> },
-      ready: {
-        title: orderType === 'pickup' ? '🎉 Ready for pickup!' : '✅ Food is ready',
-        icon: <Package className="h-5 w-5 text-green-500" />,
-      },
-      out_for_delivery: { title: '🚗 Your order is on its way!', icon: <Navigation className="h-5 w-5 text-primary" /> },
-      delivered: { title: '🎉 Order delivered!', icon: <Package className="h-5 w-5 text-green-500" /> },
-      cancelled: { title: '❌ Order cancelled', icon: <XCircle className="h-5 w-5 text-destructive" /> },
-    };
-    const msg = messages[newStatus];
-    if (msg) {
-      toast(msg.title, {
-        icon: msg.icon,
-        description: `Order #${orderNumber}`,
-        duration: 4000,
-      });
-    }
-  };
 
   const showCashbackEarnedToast = (orderTotal: number) => {
     if (cashbackRate > 0 && orderTotal > 0) {
