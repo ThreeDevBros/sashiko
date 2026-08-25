@@ -1048,11 +1048,13 @@ const Checkout = () => {
 
         {/* Guest Info Form */}
         {isGuest && (
-          <GuestCheckoutForm 
-            guestInfo={guestInfo} 
-            onGuestInfoChange={(info) => { setGuestInfo(info); setGuestValidationErrors({}); }}
-            errors={guestValidationErrors}
-          />
+          <section ref={guestInfoRef} data-section="guest-info" className="py-5 border-b border-border/50 rounded-lg">
+            <GuestCheckoutForm 
+              guestInfo={guestInfo} 
+              onGuestInfoChange={(info) => { setGuestInfo(info); setGuestValidationErrors({}); }}
+              errors={guestValidationErrors}
+            />
+          </section>
         )}
 
         {/* Payment */}
