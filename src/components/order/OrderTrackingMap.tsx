@@ -60,7 +60,9 @@ export function OrderTrackingMap({
   guestDeliveryLng,
   isGuest = false,
   guestDriverLocation,
+  fullBleed = false,
 }: OrderTrackingMapProps) {
+
   const { theme } = useTheme();
   const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
   const [estimatedTime, setEstimatedTime] = useState<string>('');
