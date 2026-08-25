@@ -1339,8 +1339,10 @@ const Checkout = () => {
         checkingDelivery={validationLoading && orderType === 'delivery'}
         placeOrderButton={
           <PlaceOrderButton
+            key={`cta-${currentPaymentType}-${currentWalletType ?? 'none'}`}
             className="w-full"
             variant={currentPaymentType === 'wallet' ? (currentWalletType === 'googlePay' ? 'googlePay' : 'applePay') : currentPaymentType === 'card' ? 'card' : 'cash'}
+
             loading={loading}
             loadingLabel={buttonText.loading}
             actionLabel={buttonText.action}
