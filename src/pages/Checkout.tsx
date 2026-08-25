@@ -1227,7 +1227,7 @@ const Checkout = () => {
 
 
         {/* Summary */}
-        <CheckoutSection title={t('checkout.summary')} divider={false}>
+        <CheckoutSection title={t('checkout.summary')} divider={false} dataSection="summary" ref={summaryRef}>
 
 
           {/* Collapsible item list — see exactly what's being paid for */}
