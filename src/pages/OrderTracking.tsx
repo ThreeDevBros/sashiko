@@ -267,6 +267,17 @@ export default function OrderTracking() {
     });
   }, [getStatusMessageForOrder]);
 
+  // Live ETA — single source of truth shared with the Live Activity bridge
+  const { remainingMinutes, transitMinutes, prepRemainingMinutes } = useOrderEta({
+    orderType: order?.order_type ?? 'delivery',
+    status: order?.status ?? 'pending',
+    estimatedReadyAt: order?.estimated_ready_at ?? null,
+    deliveryTransitMinutes: order?.delivery_transit_minutes ?? null,
+    onRemainingMinutesChange: handleRemainingMinutesChange,
+  });
+
+
+
   // Subscribe to real-time order status updates
   useEffect(() => {
     if (!orderId) return;
