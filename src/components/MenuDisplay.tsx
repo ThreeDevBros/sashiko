@@ -328,7 +328,8 @@ export const MenuDisplay = () => {
     <div className="relative">
       {/* Sticky Category Bar + Search */}
       <div
-        className="sticky top-0 md:top-14 z-40 bg-background border-b border-border shadow-sm"
+        className="sticky md:top-14 z-40 bg-background border-b border-border shadow-sm"
+        style={{ top: 'env(safe-area-inset-top)' }}
       >
         {searchOpen ? (
           <div className="flex items-center gap-2 px-4 py-3">
