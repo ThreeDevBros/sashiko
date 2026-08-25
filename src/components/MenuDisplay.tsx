@@ -34,6 +34,22 @@ export const MenuDisplay = () => {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [safeAreaTop, setSafeAreaTop] = useState(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const div = document.createElement('div');
+      div.style.position = 'fixed';
+      div.style.paddingTop = 'env(safe-area-inset-top)';
+      document.body.appendChild(div);
+      const value = parseFloat(window.getComputedStyle(div).paddingTop) || 0;
+      document.body.removeChild(div);
+      setSafeAreaTop(value);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
 
 
   const handleItemClick = (item: MenuItemType) => {
