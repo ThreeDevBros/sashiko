@@ -113,7 +113,12 @@ export function StickyCheckoutCTA({
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur-md pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
       <div className="container max-w-2xl mx-auto px-4 pt-3 pb-3">
-        {summaryReached ? (
+        {checkingDelivery ? (
+          <Button className="w-full h-14 rounded-2xl" size="lg" disabled>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Checking delivery zone...
+          </Button>
+        ) : summaryReached ? (
           placeOrderButton
         ) : (
           <Button
