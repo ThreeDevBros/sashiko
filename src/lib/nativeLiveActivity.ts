@@ -274,7 +274,10 @@ export async function updateOrderLiveActivity(data: LiveActivityData): Promise<v
 /**
  * End a Live Activity
  */
-export async function endOrderLiveActivity(orderId: string): Promise<void> {
+export async function endOrderLiveActivity(
+  orderId: string,
+  options?: { orderType?: 'delivery' | 'pickup' | 'dine_in'; status?: string }
+): Promise<void> {
   try {
     if (!orderId) return;
     const plugin = await getLiveActivityPlugin();
@@ -283,8 +286,9 @@ export async function endOrderLiveActivity(orderId: string): Promise<void> {
     await plugin.endActivity({
       id: orderId,
       contentState: {
-        status: 'delivered',
+        status: options?.status ?? 'delivered',
         orderId: orderId,
+        orderType: options?.orderType ?? 'delivery',
         statusMessage: 'Order complete',
         etaMinutes: '0',
         updatedAt: new Date().toISOString(),
