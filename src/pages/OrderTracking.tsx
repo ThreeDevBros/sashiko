@@ -1213,7 +1213,9 @@ export default function OrderTracking() {
             )}
           </section>
         </div>
+        </div>
       </div>
+
       {directions.sheet}
     </div>
   );
