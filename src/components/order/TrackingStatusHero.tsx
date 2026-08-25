@@ -45,7 +45,9 @@ export function TrackingStatusHero({
   } else if (remainingMinutes == null) {
     subline = 'Calculating time…';
   } else if (remainingMinutes === 0) {
-    subline = isDelivery ? 'Arriving any moment' : 'Ready to collect now';
+    subline = status === 'ready'
+      ? (isDelivery ? 'Waiting for the driver' : 'Ready to collect now')
+      : (isDelivery ? 'Arriving any moment' : 'Almost ready');
   } else {
     subline = `${isDelivery ? 'Arriving in' : 'Ready in'} ~${formatEta(remainingMinutes)}`;
   }
