@@ -36,7 +36,10 @@ interface OrderTrackingMapProps {
     speed?: number;
     updated_at: string;
   } | null;
+  /** Renders the map edge-to-edge filling its (positioned) parent, without card chrome. */
+  fullBleed?: boolean;
 }
+
 
 interface DriverLocation {
   latitude: number;
