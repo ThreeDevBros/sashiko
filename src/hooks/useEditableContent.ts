@@ -105,7 +105,7 @@ export const useEditableContent = () => {
       // Force a page reload to reflect changes
       window.location.reload();
     });
-  }, [pendingChanges, toast, executeAction]);
+  }, [pendingChanges, executeAction]);
 
   const deselectElement = useCallback(() => {
     setSelectedElement(null);

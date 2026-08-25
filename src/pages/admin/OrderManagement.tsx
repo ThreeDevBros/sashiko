@@ -116,7 +116,7 @@ export default function OrderManagement() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [queryClient, toast, resumeCounter]);
+  }, [queryClient, resumeCounter]);
 
   const { data: orders } = useQuery({
     queryKey: ['orders-admin'],

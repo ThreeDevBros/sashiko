@@ -71,7 +71,7 @@ export default function CheckoutSuccess() {
     };
 
     verifyPayment();
-  }, [searchParams, clearCart, navigate, toast]);
+  }, [searchParams, clearCart, navigate]);
 
   if (loading) {
     return <LoadingScreen show={true} />;

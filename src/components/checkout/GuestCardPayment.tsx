@@ -183,7 +183,7 @@ export const GuestCardPayment = ({
       let errorMessage = 'Please try again or use cash on delivery.';
       if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function')) errorMessage = error.message;
     } finally { setLoading(false); isSubmittingRef.current = false; }
-  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, toast, deliveryFee, serviceFee, tax, orderTotal]);
+  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, deliveryFee, serviceFee, tax, orderTotal]);
 
   useEffect(() => {
     if (submitRef) submitRef.current = handleSubmit;

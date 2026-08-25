@@ -40,7 +40,7 @@ export const useRateLimitedAction = (options: UseRateLimitedActionOptions = {}) 
       lastActionTime.current = 0;
       throw error;
     }
-  }, [cooldownMs, cooldownMessage, toast]);
+  }, [cooldownMs, cooldownMessage]);
 
   return { executeAction, isOnCooldown };
 };

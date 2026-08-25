@@ -90,7 +90,7 @@ export const useReservationNotifications = () => {
         channelRef.current = null;
       }
     };
-  }, [isAdmin, loading, toast]);
+  }, [isAdmin, loading]);
 
   return {
     newReservation,

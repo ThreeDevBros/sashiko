@@ -120,7 +120,7 @@ export default function AccountDeletion() {
       setDeleting(false);
       setDrawerOpen(false);
     }
-  }, [navigate, toast]);
+  }, [navigate]);
 
   if (!user) {
     navigate('/auth', { replace: true });

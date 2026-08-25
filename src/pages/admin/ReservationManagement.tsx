@@ -51,7 +51,7 @@ export default function ReservationManagement() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       supabase.removeChannel(channel);
     };
-  }, [queryClient, toast]);
+  }, [queryClient]);
 
   const { data: reservations, isLoading } = useQuery({
     queryKey: ['admin-reservations'],
