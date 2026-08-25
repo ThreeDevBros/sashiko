@@ -52,13 +52,6 @@ export function TrackingStatusHero({
     subline = `${isDelivery ? 'Arriving in' : 'Ready in'} ${formatEta(remainingMinutes)}`;
   }
 
-  const showBreakdown =
-    isDelivery &&
-    !isDone &&
-    !['pending', 'ready', 'out_for_delivery'].includes(status) &&
-    prepRemainingMinutes != null &&
-    transitMinutes != null;
-
   return (
     <div className="rounded-[26px] border border-border/60 bg-card/85 backdrop-blur-2xl p-5 shadow-[0_18px_50px_-20px_hsl(var(--foreground)/0.35)]">
       <div className="flex items-start gap-3">
@@ -80,20 +73,12 @@ export function TrackingStatusHero({
             className={cn(
               'h-1.5 flex-1 rounded-full transition-colors duration-500',
               i < currentIndex && 'bg-primary',
-              i === currentIndex && ((isDone || status === 'cancelled') ? 'bg-primary' : 'bg-primary animate-[trackingPulse_2.6s_ease-in-out_infinite]'),
+              i === currentIndex && ((isDone || status === 'cancelled') ? 'bg-primary' : 'bg-primary animate-[trackingPulse_6s_ease-in-out_infinite]'),
               i > currentIndex && 'bg-muted-foreground/25'
             )}
           />
         ))}
       </div>
-
-      {showBreakdown && (
-        <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>Prep {formatEta(prepRemainingMinutes!)}</span>
-          <span className="text-muted-foreground/40">+</span>
-          <span>Drive {formatEta(transitMinutes!)}</span>
-        </div>
-      )}
     </div>
   );
 }
