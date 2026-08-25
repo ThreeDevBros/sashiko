@@ -701,8 +701,8 @@ const Auth = () => {
         />
       )}
       <div
-        className="fixed inset-0 z-[1] w-screen overflow-y-auto"
-        style={{ overscrollBehavior: 'none' }}
+        className="fixed inset-0 z-[1] w-screen overflow-y-auto [-webkit-overflow-scrolling:touch]"
+        style={{ overscrollBehavior: 'auto' }}
       >
         <div
           className="mx-auto flex min-h-full w-full max-w-md flex-col px-7"
