@@ -101,17 +101,35 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    // Try to get user from auth header if present
-    let user = null;
+    // Determine whether the Authorization header carries a real end-user session.
+    // Supabase always attaches the publishable/anon key for guest calls, so a bare
+    // anon token must be treated as "guest", not as an expired session.
     const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
+    const token = authHeader?.replace(/^Bearer\s+/i, '').trim() ?? '';
+
+    const isUserToken = (() => {
+      if (!token) return false;
+      const parts = token.split('.');
+      if (parts.length !== 3) return false; // sb_publishable_... keys aren't JWTs
+      try {
+        const payload = JSON.parse(
+          atob(parts[1].replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(parts[1].length / 4) * 4, '='))
+        );
+        return payload?.role === 'authenticated' && !!payload?.sub;
+      } catch {
+        return false;
+      }
+    })();
+
+    let user = null;
+    if (isUserToken) {
       const anonClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } }
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
       );
       const { data } = await anonClient.auth.getUser();
-      user = data?.user;
+      user = data?.user ?? null;
     }
 
     const body = await req.json();
@@ -125,13 +143,14 @@ serve(async (req) => {
       );
     }
 
-    if (authHeader && !user) {
-      console.error('Auth header present but user could not be resolved — session may have expired');
+    if (isUserToken && !user) {
+      console.error('User token present but could not be resolved — session may have expired');
       return new Response(
         JSON.stringify({ error: 'Authentication session expired. Please sign in again.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
+
 
     let { order_type, delivery_address_id, branch_id, guest_info, guest_address, guest_delivery_lat, guest_delivery_lng, items, cashback_used, special_instructions, estimated_delivery_time, delivery_fee: clientDeliveryFee, tax: clientTax } = validationResult.data;
 
