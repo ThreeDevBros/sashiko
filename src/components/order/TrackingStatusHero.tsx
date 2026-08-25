@@ -49,7 +49,7 @@ export function TrackingStatusHero({
       ? (isDelivery ? 'Waiting for the driver' : 'Ready to collect now')
       : (isDelivery ? 'Arriving any moment' : 'Almost ready');
   } else {
-    subline = `${isDelivery ? 'Arriving in' : 'Ready in'} ~${formatEta(remainingMinutes)}`;
+    subline = `${isDelivery ? 'Arriving in' : 'Ready in'} ${formatEta(remainingMinutes)}`;
   }
 
   const showBreakdown =
@@ -80,7 +80,7 @@ export function TrackingStatusHero({
             className={cn(
               'h-1.5 flex-1 rounded-full transition-colors duration-500',
               i < currentIndex && 'bg-primary',
-              i === currentIndex && 'bg-primary animate-[trackingPulse_2.6s_ease-in-out_infinite]',
+              i === currentIndex && (isDone ? 'bg-primary' : 'bg-primary animate-[trackingPulse_2.6s_ease-in-out_infinite]'),
               i > currentIndex && 'bg-muted-foreground/25'
             )}
           />
@@ -89,9 +89,9 @@ export function TrackingStatusHero({
 
       {showBreakdown && (
         <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>Prep ~{formatEta(prepRemainingMinutes!)}</span>
+          <span>Prep {formatEta(prepRemainingMinutes!)}</span>
           <span className="text-muted-foreground/40">+</span>
-          <span>Drive ~{formatEta(transitMinutes!)}</span>
+          <span>Drive {formatEta(transitMinutes!)}</span>
         </div>
       )}
     </div>
