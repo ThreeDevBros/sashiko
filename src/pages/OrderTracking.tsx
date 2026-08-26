@@ -112,6 +112,7 @@ export default function OrderTracking() {
   const hasShownCashbackToast = useRef(false);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [guestDriverLocation, setGuestDriverLocation] = useState<{
@@ -1172,6 +1173,11 @@ export default function OrderTracking() {
 
             {allowCustomerCancel && order.status === 'pending' && (
               <AlertDialog>
+                {cancelError && (
+                  <p className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+                    {cancelError}
+                  </p>
+                )}
                 <AlertDialogTrigger asChild>
                   <button
                     disabled={isCancelling}
