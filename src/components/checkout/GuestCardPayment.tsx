@@ -72,6 +72,7 @@ export const GuestCardPayment = ({
   const [expiryComplete, setExpiryComplete] = useState(false);
   const [cvcComplete, setCvcComplete] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [cardholderName, setCardholderName] = useState(guestInfo.name || '');
 
@@ -133,6 +134,7 @@ export const GuestCardPayment = ({
     if (!stripe || !cardNumberEl || !isFormValid || isSubmittingRef.current || loading) return;
     isSubmittingRef.current = true;
     setLoading(true);
+    setSubmitError(null);
     try {
       const { data: paymentData, error: piError } = await supabase.functions.invoke('create-payment-intent', {
         body: {
@@ -177,13 +179,16 @@ export const GuestCardPayment = ({
         // Navigate FIRST, then clear cart to avoid empty-cart redirect race
         if (orderData?.order_id) onSuccess(orderData.order_id); else navigate('/order-history', { replace: true });
         clearCart();
+      } else {
+        throw new Error("Your payment couldn't be completed. Please check your card details and try again.");
       }
     } catch (error: any) {
       console.error('Payment error:', error);
-      let errorMessage = 'Please try again or use cash on delivery.';
+      let errorMessage = 'Payment could not be completed. Please try again or use cash on delivery.';
       if (error.message && !error.message.includes('non-2xx') && !error.message.includes('Edge Function')) errorMessage = error.message;
+      setSubmitError(errorMessage);
     } finally { setLoading(false); isSubmittingRef.current = false; }
-  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, clearCart, navigate, onSuccess, deliveryFee, serviceFee, tax, orderTotal]);
+  }, [stripe, cardNumberEl, isFormValid, items, branchId, orderType, guestInfo, cardholderName, guestAddress, guestDeliveryLat, guestDeliveryLng, clearCart, navigate, onSuccess, deliveryFee, serviceFee, tax, orderTotal]);
 
   useEffect(() => {
     if (submitRef) submitRef.current = handleSubmit;
