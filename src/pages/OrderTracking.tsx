@@ -507,6 +507,7 @@ export default function OrderTracking() {
       return;
     }
     setIsCancelling(true);
+    setCancelError(null);
     try {
       if (isGuest) {
         // Guest flow: use dedicated edge function that handles both status update and refund
@@ -518,6 +519,7 @@ export default function OrderTracking() {
           try { email = JSON.parse(legacyRaw).email; } catch {}
         }
         if (!email) {
+          setCancelError("We couldn't verify this order on this device. Please contact the restaurant to cancel it.");
           return;
         }
         const { data, error } = await supabase.functions.invoke('cancel-guest-order', {
@@ -562,9 +564,11 @@ export default function OrderTracking() {
           .single();
         if (freshOrder && freshOrder.status !== 'pending') {
           setOrder(prev => prev ? { ...prev, status: freshOrder.status } : null);
+          setCancelError('This order was already confirmed by the restaurant, so it can no longer be cancelled.');
           return;
         }
       }
+      setCancelError(err?.message || "We couldn't cancel your order. Your order is still active — please try again or contact the restaurant.");
     } finally {
       setIsCancelling(false);
     }
