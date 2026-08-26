@@ -244,6 +244,15 @@ export const GuestCardPayment = ({
           <p className="text-destructive text-xs text-center">{cardError}</p>
         )}
 
+        {submitError && (
+          <p
+            role="alert"
+            className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive text-center"
+          >
+            {submitError}
+          </p>
+        )}
+
         {isFormValid && (
           <div className="flex items-center justify-center gap-2 text-green-500 text-sm">
             <Check className="h-4 w-4" />
