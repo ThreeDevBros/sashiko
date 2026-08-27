@@ -1175,13 +1175,15 @@ export default function OrderTracking() {
               <Phone className="h-4 w-4 text-muted-foreground" />
             </button>
 
+            {cancelError && (
+              <p className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+                {cancelError}
+              </p>
+            )}
+
             {allowCustomerCancel && order.status === 'pending' && (
               <AlertDialog>
-                {cancelError && (
-                  <p className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
-                    {cancelError}
-                  </p>
-                )}
+
                 <AlertDialogTrigger asChild>
                   <button
                     disabled={isCancelling}
