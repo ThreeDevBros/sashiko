@@ -15,7 +15,7 @@ const corsHeaders = {
 }
 
 // Configuration
-const SITE_NAME = "Test for deploy v1"
+const SITE_NAME = "Sashiko Asian Fusion"
 const SENDER_DOMAIN = "notify.sashikoasianfusion.com"
 const ROOT_DOMAIN = "sashikoasianfusion.com"
 const FROM_DOMAIN = "sashikoasianfusion.com"
