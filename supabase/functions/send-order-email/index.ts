@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireRole, STAFF_ROLES } from "../_shared/auth.ts";
+import { sendTemplateEmail } from "../_shared/transactional-email-templates/send-email.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,75 +66,67 @@ serve(async (req) => {
     const tenantName = settings?.tenant_name || 'Sashiko Asian Fusion';
     const branch = order.branches as any;
 
-    // Build itemized HTML
-    const itemRows = (items || []).map((item: any) => {
-      const name = item.menu_items?.name || 'Unknown Item';
-      const mods = (item.order_item_modifiers || [])
+    const itemLines = (items || []).map((item: any) => ({
+      name: item.menu_items?.name || 'Unknown Item',
+      quantity: item.quantity,
+      modifiers: (item.order_item_modifiers || [])
         .map((m: any) => m.modifiers?.name)
         .filter(Boolean)
-        .join(', ');
-      return `<tr>
-        <td style="padding:8px 0;border-bottom:1px solid #eee;color:#2b2b2b;font-size:14px;">
-          ${item.quantity}x ${name}${mods ? `<br/><span style="font-size:12px;color:#737373;">${mods}</span>` : ''}
-          ${item.special_instructions ? `<br/><span style="font-size:12px;color:#737373;font-style:italic;">${item.special_instructions}</span>` : ''}
-        </td>
-        <td style="padding:8px 0;border-bottom:1px solid #eee;text-align:right;color:#2b2b2b;font-size:14px;">${currency} ${Number(item.total_price).toFixed(2)}</td>
-      </tr>`;
-    }).join('');
+        .join(', '),
+      specialInstructions: item.special_instructions || undefined,
+      totalPrice: Number(item.total_price).toFixed(2),
+    }));
 
     const orderDate = new Date(order.created_at).toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
-    const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:'Inter',Arial,sans-serif;">
-<div style="max-width:580px;margin:0 auto;padding:20px 25px;">
-  <img src="https://rfwqbzeutrfccaazvibc.supabase.co/storage/v1/object/public/restaurant-images/email%2Fsashiko-logo.png" width="120" alt="${tenantName}" style="margin-bottom:24px;" />
-  <h1 style="font-size:22px;font-weight:bold;color:hsl(0,0%,17%);margin:0 0 20px;">Your order has been delivered! 🎉</h1>
-  <p style="font-size:14px;color:hsl(0,0%,45%);line-height:1.5;margin:0 0 8px;">Order <strong>#${order.order_number}</strong></p>
-  <p style="font-size:14px;color:hsl(0,0%,45%);line-height:1.5;margin:0 0 20px;">${orderDate}</p>
-  
-  <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-    <thead><tr>
-      <th style="text-align:left;padding:8px 0;border-bottom:2px solid hsl(43,48%,58%);color:hsl(0,0%,17%);font-size:13px;">Items</th>
-      <th style="text-align:right;padding:8px 0;border-bottom:2px solid hsl(43,48%,58%);color:hsl(0,0%,17%);font-size:13px;">Price</th>
-    </tr></thead>
-    <tbody>${itemRows}</tbody>
-  </table>
+    const templateData = {
+      tenantName,
+      orderNumber: String(order.order_number),
+      orderDate,
+      currency,
+      items: itemLines,
+      subtotal: Number(order.subtotal).toFixed(2),
+      deliveryFee: order.delivery_fee ? Number(order.delivery_fee).toFixed(2) : undefined,
+      tax: order.tax ? Number(order.tax).toFixed(2) : undefined,
+      tip: order.tip ? Number(order.tip).toFixed(2) : undefined,
+      total: Number(order.total).toFixed(2),
+      branchName: branch?.name,
+      branchAddress: branch ? `${branch.address}, ${branch.city}` : undefined,
+    };
 
-  <table style="width:100%;margin-bottom:24px;">
-    <tr><td style="padding:4px 0;font-size:14px;color:hsl(0,0%,45%);">Subtotal</td><td style="text-align:right;font-size:14px;color:hsl(0,0%,45%);">${currency} ${Number(order.subtotal).toFixed(2)}</td></tr>
-    ${order.delivery_fee ? `<tr><td style="padding:4px 0;font-size:14px;color:hsl(0,0%,45%);">Delivery Fee</td><td style="text-align:right;font-size:14px;color:hsl(0,0%,45%);">${currency} ${Number(order.delivery_fee).toFixed(2)}</td></tr>` : ''}
-    ${order.tax ? `<tr><td style="padding:4px 0;font-size:14px;color:hsl(0,0%,45%);">Tax</td><td style="text-align:right;font-size:14px;color:hsl(0,0%,45%);">${currency} ${Number(order.tax).toFixed(2)}</td></tr>` : ''}
-    ${order.tip ? `<tr><td style="padding:4px 0;font-size:14px;color:hsl(0,0%,45%);">Tip</td><td style="text-align:right;font-size:14px;color:hsl(0,0%,45%);">${currency} ${Number(order.tip).toFixed(2)}</td></tr>` : ''}
-    <tr><td style="padding:8px 0;font-size:16px;font-weight:bold;color:hsl(0,0%,17%);border-top:2px solid hsl(43,48%,58%);">Total</td><td style="text-align:right;padding:8px 0;font-size:16px;font-weight:bold;color:hsl(0,0%,17%);border-top:2px solid hsl(43,48%,58%);">${currency} ${Number(order.total).toFixed(2)}</td></tr>
-  </table>
+    const logSend = async (status: string, errorMessage?: string) => {
+      const { error: logError } = await supabase.from('email_send_log').insert({
+        template_name: 'order_delivered',
+        recipient_email: recipientEmail,
+        status,
+        error_message: errorMessage,
+        metadata: { order_id, order_number: order.order_number },
+      });
+      if (logError) console.error('Failed to write email_send_log row', logError);
+    };
 
-  ${branch ? `<p style="font-size:13px;color:hsl(0,0%,45%);margin:0 0 4px;"><strong>${branch.name}</strong></p><p style="font-size:13px;color:hsl(0,0%,45%);margin:0 0 20px;">${branch.address}, ${branch.city}</p>` : ''}
-  
-  <p style="font-size:12px;color:#999;margin:30px 0 0;">Thank you for ordering with ${tenantName}!</p>
-</div>
-</body></html>`;
+    try {
+      const result = await sendTemplateEmail('order-delivered', recipientEmail, {
+        templateData,
+        idempotencyKey: `order-delivered-${order_id}`,
+      });
 
-    // Enqueue the email
-    await supabase.rpc('enqueue_email', {
-      queue_name: 'transactional_emails',
-      payload: {
-        to: recipientEmail,
-        subject: `Order #${order.order_number} — Delivered!`,
-        html,
-        from_name: tenantName,
-      },
-    });
+      if (!result.sent) {
+        await logSend('suppressed');
+        return new Response(JSON.stringify({ skipped: true, reason: result.reason }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    // Log it
-    await supabase.from('email_send_log').insert({
-      template_name: 'order_delivered',
-      recipient_email: recipientEmail,
-      status: 'pending',
-      metadata: { order_id, order_number: order.order_number },
-    });
+      await logSend('sent');
+    } catch (sendError: any) {
+      await logSend('failed', String(sendError?.message ?? sendError).slice(0, 1000));
+      throw sendError;
+    }
+
+
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
