@@ -1486,6 +1486,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_operational_logs: { Args: never; Returns: undefined }
       deduct_cashback: {
         Args: { p_amount: number; p_user_id: string }
         Returns: undefined
