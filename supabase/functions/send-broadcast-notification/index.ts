@@ -79,7 +79,7 @@ serve(async (req) => {
       .single();
     const tenantName = settings?.tenant_name || 'Sashiko Asian Fusion';
 
-    // --- EMAIL via transactional email queue ---
+    // --- EMAIL via Lovable managed email ---
     if (channel === 'email' || channel === 'both') {
       if (userIds.length > 0) {
         const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
@@ -89,31 +89,68 @@ serve(async (req) => {
           .map((id: string) => emailMap.get(id))
           .filter((e: string | undefined): e is string => !!e);
 
-        const emailHtml = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:'Inter',Arial,sans-serif;">
-<div style="max-width:580px;margin:0 auto;padding:20px 25px;">
-  <img src="https://rfwqbzeutrfccaazvibc.supabase.co/storage/v1/object/public/restaurant-images/email%2Fsashiko-logo.png" width="120" alt="${tenantName}" style="margin-bottom:24px;" />
-  <h1 style="font-size:22px;font-weight:bold;color:hsl(0,0%,17%);margin:0 0 20px;">${notification.title}</h1>
-  <p style="font-size:14px;color:hsl(0,0%,45%);line-height:1.6;margin:0 0 20px;">${notification.message.replace(/\n/g, '<br>')}</p>
-  <p style="font-size:12px;color:#999;margin:30px 0 0;">${tenantName}</p>
-</div>
-</body></html>`;
+        const logSend = async (recipient: string, status: string, errorMessage?: string) => {
+          const { error: logError } = await supabase.from('email_send_log').insert({
+            template_name: 'broadcast',
+            recipient_email: recipient,
+            status,
+            error_message: errorMessage,
+            metadata: { notification_id },
+          });
+          if (logError) console.error('Failed to write email_send_log row', logError);
+        };
 
         for (const email of emails) {
-          await supabase.rpc('enqueue_email', {
-            queue_name: 'transactional_emails',
-            payload: {
-              to: email,
-              subject: notification.title,
-              html: emailHtml,
-              from_name: tenantName,
-            },
-          });
-          sentCount++;
+          try {
+            const result = await sendTemplateEmail('broadcast-announcement', email, {
+              templateData: {
+                tenantName,
+                title: notification.title,
+                message: notification.message,
+              },
+              idempotencyKey: `broadcast-announcement-${notification_id}-${email}`,
+            });
+
+            if (!result.sent) {
+              await logSend(email, 'suppressed');
+              continue;
+            }
+
+            await logSend(email, 'sent');
+            sentCount++;
+          } catch (sendError: any) {
+            // Rate limited: wait the requested cooldown, then retry once.
+            if (sendError?.status === 429) {
+              const waitSeconds = sendError?.retryAfterSeconds ?? 60;
+              await new Promise((r) => setTimeout(r, waitSeconds * 1000));
+              try {
+                const retry = await sendTemplateEmail('broadcast-announcement', email, {
+                  templateData: {
+                    tenantName,
+                    title: notification.title,
+                    message: notification.message,
+                  },
+                  idempotencyKey: `broadcast-announcement-${notification_id}-${email}`,
+                });
+                if (retry.sent) {
+                  await logSend(email, 'sent');
+                  sentCount++;
+                } else {
+                  await logSend(email, 'suppressed');
+                }
+                continue;
+              } catch (retryError: any) {
+                await logSend(email, 'failed', String(retryError?.message ?? retryError).slice(0, 1000));
+                continue;
+              }
+            }
+
+            await logSend(email, 'failed', String(sendError?.message ?? sendError).slice(0, 1000));
+          }
         }
       }
     }
+
 
     // --- PUSH NOTIFICATIONS via FCM v2 ---
     if (channel === 'push' || channel === 'both') {
