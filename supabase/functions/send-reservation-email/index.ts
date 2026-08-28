@@ -65,57 +65,55 @@ serve(async (req) => {
     const branch = reservation.branches as any;
 
     const isApproved = new_status === 'approved';
-    const subject = isApproved ? 'Reservation Confirmed ✅' : 'Reservation Cancelled';
-    const statusTitle = isApproved ? 'Your reservation is confirmed!' : 'Your reservation has been cancelled';
-    const statusColor = isApproved ? 'hsl(142, 71%, 45%)' : 'hsl(0, 84%, 60%)';
 
     const resDate = new Date(reservation.reservation_date).toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
-    const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:'Inter',Arial,sans-serif;">
-<div style="max-width:580px;margin:0 auto;padding:20px 25px;">
-  <img src="https://rfwqbzeutrfccaazvibc.supabase.co/storage/v1/object/public/restaurant-images/email%2Fsashiko-logo.png" width="120" alt="${tenantName}" style="margin-bottom:24px;" />
-  <h1 style="font-size:22px;font-weight:bold;color:hsl(0,0%,17%);margin:0 0 20px;">${statusTitle}</h1>
-  
-  <div style="background:hsl(43,30%,95%);border-radius:0.5rem;padding:20px;margin-bottom:24px;">
-    <table style="width:100%;">
-      <tr><td style="padding:6px 0;font-size:14px;color:hsl(0,0%,45%);">Date</td><td style="text-align:right;font-size:14px;color:hsl(0,0%,17%);font-weight:600;">${resDate}</td></tr>
-      <tr><td style="padding:6px 0;font-size:14px;color:hsl(0,0%,45%);">Time</td><td style="text-align:right;font-size:14px;color:hsl(0,0%,17%);font-weight:600;">${reservation.start_time.slice(0, 5)} — ${reservation.end_time.slice(0, 5)}</td></tr>
-      <tr><td style="padding:6px 0;font-size:14px;color:hsl(0,0%,45%);">Party Size</td><td style="text-align:right;font-size:14px;color:hsl(0,0%,17%);font-weight:600;">${reservation.party_size} ${reservation.party_size === 1 ? 'guest' : 'guests'}</td></tr>
-      <tr><td style="padding:6px 0;font-size:14px;color:hsl(0,0%,45%);">Status</td><td style="text-align:right;font-size:14px;color:${statusColor};font-weight:600;">${isApproved ? 'Confirmed' : 'Cancelled'}</td></tr>
-    </table>
-  </div>
+    const templateData = {
+      tenantName,
+      approved: isApproved,
+      reservationDate: resDate,
+      startTime: String(reservation.start_time).slice(0, 5),
+      endTime: String(reservation.end_time).slice(0, 5),
+      partySize: reservation.party_size,
+      specialRequests: reservation.special_requests || undefined,
+      adminNotes: reservation.admin_notes || undefined,
+      branchName: branch?.name,
+      branchAddress: branch ? `${branch.address}, ${branch.city}` : undefined,
+      branchPhone: branch?.phone,
+    };
 
-  ${reservation.special_requests ? `<p style="font-size:13px;color:hsl(0,0%,45%);margin:0 0 16px;"><strong>Special Requests:</strong> ${reservation.special_requests}</p>` : ''}
-  ${reservation.admin_notes ? `<p style="font-size:13px;color:hsl(0,0%,45%);margin:0 0 16px;"><strong>Note from restaurant:</strong> ${reservation.admin_notes}</p>` : ''}
+    const logSend = async (status: string, errorMessage?: string) => {
+      const { error: logError } = await supabase.from('email_send_log').insert({
+        template_name: `reservation_${new_status}`,
+        recipient_email: recipientEmail,
+        status,
+        error_message: errorMessage,
+        metadata: { reservation_id },
+      });
+      if (logError) console.error('Failed to write email_send_log row', logError);
+    };
 
-  ${branch ? `<p style="font-size:13px;color:hsl(0,0%,45%);margin:0 0 4px;"><strong>${branch.name}</strong></p><p style="font-size:13px;color:hsl(0,0%,45%);margin:0 0 4px;">${branch.address}, ${branch.city}</p><p style="font-size:13px;color:hsl(0,0%,45%);margin:0 0 20px;">${branch.phone}</p>` : ''}
-  
-  <p style="font-size:12px;color:#999;margin:30px 0 0;">${tenantName}</p>
-</div>
-</body></html>`;
+    try {
+      const result = await sendTemplateEmail('reservation-status', recipientEmail, {
+        templateData,
+        idempotencyKey: `reservation-status-${reservation_id}-${new_status}`,
+      });
 
-    // Enqueue the email
-    await supabase.rpc('enqueue_email', {
-      queue_name: 'transactional_emails',
-      payload: {
-        to: recipientEmail,
-        subject,
-        html,
-        from_name: tenantName,
-      },
-    });
+      if (!result.sent) {
+        await logSend('suppressed');
+        return new Response(JSON.stringify({ skipped: true, reason: result.reason }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    // Log it
-    await supabase.from('email_send_log').insert({
-      template_name: `reservation_${new_status}`,
-      recipient_email: recipientEmail,
-      status: 'pending',
-      metadata: { reservation_id },
-    });
+      await logSend('sent');
+    } catch (sendError: any) {
+      await logSend('failed', String(sendError?.message ?? sendError).slice(0, 1000));
+      throw sendError;
+    }
+
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
